@@ -1,0 +1,167 @@
+<UserControl x:Class="AuraClean.Views.MemoryBoostView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,24">
+            <TextBlock FontSize="26" FontWeight="Light"
+                       Foreground="{StaticResource AuraTextBright}">
+                <Run Text="Memory " /><Run Text="Optimizer" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Text="One-Click Boost — Flush working sets and reclaim physical RAM"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="13"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Content -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- RAM Usage Gauge -->
+            <materialDesign:Card Grid.Column="0" Background="{StaticResource AuraSurface}"
+                                 UniformCornerRadius="16" Padding="24">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="RAM Usage" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{StaticResource AuraTextPrimary}"
+                               HorizontalAlignment="Center" Margin="0,0,0,16" />
+
+                    <!-- Circular gauge -->
+                    <Grid Width="200" Height="200" HorizontalAlignment="Center">
+                        <Ellipse Width="180" Height="180" Stroke="{StaticResource AuraBorderSubtle}" StrokeThickness="14" Fill="Transparent" />
+                        <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                     Width="180" Height="180"
+                                     Value="{Binding UsagePercent}" Minimum="0" Maximum="100"
+                                     Foreground="{StaticResource AuraAccentPurple}"
+                                     IsIndeterminate="False" />
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:F0}%}"
+                                       FontSize="36" FontWeight="Bold"
+                                       Foreground="{StaticResource AuraAccentPurple}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="in use"
+                                       FontSize="13" Foreground="{StaticResource AuraTextSecondary}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- RAM Stats -->
+                    <StackPanel Margin="0,20,0,0">
+                        <Grid Margin="0,4">
+                            <TextBlock Text="Total" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding FormattedTotal}" HorizontalAlignment="Right"
+                                       Foreground="{StaticResource AuraTextPrimary}" FontWeight="SemiBold" />
+                        </Grid>
+                        <Grid Margin="0,4">
+                            <TextBlock Text="Used" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding FormattedUsed}" HorizontalAlignment="Right"
+                                       Foreground="{StaticResource AuraWarning}" FontWeight="SemiBold" />
+                        </Grid>
+                        <Grid Margin="0,4">
+                            <TextBlock Text="Available" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding FormattedAvailable}" HorizontalAlignment="Right"
+                                       Foreground="{StaticResource AuraSuccess}" FontWeight="SemiBold" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <!-- Boost Results & Actions -->
+            <materialDesign:Card Grid.Column="2" Background="{StaticResource AuraSurface}"
+                                 UniformCornerRadius="16" Padding="24">
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Boost Results" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{StaticResource AuraTextPrimary}"
+                               HorizontalAlignment="Center" Margin="0,0,0,20" />
+
+                    <!-- Results (shown after boost) -->
+                    <StackPanel Visibility="{Binding HasBoostResult, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,0,20">
+                        <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
+                                             UniformCornerRadius="12" Padding="16" Margin="0,0,0,8">
+                            <Grid>
+                                <StackPanel>
+                                    <TextBlock Text="Memory Freed" FontSize="12"
+                                               Foreground="{StaticResource AuraTextSecondary}" />
+                                    <TextBlock Text="{Binding FormattedFreed}" FontSize="28" FontWeight="Bold"
+                                               Foreground="{StaticResource AuraSuccess}" />
+                                </StackPanel>
+                            </Grid>
+                        </materialDesign:Card>
+
+                        <Grid Margin="0,4">
+                            <TextBlock Text="Processes trimmed" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding LastTrimmedCount}" HorizontalAlignment="Right"
+                                       Foreground="{StaticResource AuraTextPrimary}" FontWeight="SemiBold" />
+                        </Grid>
+                        <Grid Margin="0,4">
+                            <TextBlock Text="Standby list purged" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock HorizontalAlignment="Right"
+                                       Foreground="{StaticResource AuraTextPrimary}" FontWeight="SemiBold">
+                                <TextBlock.Text>
+                                    <Binding Path="StandbyPurged" StringFormat="{}{0}" />
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Dry Run Toggle -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                      IsChecked="{Binding IsDryRun}" Margin="0,0,8,0" />
+                        <TextBlock Text="Dry Run (Preview Only)"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Boost Button -->
+                    <Button Content="{materialDesign:PackIcon Kind=RocketLaunch}"
+                            Style="{StaticResource MaterialDesignFloatingActionButton}"
+                            Width="72" Height="72"
+                            Background="{StaticResource AuraAccentPurple}"
+                            Foreground="White" BorderThickness="0"
+                            Command="{Binding BoostMemoryCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                            HorizontalAlignment="Center"
+                            ToolTip="One-Click Boost">
+                        <Button.Effect>
+                            <DropShadowEffect Color="#7C5CFC" BlurRadius="24" ShadowDepth="0" Opacity="0.5" />
+                        </Button.Effect>
+                    </Button>
+                    <TextBlock Text="BOOST" FontSize="14" FontWeight="Bold"
+                               Foreground="{StaticResource AuraAccentPurple}"
+                               HorizontalAlignment="Center" Margin="0,8,0,0" />
+
+                    <!-- Refresh -->
+                    <Button Content="Refresh Stats"
+                            Style="{StaticResource AuraOutlinedButton}"
+                            Padding="16,8"
+                            Command="{Binding RefreshStatsCommand}"
+                            HorizontalAlignment="Center" Margin="0,16,0,0" />
+                </StackPanel>
+            </materialDesign:Card>
+        </Grid>
+
+        <!-- Status Bar -->
+        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource AuraTextSecondary}"
+                   FontSize="13" Margin="0,16,0,0" />
+    </Grid>
+</UserControl>

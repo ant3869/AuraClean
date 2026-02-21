@@ -1,0 +1,299 @@
+<UserControl x:Class="AuraClean.Views.CleanupHistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <converters:FileSizeConverter x:Key="FileSizeConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{StaticResource AuraTextBright}">
+                    <Run Text="Cleanup " /><Run Text="History" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Text="Review past cleanup operations and track space recovered"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="13" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource AuraOutlinedButton}"
+                        Command="{Binding ExportHistoryCommand}"
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Export" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Export" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding CopyToClipboardCommand}"
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Copy" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding ClearHistoryCommand}"
+                        Foreground="{StaticResource AuraWarning}"
+                        BorderBrush="{StaticResource AuraWarning}"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Clear" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Summary Cards -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Total Operations -->
+            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="Counter" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraAccentPurple}" />
+                        <TextBlock Text="Operations" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding TotalOperations}" FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource AuraTextBright}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Space Freed -->
+            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="HarddiskRemove" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraAccentTeal}" />
+                        <TextBlock Text="Space Freed" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding TotalBytesFreedDisplay}" FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource AuraTextBright}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Items Cleaned -->
+            <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="FileRemove" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraSuccess}" />
+                        <TextBlock Text="Items Cleaned" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding TotalItemsCleaned}" FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource AuraTextBright}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Last Operation -->
+            <Border Grid.Column="6" Style="{StaticResource AuraGlassCard}" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="ClockOutline" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraAmber}" />
+                        <TextBlock Text="Last Cleanup" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding LastOperationDate}" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{StaticResource AuraTextBright}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Filter Bar -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Category Tabs -->
+            <ItemsControl Grid.Column="0" ItemsSource="{Binding FilterTypes}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Command="{Binding DataContext.FilterByTypeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"
+                                Margin="0,0,4,4" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" CornerRadius="8" Padding="10,5"
+                                            Background="Transparent"
+                                            BorderBrush="{StaticResource AuraBorderSubtle}"
+                                            BorderThickness="1">
+                                        <TextBlock x:Name="Txt" Text="{Binding}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource AuraTextSecondary}" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Search -->
+            <TextBox Grid.Column="2"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     materialDesign:HintAssist.Hint="Search history..."
+                     FontSize="13"
+                     Foreground="{StaticResource AuraTextPrimary}"
+                     Background="{StaticResource AuraSurfaceLight}"
+                     BorderBrush="{StaticResource AuraBorder}"
+                     Padding="10,6" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- History List -->
+        <Border Grid.Row="3" Style="{StaticResource AuraGlassCard}" Padding="0">
+            <ListView ItemsSource="{Binding FilteredRecords}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      VirtualizingPanel.IsVirtualizing="True">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="16,10" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <Border x:Name="Bd" Background="Transparent"
+                                            Padding="{TemplateBinding Padding}"
+                                            BorderBrush="{StaticResource AuraBorderSubtle}"
+                                            BorderThickness="0,0,0,1">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#06FFFFFF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Timestamp -->
+                            <TextBlock Grid.Column="0" Text="{Binding TimestampDisplay}"
+                                       FontSize="12" Width="140"
+                                       Foreground="{StaticResource AuraTextSecondary}"
+                                       VerticalAlignment="Center" />
+
+                            <!-- Summary -->
+                            <StackPanel Grid.Column="1" Margin="12,0">
+                                <TextBlock Text="{Binding Summary}"
+                                           FontSize="13"
+                                           Foreground="{StaticResource AuraTextBright}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Details}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource AuraTextSecondary}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <!-- Size Badge -->
+                            <Border Grid.Column="2" CornerRadius="6" Padding="8,3"
+                                    Background="#157C5CFC" Margin="8,0"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding BytesFreed, Converter={StaticResource FileSizeConverter}}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{StaticResource AuraAccentPurple}" />
+                            </Border>
+
+                            <!-- Dry-run indicator -->
+                            <Border Grid.Column="3"
+                                    Visibility="{Binding WasDryRun, Converter={StaticResource BoolToVis}}"
+                                    CornerRadius="6" Padding="8,3"
+                                    Background="#15FFB74D"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="DRY RUN" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{StaticResource AuraAmber}" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Border>
+
+        <!-- Empty state -->
+        <StackPanel Grid.Row="3"
+                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Visibility="{Binding FilteredRecords.Count, Converter={StaticResource BoolToVis}, ConverterParameter=Inverse}">
+            <materialDesign:PackIcon Kind="ClipboardTextClockOutline"
+                                     Width="48" Height="48"
+                                     HorizontalAlignment="Center"
+                                     Foreground="{StaticResource AuraTextMuted}" />
+            <TextBlock Text="No cleanup history yet"
+                       FontSize="15" Margin="0,10,0,4"
+                       HorizontalAlignment="Center"
+                       Foreground="{StaticResource AuraTextSecondary}" />
+            <TextBlock Text="Operations will appear here after you perform cleanups"
+                       FontSize="12" HorizontalAlignment="Center"
+                       Foreground="{StaticResource AuraTextMuted}" />
+        </StackPanel>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="4"
+                   Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource AuraTextSecondary}"
+                   FontSize="12" Margin="0,8,0,0" />
+    </Grid>
+</UserControl>

@@ -1,0 +1,256 @@
+using AuraClean.Helpers;
+using AuraClean.Services;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using System.IO;
+using System.Management;
+using System.Security.Principal;
+
+namespace AuraClean.ViewModels;
+
+/// <summary>
+/// The root ViewModel that orchestrates navigation, system health scoring,
+/// and top-level commands (Analyze, Clean).
+/// </summary>
+public partial class MainViewModel : ObservableObject
+{
+    [ObservableProperty] private object? _currentView;
+    [ObservableProperty] private string _currentViewName = "Dashboard";
+    [ObservableProperty] private int _systemHealthScore = 85;
+    [ObservableProperty] private string _healthLabel = "Good";
+    [ObservableProperty] private bool _isAdmin;
+    [ObservableProperty] private string _statusBarText = "AuraClean — Ready";
+    [ObservableProperty] private DateTime _lastCleanedDate;
+
+    // System info properties for Dashboard
+    [ObservableProperty] private string _osName = string.Empty;
+    [ObservableProperty] private string _cpuName = string.Empty;
+    [ObservableProperty] private string _totalRam = string.Empty;
+    [ObservableProperty] private string _systemUptime = string.Empty;
+    [ObservableProperty] private string _machineName = Environment.MachineName;
+    [ObservableProperty] private string _userName = Environment.UserName;
+
+    public string LastCleanedDisplay =>
+        LastCleanedDate == default ? "Never" : LastCleanedDate.ToString("MMM dd, yyyy");
+
+    partial void OnLastCleanedDateChanged(DateTime value) =>
+        OnPropertyChanged(nameof(LastCleanedDisplay));
+
+    // Child ViewModels
+    public UninstallerViewModel Uninstaller { get; } = new();
+    public CleanerViewModel Cleaner { get; } = new();
+    public MemoryViewModel Memory { get; } = new();
+    public InstallMonitorViewModel InstallMonitor { get; } = new();
+    public BrowserCleanerViewModel BrowserCleaner { get; } = new();
+    public DiskAnalyzerViewModel DiskAnalyzer { get; } = new();
+    public StartupManagerViewModel StartupManager { get; } = new();
+    public DuplicateFinderViewModel DuplicateFinder { get; } = new();
+    public FileShredderViewModel FileShredder { get; } = new();
+    public LargeFileFinderViewModel LargeFileFinder { get; } = new();
+    public SystemInfoViewModel SystemInfo { get; } = new();
+    public SettingsViewModel Settings { get; } = new();
+    public CleanupHistoryViewModel CleanupHistory { get; } = new();
+    public QuarantineViewModel Quarantine { get; } = new();
+
+    // Context menu
+    [ObservableProperty] private bool _isContextMenuInstalled;
+    [ObservableProperty] private string _contextMenuStatus = string.Empty;
+
+    public MainViewModel()
+    {
+        IsAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent())
+            .IsInRole(WindowsBuiltInRole.Administrator);
+
+        IsContextMenuInstalled = ContextMenuService.IsContextMenuInstalled();
+        ContextMenuStatus = IsContextMenuInstalled ? "Installed" : "Not installed";
+
+        // Load last cleaned date from settings (fallback: never)
+        var settingsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AuraClean");
+        var settingsFile = Path.Combine(settingsDir, "last_cleaned.txt");
+        if (File.Exists(settingsFile) &&
+            DateTime.TryParse(File.ReadAllText(settingsFile), out var lastCleaned))
+        {
+            LastCleanedDate = lastCleaned;
+        }
+
+        UpdateHealthScore();
+        _ = LoadSystemInfoAsync().ContinueWith(t =>
+            System.Diagnostics.Debug.WriteLine($"[MainViewModel] LoadSystemInfoAsync failed: {t.Exception}"),
+            TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    /// <summary>
+    /// Loads system information (OS, CPU, RAM, uptime) on a background thread.
+    /// </summary>
+    private async Task LoadSystemInfoAsync()
+    {
+        await Task.Run(() =>
+        {
+            try
+            {
+                // OS info
+                OsName = $"{Environment.OSVersion.Platform} {Environment.OSVersion.Version}";
+                try
+                {
+                    using var mos = new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem");
+                    foreach (var obj in mos.Get())
+                    {
+                        OsName = obj["Caption"]?.ToString()?.Trim() ?? OsName;
+                        break;
+                    }
+                }
+                catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "WMI OS query failed", ex); }
+
+                // CPU info
+                try
+                {
+                    using var mos = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor");
+                    foreach (var obj in mos.Get())
+                    {
+                        CpuName = obj["Name"]?.ToString()?.Trim() ?? "Unknown";
+                        break;
+                    }
+                }
+                catch { CpuName = $"{Environment.ProcessorCount} cores"; }
+
+                // RAM
+                try
+                {
+                    var gcInfo = GC.GetGCMemoryInfo();
+                    long totalBytes = gcInfo.TotalAvailableMemoryBytes;
+                    TotalRam = totalBytes switch
+                    {
+                        < 1_073_741_824 => $"{totalBytes / 1_048_576.0:F0} MB",
+                        _ => $"{totalBytes / 1_073_741_824.0:F1} GB"
+                    };
+                }
+                catch { TotalRam = "N/A"; }
+
+                // Uptime
+                var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
+                SystemUptime = uptime.Days > 0
+                    ? $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m"
+                    : $"{uptime.Hours}h {uptime.Minutes}m";
+            }
+            catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "LoadSystemInfoAsync failed", ex); }
+        });
+    }
+
+    partial void OnSystemHealthScoreChanged(int value)
+    {
+        HealthLabel = value switch
+        {
+            >= 80 => "Excellent",
+            >= 60 => "Good",
+            >= 40 => "Fair",
+            _ => "Poor"
+        };
+    }
+
+    [RelayCommand]
+    private void NavigateTo(string viewName)
+    {
+        CurrentViewName = viewName;
+    }
+
+    [RelayCommand]
+    private async Task QuickAnalyzeAsync()
+    {
+        StatusBarText = "Running quick analysis...";
+        await Cleaner.AnalyzeCommand.ExecuteAsync(null);
+        UpdateHealthScore();
+        StatusBarText = "Analysis complete.";
+    }
+
+    [RelayCommand]
+    private async Task QuickCleanAsync()
+    {
+        StatusBarText = "Running cleanup...";
+        await Cleaner.CleanSelectedCommand.ExecuteAsync(null);
+        UpdateHealthScore();
+        SaveLastCleanedDate();
+        StatusBarText = "Cleanup complete.";
+    }
+
+    [RelayCommand]
+    private async Task BoostMemoryAsync()
+    {
+        StatusBarText = "Boosting memory...";
+        await Memory.BoostMemoryCommand.ExecuteAsync(null);
+        StatusBarText = Memory.StatusMessage;
+    }
+
+    [RelayCommand]
+    private void ToggleContextMenu()
+    {
+        if (IsContextMenuInstalled)
+        {
+            var (success, msg, _) = ContextMenuService.UninstallContextMenu();
+            ContextMenuStatus = success ? "Removed" : msg;
+        }
+        else
+        {
+            var (success, msg, _) = ContextMenuService.InstallContextMenu();
+            ContextMenuStatus = success ? "Installed" : msg;
+        }
+        IsContextMenuInstalled = ContextMenuService.IsContextMenuInstalled();
+        StatusBarText = ContextMenuStatus;
+    }
+
+    [RelayCommand]
+    private void ExportContextMenuScript()
+    {
+        var (success, path) = ContextMenuService.ExportRegistryScript(install: !IsContextMenuInstalled);
+        StatusBarText = success
+            ? $"Registry script saved to {path}"
+            : "Failed to export registry script.";
+    }
+
+    /// <summary>
+    /// Computes a system health score (0–100) based on current junk levels.
+    /// </summary>
+    private void UpdateHealthScore()
+    {
+        // Base score: 100
+        int score = 100;
+
+        // Deduct points based on junk found
+        if (Cleaner.TotalJunkSize > 0)
+        {
+            // Every 100MB of junk deducts ~5 points, capped at 50 points
+            int junkPenalty = (int)Math.Min(50, Cleaner.TotalJunkSize / (100 * 1024 * 1024) * 5);
+            score -= junkPenalty;
+        }
+
+        // Deduct if not cleaned recently
+        if (LastCleanedDate == default)
+        {
+            score -= 15; // Never cleaned
+        }
+        else
+        {
+            var daysSinceCleaned = (DateTime.Now - LastCleanedDate).TotalDays;
+            if (daysSinceCleaned > 30) score -= 10;
+            else if (daysSinceCleaned > 7) score -= 5;
+        }
+
+        SystemHealthScore = Math.Clamp(score, 0, 100);
+    }
+
+    private void SaveLastCleanedDate()
+    {
+        LastCleanedDate = DateTime.Now;
+        try
+        {
+            var settingsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AuraClean");
+            Directory.CreateDirectory(settingsDir);
+            File.WriteAllText(Path.Combine(settingsDir, "last_cleaned.txt"),
+                DateTime.Now.ToString("o"));
+        }
+        catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "Failed to persist last-cleaned date", ex); }
+    }
+}

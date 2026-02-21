@@ -1,0 +1,42 @@
+## .NET / Visual Studio
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.dll
+*.exe
+*.pdb
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+buidlog.*
+
+## NuGet
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+## VS Code
+.vs/
+
+## OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## Project specific
+build_output.txt
+*_crash.log
+
+## Agent skills (not part of app source)
+.agents/
+skills/
+.wednesday/
+AuraClean/_build.log

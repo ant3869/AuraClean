@@ -1,0 +1,313 @@
+<UserControl x:Class="AuraClean.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <converters:InverseBoolConverter x:Key="InverseBool" />
+
+        <!-- Toggle style matching Aura theme -->
+        <Style x:Key="AuraToggle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource AuraTextPrimary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <!-- Section header -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource AuraTextBright}" />
+            <Setter Property="Margin" Value="0,16,0,8" />
+        </Style>
+
+        <Style x:Key="SectionDesc" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource AuraTextSecondary}" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{StaticResource AuraTextBright}">
+                    <Run Text="App " /><Run Text="Settings" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Text="Configure AuraClean preferences and defaults"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="13" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!-- Unsaved indicator -->
+                <Border Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BoolToVis}}"
+                        CornerRadius="8" Padding="10,4" Margin="0,0,12,0"
+                        Background="#30FFB74D">
+                    <TextBlock Text="Unsaved changes" FontSize="11"
+                               Foreground="{StaticResource AuraAmber}" />
+                </Border>
+
+                <Button Style="{StaticResource AuraPrimaryButton}"
+                        Command="{Binding SaveSettingsCommand}"
+                        Padding="20,10" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Save" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding ResetToDefaultsCommand}"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Restore" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Reset" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Scrollable Settings Body -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+
+                <!-- ═══ GENERAL ═══ -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="CogOutline" Width="20" Height="20"
+                                                     Foreground="{StaticResource AuraAccentPurple}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="General" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Core application behavior and safety settings." />
+
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding CreateRestorePointBeforeClean}"
+                                  Content="Create system restore point before cleaning" />
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding DryRunMode}"
+                                  Content="Dry-run mode (scan only, don't delete)" />
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding ShowConfirmationDialogs}"
+                                  Content="Show confirmation dialogs before destructive actions" />
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding MinimizeToTray}"
+                                  Content="Minimize to system tray instead of closing" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══ CLEANER DEFAULTS ═══ -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="Broom" Width="20" Height="20"
+                                                     Foreground="{StaticResource AuraAccentTeal}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="Cleaner Defaults" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Default categories selected when starting a new system scan." />
+
+                        <WrapPanel>
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanTempFiles}" Content="Temporary Files" />
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanWindowsUpdate}" Content="Windows Update Cache" />
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanPrefetch}" Content="Prefetch Files" />
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanCrashDumps}" Content="Crash Dumps" />
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanRecycleBin}" Content="Recycle Bin" />
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanBrowserCache}" Content="Browser Cache" />
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanThumbnailCache}" Content="Thumbnail Cache" />
+                            <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                      IsChecked="{Binding CleanWindowsLogs}" Content="Windows Logs" />
+                        </WrapPanel>
+
+                        <Rectangle Height="1" Fill="{StaticResource AuraBorderSubtle}" Margin="0,12" />
+
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding RunHeuristicScan}"
+                                  Content="Run heuristic scan for abandoned application data" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="Abandoned file threshold:"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBox Width="60" Margin="8,0"
+                                     Text="{Binding AbandonedFileDaysThreshold, UpdateSourceTrigger=PropertyChanged}"
+                                     materialDesign:HintAssist.Hint="Days"
+                                     FontSize="13" VerticalAlignment="Center"
+                                     Foreground="{StaticResource AuraTextPrimary}"
+                                     Background="{StaticResource AuraSurfaceLight}"
+                                     BorderBrush="{StaticResource AuraBorder}"
+                                     Padding="6,4" />
+                            <TextBlock Text="days"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══ TOOLS ═══ -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="Toolbox" Width="20" Height="20"
+                                                     Foreground="{StaticResource AuraWarning}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="Tool Defaults" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Default values for File Shredder, Large File Finder, and Duplicate Finder." />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                <TextBlock Text="Shred Algorithm" FontSize="12"
+                                           Foreground="{StaticResource AuraTextSecondary}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding ShredAlgorithms}"
+                                          SelectedItem="{Binding DefaultShredAlgorithm}"
+                                          FontSize="13"
+                                          Foreground="{StaticResource AuraTextPrimary}"
+                                          Background="{StaticResource AuraSurfaceLight}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                <TextBlock Text="Large File Threshold (MB)" FontSize="12"
+                                           Foreground="{StaticResource AuraTextSecondary}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding LargeFileSizePresets}"
+                                          SelectedItem="{Binding DefaultLargeFileSizeMb}"
+                                          FontSize="13"
+                                          Foreground="{StaticResource AuraTextPrimary}"
+                                          Background="{StaticResource AuraSurfaceLight}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Min Duplicate Size (MB)" FontSize="12"
+                                           Foreground="{StaticResource AuraTextSecondary}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding DefaultMinDuplicateSizeMb, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="13"
+                                         Foreground="{StaticResource AuraTextPrimary}"
+                                         Background="{StaticResource AuraSurfaceLight}"
+                                         BorderBrush="{StaticResource AuraBorder}"
+                                         Padding="6,4" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══ QUARANTINE ═══ -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="ShieldOff" Width="20" Height="20"
+                                                     Foreground="{StaticResource AuraSuccess}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="Quarantine" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Control how long quarantined files are retained before auto-purge." />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Retention period:"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                            <ComboBox ItemsSource="{Binding RetentionDayPresets}"
+                                      SelectedItem="{Binding QuarantineRetentionDays}"
+                                      Width="80" Margin="8,0"
+                                      FontSize="13"
+                                      Foreground="{StaticResource AuraTextPrimary}"
+                                      Background="{StaticResource AuraSurfaceLight}" />
+                            <TextBlock Text="days"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                        </StackPanel>
+
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding AutoPurgeExpiredQuarantine}"
+                                  Content="Auto-purge expired quarantine entries on startup" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══ HISTORY ═══ -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="ClipboardTextClock" Width="20" Height="20"
+                                                     Foreground="{StaticResource AuraAmber}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="History &amp; Logging" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Control cleanup operation logging and history retention." />
+
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding LogCleanupOperations}"
+                                  Content="Log all cleanup operations to history" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="Max history entries:"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                            <ComboBox ItemsSource="{Binding HistoryLimitPresets}"
+                                      SelectedItem="{Binding MaxHistoryEntries}"
+                                      Width="80" Margin="8,0"
+                                      FontSize="13"
+                                      Foreground="{StaticResource AuraTextPrimary}"
+                                      Background="{StaticResource AuraSurfaceLight}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Storage path info -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,20"
+                        Padding="14"
+                        Background="#08FFFFFF">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FolderOutline" Width="16" Height="16"
+                                                 Foreground="{StaticResource AuraTextSecondary}"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{StaticResource AuraTextSecondary}">
+                            <Run Text="Settings stored at: " />
+                            <Run Text="{Binding SettingsPath, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Status Bar -->
+        <TextBlock Grid.Row="2"
+                   Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource AuraTextSecondary}"
+                   FontSize="12" Margin="0,8,0,0" />
+    </Grid>
+</UserControl>

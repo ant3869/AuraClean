@@ -1,0 +1,257 @@
+<UserControl x:Class="AuraClean.Views.LargeFileFinderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock FontSize="26" FontWeight="Light"
+                       Foreground="{StaticResource AuraTextBright}">
+                <Run Text="Large File " /><Run Text="Finder" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Text="Discover space-hogging files and reclaim disk space"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="13"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Controls Bar -->
+        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
+                             UniformCornerRadius="14" Padding="20" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Drive/Folder Selection -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Scan Location" FontSize="11"
+                               Foreground="{StaticResource AuraTextMuted}" Margin="0,0,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox ItemsSource="{Binding Drives}"
+                                  SelectedItem="{Binding SelectedDrive}"
+                                  DisplayMemberPath="Display"
+                                  Background="{StaticResource AuraSurfaceLight}"
+                                  Foreground="{StaticResource AuraTextPrimary}"
+                                  FontSize="13"
+                                  IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                        <Button Grid.Column="1" Content="Browse"
+                                Style="{StaticResource AuraGhostButton}"
+                                Command="{Binding BrowseFolderCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                                Margin="8,0,0,0" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- Min Size -->
+                <StackPanel Grid.Column="1" Margin="20,0,0,0">
+                    <TextBlock Text="Min. Size (MB)" FontSize="11"
+                               Foreground="{StaticResource AuraTextMuted}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding SizePresets}"
+                              SelectedItem="{Binding MinimumSizeMB}"
+                              Background="{StaticResource AuraSurfaceLight}"
+                              Foreground="{StaticResource AuraTextPrimary}"
+                              FontSize="13" Width="100"
+                              IsEditable="True"
+                              IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                </StackPanel>
+
+                <!-- Scan Button -->
+                <StackPanel Grid.Column="2" Margin="20,0,0,0" VerticalAlignment="Bottom">
+                    <Button Style="{StaticResource AuraPrimaryButton}"
+                            Command="{Binding ScanCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                            Padding="24,10">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18"
+                                                     VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="Scan" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Cancel -->
+                <StackPanel Grid.Column="3" Margin="8,0,0,0" VerticalAlignment="Bottom">
+                    <Button Style="{StaticResource AuraGhostButton}"
+                            Command="{Binding CancelScanCommand}"
+                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                            Content="Cancel" Padding="16,10" />
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- Results Area -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Summary + Filter Bar -->
+            <Grid Grid.Row="0" Margin="0,0,0,8"
+                  Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Stats -->
+                <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                        Padding="14,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="File" Foreground="{StaticResource AuraAccentPurple}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="{Binding ResultCount}" FontWeight="SemiBold" FontSize="14"
+                                   Foreground="{StaticResource AuraTextPrimary}" VerticalAlignment="Center" />
+                        <TextBlock Text=" files" Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" FontSize="12" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource AuraGlassCard}"
+                        Padding="14,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Harddisk" Foreground="{StaticResource AuraWarning}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="{Binding FormattedTotalSize}" FontWeight="SemiBold" FontSize="14"
+                                   Foreground="{StaticResource AuraTextPrimary}" VerticalAlignment="Center" />
+                        <TextBlock Text=" total" Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" FontSize="12" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Category Filter -->
+                <ComboBox Grid.Column="2" ItemsSource="{Binding Categories}"
+                          SelectedItem="{Binding FilterCategory}"
+                          Background="{StaticResource AuraSurfaceLight}"
+                          Foreground="{StaticResource AuraTextPrimary}"
+                          FontSize="12" Width="130" Margin="0,0,8,0" />
+
+                <!-- Search -->
+                <TextBox Grid.Column="3"
+                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                         materialDesign:HintAssist.Hint="Filter by name or path..."
+                         Background="{StaticResource AuraSurfaceLight}"
+                         Foreground="{StaticResource AuraTextPrimary}"
+                         FontSize="12" Padding="8,6" />
+
+                <!-- Actions -->
+                <Button Grid.Column="4" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding OpenFileLocationCommand}"
+                        Content="Open Location" Padding="12,6" Margin="8,0,0,0" />
+                <Button Grid.Column="5" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding DeleteSelectedCommand}"
+                        Foreground="{StaticResource AuraWarning}"
+                        Content="Delete" Padding="12,6" Margin="4,0,0,0" />
+            </Grid>
+
+            <!-- File DataGrid -->
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding FilteredFiles}"
+                      SelectedItem="{Binding SelectedFile}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserSortColumns="True"
+                      SelectionMode="Single"
+                      Background="Transparent"
+                      Foreground="{StaticResource AuraTextPrimary}"
+                      BorderThickness="0"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
+                      RowBackground="Transparent"
+                      AlternatingRowBackground="#06FFFFFF"
+                      HeadersVisibility="Column">
+
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="*"
+                                        Foreground="{StaticResource AuraTextPrimary}" />
+                    <DataGridTextColumn Header="Size" Binding="{Binding FormattedSize}" Width="100"
+                                        Foreground="{StaticResource AuraAccentTeal}"
+                                        SortMemberPath="SizeBytes" />
+                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="110"
+                                        Foreground="{StaticResource AuraTextSecondary}" />
+                    <DataGridTextColumn Header="Modified" Binding="{Binding LastModified, StringFormat=yyyy-MM-dd}" Width="100"
+                                        Foreground="{StaticResource AuraTextSecondary}" />
+                    <DataGridTextColumn Header="Directory" Binding="{Binding Directory}" Width="*"
+                                        Foreground="{StaticResource AuraTextMuted}" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Scanning Indicator -->
+            <StackPanel Grid.Row="1"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                        VerticalAlignment="Center" HorizontalAlignment="Center">
+                <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                             IsIndeterminate="True"
+                             Width="48" Height="48"
+                             Foreground="{StaticResource AuraAccentPurple}" />
+                <TextBlock Text="{Binding ProgressCurrentDir}"
+                           Foreground="{StaticResource AuraTextSecondary}" FontSize="12"
+                           HorizontalAlignment="Center" Margin="0,12,0,0"
+                           TextTrimming="CharacterEllipsis" MaxWidth="400" />
+                <TextBlock Foreground="{StaticResource AuraTextMuted}" FontSize="11"
+                           HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <Run Text="{Binding ProgressFilesScanned, Mode=OneWay}" />
+                    <Run Text=" scanned, " />
+                    <Run Text="{Binding ProgressFilesFound, Mode=OneWay}" />
+                    <Run Text=" found" />
+                </TextBlock>
+            </StackPanel>
+
+            <!-- Empty State -->
+            <StackPanel Grid.Row="1"
+                        VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasResults}" Value="False" />
+                                    <Condition Binding="{Binding IsBusy}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <materialDesign:PackIcon Kind="FileFindOutline" Width="48" Height="48"
+                                         Foreground="{StaticResource AuraTextMuted}"
+                                         HorizontalAlignment="Center" />
+                <TextBlock Text="Select a location and click Scan"
+                           Foreground="{StaticResource AuraTextMuted}"
+                           FontSize="14" HorizontalAlignment="Center"
+                           Margin="0,8,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Status Bar -->
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource AuraTextSecondary}"
+                   FontSize="13" Margin="0,12,0,0" />
+    </Grid>
+</UserControl>

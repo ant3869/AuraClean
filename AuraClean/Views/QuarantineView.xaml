@@ -1,0 +1,313 @@
+<UserControl x:Class="AuraClean.Views.QuarantineView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <converters:FileSizeConverter x:Key="FileSizeConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{StaticResource AuraTextBright}">
+                    <Run Text="Quarantine " /><Run Text="Manager" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Text="Safely isolate suspicious files — restore or permanently delete them later"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="13" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource AuraOutlinedButton}"
+                        Command="{Binding AddFilesToQuarantineCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Plus" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Add Files" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding OpenQuarantineFolderCommand}"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Open Folder" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Summary Cards -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Quarantined Items -->
+            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="ShieldOff" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraAccentPurple}" />
+                        <TextBlock Text="Quarantined" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource AuraTextBright}">
+                        <Run Text="{Binding TotalItems, Mode=OneWay}" />
+                        <Run Text=" files" FontSize="13" FontWeight="Normal"
+                             Foreground="{StaticResource AuraTextSecondary}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <!-- Total Size -->
+            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="DatabaseClock" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraAccentTeal}" />
+                        <TextBlock Text="Storage Used" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding TotalSizeDisplay}" FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource AuraTextBright}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Expired -->
+            <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="TimerSandComplete" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraWarning}" />
+                        <TextBlock Text="Expired" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock FontSize="24" FontWeight="Bold"
+                               Foreground="{StaticResource AuraTextBright}">
+                        <Run Text="{Binding ExpiredCount, Mode=OneWay}" />
+                        <Run Text=" items" FontSize="13" FontWeight="Normal"
+                             Foreground="{StaticResource AuraTextSecondary}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Action Bar + List -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Action Buttons -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                <Button Style="{StaticResource AuraPrimaryButton}"
+                        Command="{Binding RestoreSelectedCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Restore" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Restore Selected" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding PurgeSelectedCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Foreground="{StaticResource AuraWarning}"
+                        BorderBrush="{StaticResource AuraWarning}"
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Delete Selected" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding PurgeExpiredCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="TimerSandComplete" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Purge Expired" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+
+                <Rectangle Width="1" Fill="{StaticResource AuraBorder}" Margin="8,2" />
+
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding SelectAllCommand}"
+                        Padding="12,8" Margin="0,0,4,0">
+                    <TextBlock Text="Select All" FontSize="12" />
+                </Button>
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding DeselectAllCommand}"
+                        Padding="12,8">
+                    <TextBlock Text="Deselect All" FontSize="12" />
+                </Button>
+            </StackPanel>
+
+            <!-- File List -->
+            <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Padding="0">
+                <ListView ItemsSource="{Binding Entries}"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          VirtualizingPanel.IsVirtualizing="True">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="12,8" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border x:Name="Bd" Background="Transparent"
+                                                Padding="{TemplateBinding Padding}"
+                                                BorderBrush="{StaticResource AuraBorderSubtle}"
+                                                BorderThickness="0,0,0,1">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#06FFFFFF" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Checkbox -->
+                                <CheckBox Grid.Column="0"
+                                          IsChecked="{Binding IsSelected}"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+
+                                <!-- File Info -->
+                                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                    <TextBlock Text="{Binding FileName}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource AuraTextBright}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock FontSize="11" Foreground="{StaticResource AuraTextSecondary}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0">
+                                        <Run Text="{Binding OriginalPath, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding Reason}" FontSize="10"
+                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                        <TextBlock Text=" · " FontSize="10"
+                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                        <TextBlock Text="{Binding QuarantinedAtDisplay}" FontSize="10"
+                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Size -->
+                                <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
+                                           FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{StaticResource AuraTextSecondary}"
+                                           Margin="0,0,12,0" />
+
+                                <!-- Expiry badge -->
+                                <Border Grid.Column="3" CornerRadius="6" Padding="8,3"
+                                        VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#1500E5C3" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsExpired}" Value="True">
+                                                    <Setter Property="Background" Value="#15FF6B8A" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding ExpiresIn}" FontSize="10" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource AuraAccentTeal}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsExpired}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+
+            <!-- Empty state -->
+            <StackPanel Grid.Row="1"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding TotalItems, Converter={StaticResource BoolToVis}, ConverterParameter=Inverse}">
+                <materialDesign:PackIcon Kind="ShieldCheckOutline"
+                                         Width="48" Height="48"
+                                         HorizontalAlignment="Center"
+                                         Foreground="{StaticResource AuraTextMuted}" />
+                <TextBlock Text="Quarantine is empty"
+                           FontSize="15" Margin="0,10,0,4"
+                           HorizontalAlignment="Center"
+                           Foreground="{StaticResource AuraTextSecondary}" />
+                <TextBlock Text="Files moved to quarantine will appear here for safe review"
+                           FontSize="12" HorizontalAlignment="Center"
+                           Foreground="{StaticResource AuraTextMuted}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Status -->
+        <Grid Grid.Row="3" Margin="0,8,0,0">
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="12" VerticalAlignment="Center" />
+            <TextBlock HorizontalAlignment="Right" FontSize="11"
+                       Foreground="{StaticResource AuraTextMuted}" VerticalAlignment="Center">
+                <Run Text="Quarantine: " />
+                <Run Text="{Binding QuarantinePath, Mode=OneWay}" />
+            </TextBlock>
+        </Grid>
+    </Grid>
+</UserControl>

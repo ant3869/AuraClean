@@ -1,0 +1,397 @@
+<Window x:Class="AuraClean.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:vm="clr-namespace:AuraClean.ViewModels"
+        xmlns:views="clr-namespace:AuraClean.Views"
+        xmlns:converters="clr-namespace:AuraClean.Converters"
+        Title="AuraClean"
+        Width="1100" Height="720"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource AuraBackground}"
+        TextElement.Foreground="{StaticResource AuraTextPrimary}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="14"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        FontFamily="{materialDesign:MaterialDesignFont}">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Window.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Sidebar -->
+            <ColumnDefinition Width="260" />
+            <!-- Content -->
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ═══ SIDEBAR ═══ -->
+        <Border Grid.Column="0"
+                BorderBrush="{StaticResource AuraBorder}" BorderThickness="0,0,1,0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                    <GradientStop Color="#0C0C1A" Offset="0" />
+                    <GradientStop Color="#08080F" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Brand -->
+                <StackPanel Grid.Row="0" Margin="24,28,24,20">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ShieldCheck"
+                                                 Width="34" Height="34"
+                                                 VerticalAlignment="Center">
+                            <materialDesign:PackIcon.Foreground>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
+                                    <GradientStop Color="{StaticResource AuraCyanColor}" Offset="1" />
+                                </LinearGradientBrush>
+                            </materialDesign:PackIcon.Foreground>
+                        </materialDesign:PackIcon>
+                        <StackPanel Margin="12,0,0,0">
+                            <TextBlock FontSize="22" FontWeight="Bold">
+                                <TextBlock.Foreground>
+                                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                        <GradientStop Color="#F0F0FF" Offset="0" />
+                                        <GradientStop Color="#A090FF" Offset="1" />
+                                    </LinearGradientBrush>
+                                </TextBlock.Foreground>
+                                <Run Text="Aura" /><Run Text="Clean" FontWeight="Light" />
+                            </TextBlock>
+                            <TextBlock Text="System Utility"
+                                       FontSize="10"
+                                       Foreground="{StaticResource AuraTextMuted}"
+                                       Margin="0,-2,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Gradient separator -->
+                    <Rectangle Height="1" Margin="0,20,0,0" RadiusX="1" RadiusY="1" Opacity="0.6">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
+                                <GradientStop Color="Transparent" Offset="1" />
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                </StackPanel>
+
+                <!-- Navigation -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Margin="0,4,0,0">
+                    <StackPanel Margin="4,0">
+                        <!-- Dashboard -->
+                        <RadioButton x:Name="NavDashboard"
+                                     Style="{StaticResource AuraNavButton}"
+                                     IsChecked="True"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Dashboard">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ViewDashboard" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Dashboard" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Section: CLEANUP -->
+                        <TextBlock Text="CLEANUP" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AuraTextMuted}"
+                                   Margin="28,18,0,6" />
+
+                        <RadioButton x:Name="NavUninstaller"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Uninstaller">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="DeleteForever" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Uninstaller" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavCleaner"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Cleaner">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Broom" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="System Cleaner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavMemory"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Memory">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Memory" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="RAM Booster" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavBrowser"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Browser">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Web" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Privacy Clean" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Section: ANALYZE -->
+                        <TextBlock Text="ANALYZE" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AuraTextMuted}"
+                                   Margin="28,18,0,6" />
+
+                        <RadioButton x:Name="NavStorage"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="StorageMap">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ChartDonut" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Storage Map" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavMonitor"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Monitor">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="CameraOutline" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Install Monitor" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavStartup"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Startup">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="RocketLaunch" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Startup Manager" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavDuplicates"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Duplicates">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentDuplicate" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Duplicate Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavLargeFiles"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="LargeFiles">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="FileFind" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Large File Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Section: TOOLS -->
+                        <TextBlock Text="TOOLS" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AuraTextMuted}"
+                                   Margin="28,18,0,6" />
+
+                        <RadioButton x:Name="NavShredder"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Shredder">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ShieldLock" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="File Shredder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavSystemInfo"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="SystemInfo">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="InformationOutline" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="System Info" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavQuarantine"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Quarantine">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ShieldOff" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Quarantine" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Section: SETTINGS -->
+                        <TextBlock Text="SETTINGS" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AuraTextMuted}"
+                                   Margin="28,18,0,6" />
+
+                        <RadioButton x:Name="NavHistory"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="History">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ClipboardTextClock" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Cleanup History" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton x:Name="NavSettings"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="Settings">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="CogOutline" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Settings" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Footer -->
+                <StackPanel Grid.Row="2" Margin="24,0,24,18">
+                    <Rectangle Height="1" Margin="0,0,0,12" Opacity="0.3">
+                        <Rectangle.Fill>
+                            <SolidColorBrush Color="{StaticResource AuraBorderColor}" />
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}">
+                        <materialDesign:PackIcon Kind="ShieldKey"
+                                                 Width="14" Height="14"
+                                                 Foreground="{StaticResource AuraAccentTeal}"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="Administrator"
+                                   Foreground="{StaticResource AuraAccentTeal}"
+                                   FontSize="11"
+                                   Margin="6,0,0,0"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <TextBlock Text="v1.0.0"
+                               Foreground="{StaticResource AuraTextMuted}"
+                               FontSize="10"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ MAIN CONTENT ═══ -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- View Content: switched by CurrentViewName -->
+            <Grid Grid.Row="0">
+                <!-- Dashboard View -->
+                <views:DashboardView DataContext="{Binding}"
+                                     Visibility="Collapsed"
+                                     x:Name="DashboardContent" />
+
+                <!-- Uninstaller View -->
+                <views:UninstallerView DataContext="{Binding Uninstaller}"
+                                       Visibility="Collapsed"
+                                       x:Name="UninstallerContent" />
+
+                <!-- Cleaner View -->
+                <views:CleanerView DataContext="{Binding Cleaner}"
+                                   Visibility="Collapsed"
+                                   x:Name="CleanerContent" />
+
+                <!-- Memory Boost View -->
+                <views:MemoryBoostView DataContext="{Binding Memory}"
+                                       Visibility="Collapsed"
+                                       x:Name="MemoryContent" />
+
+                <!-- Browser Cleaner View -->
+                <views:BrowserCleanerView DataContext="{Binding BrowserCleaner}"
+                                          Visibility="Collapsed"
+                                          x:Name="BrowserContent" />
+
+                <!-- Storage Map View -->
+                <views:StorageMapView DataContext="{Binding DiskAnalyzer}"
+                                      Visibility="Collapsed"
+                                      x:Name="StorageMapContent" />
+
+                <!-- Install Monitor View -->
+                <views:InstallMonitorView DataContext="{Binding InstallMonitor}"
+                                          Visibility="Collapsed"
+                                          x:Name="MonitorContent" />
+
+                <!-- Startup Manager View -->
+                <views:StartupManagerView DataContext="{Binding StartupManager}"
+                                          Visibility="Collapsed"
+                                          x:Name="StartupContent" />
+
+                <!-- Duplicate Finder View -->
+                <views:DuplicateFinderView DataContext="{Binding DuplicateFinder}"
+                                           Visibility="Collapsed"
+                                           x:Name="DuplicatesContent" />
+
+                <!-- File Shredder View -->
+                <views:FileShredderView DataContext="{Binding FileShredder}"
+                                        Visibility="Collapsed"
+                                        x:Name="ShredderContent" />
+
+                <!-- Large File Finder View -->
+                <views:LargeFileFinderView DataContext="{Binding LargeFileFinder}"
+                                           Visibility="Collapsed"
+                                           x:Name="LargeFilesContent" />
+
+                <!-- System Info View -->
+                <views:SystemInfoView DataContext="{Binding SystemInfo}"
+                                      Visibility="Collapsed"
+                                      x:Name="SystemInfoContent" />
+
+                <!-- Settings View -->
+                <views:SettingsView DataContext="{Binding Settings}"
+                                    Visibility="Collapsed"
+                                    x:Name="SettingsContent" />
+
+                <!-- Cleanup History View -->
+                <views:CleanupHistoryView DataContext="{Binding CleanupHistory}"
+                                          Visibility="Collapsed"
+                                          x:Name="HistoryContent" />
+
+                <!-- Quarantine View -->
+                <views:QuarantineView DataContext="{Binding Quarantine}"
+                                      Visibility="Collapsed"
+                                      x:Name="QuarantineContent" />
+            </Grid>
+
+            <!-- Status Bar -->
+            <Border Grid.Row="1"
+                    Background="{StaticResource AuraSurface}"
+                    BorderBrush="{StaticResource AuraBorder}" BorderThickness="0,1,0,0"
+                    Padding="20,7">
+                <TextBlock Text="{Binding StatusBarText}"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="11.5" />
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

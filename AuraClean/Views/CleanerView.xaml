@@ -1,0 +1,256 @@
+<UserControl x:Class="AuraClean.Views.CleanerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <converters:FileSizeConverter x:Key="FileSizeConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock FontSize="26" FontWeight="Light"
+                       Foreground="{StaticResource AuraTextBright}">
+                <Run Text="System " /><Run Text="Cleaner" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Text="Deep-clean temp files, caches, crash dumps, and abandoned data."
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="13"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Action Bar -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Content="ANALYZE"
+                    Style="{StaticResource AuraPrimaryButton}"
+                    Command="{Binding AnalyzeCommand}"
+                    Margin="0,0,12,0">
+            </Button>
+
+            <!-- Summary text -->
+            <TextBlock Grid.Column="1"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="13">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Text" Value="{Binding StatusMessage}" />
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <Button Grid.Column="2"
+                    Content="Select All"
+                    Style="{StaticResource AuraGhostButton}"
+                    Foreground="{StaticResource AuraAccentTeal}"
+                    Command="{Binding SelectAllCommand}"
+                    Margin="0,0,4,0" />
+
+            <Button Grid.Column="3"
+                    Content="Deselect All"
+                    Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding DeselectAllCommand}"
+                    Margin="0,0,8,0" />
+
+            <Button Grid.Column="4"
+                    Style="{StaticResource AuraOutlinedButton}"
+                    Command="{Binding CleanSelectedCommand}"
+                    Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Broom" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="CLEAN SELECTED" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Progress bar during analysis -->
+        <ProgressBar Grid.Row="1"
+                     Value="{Binding ProgressValue}"
+                     Minimum="0" Maximum="100"
+                     Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}"
+                     Foreground="{StaticResource AuraAccentPurple}"
+                     Height="4"
+                     VerticalAlignment="Bottom"
+                     Margin="0,0,0,-8" />
+
+        <!-- Categorized Junk List -->
+        <ScrollViewer Grid.Row="2"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Categories}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <materialDesign:Card Background="{StaticResource AuraSurface}"
+                                             UniformCornerRadius="8"
+                                             Margin="0,0,0,8"
+                                             Padding="0">
+                            <Expander IsExpanded="{Binding IsExpanded}"
+                                      Foreground="{StaticResource AuraTextPrimary}">
+                                <Expander.Header>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <CheckBox Grid.Column="0"
+                                                  IsChecked="{Binding IsAllSelected}"
+                                                  Margin="0,0,12,0"
+                                                  VerticalAlignment="Center" />
+
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Name}"
+                                                   FontSize="15"
+                                                   FontWeight="Medium"
+                                                   Foreground="{StaticResource AuraTextPrimary}"
+                                                   VerticalAlignment="Center" />
+
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding ItemCount, StringFormat='{}{0} items'}"
+                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,16,0" />
+
+                                        <TextBlock Grid.Column="3"
+                                                   Text="{Binding FormattedTotalSize}"
+                                                   Foreground="{StaticResource AuraAccentTeal}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </Expander.Header>
+
+                                <ItemsControl ItemsSource="{Binding Items}"
+                                              Margin="40,0,16,8"
+                                              VirtualizingStackPanel.IsVirtualizing="True"
+                                              VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                              ScrollViewer.CanContentScroll="True"
+                                              MaxHeight="400">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ScrollViewer CanContentScroll="True"
+                                                          VerticalScrollBarVisibility="Auto"
+                                                          Focusable="False">
+                                                <ItemsPresenter />
+                                            </ScrollViewer>
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{StaticResource AuraBorder}"
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="4,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <CheckBox Grid.Column="0"
+                                                              IsChecked="{Binding IsSelected}"
+                                                              Margin="0,0,8,0"
+                                                              VerticalAlignment="Center" />
+
+                                                    <StackPanel Grid.Column="1"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Description}"
+                                                                   Foreground="{StaticResource AuraTextPrimary}"
+                                                                   FontSize="13"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Path}"
+                                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                                   FontSize="11"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+
+                                                    <!-- Lock indicator -->
+                                                    <materialDesign:PackIcon Grid.Column="2"
+                                                                             Kind="Lock"
+                                                                             Foreground="{StaticResource AuraWarning}"
+                                                                             Visibility="{Binding IsLocked, Converter={StaticResource BoolToVis}}"
+                                                                             ToolTip="{Binding LockingProcess, StringFormat='Locked by: {0}'}"
+                                                                             VerticalAlignment="Center"
+                                                                             Margin="8,0" />
+
+                                                    <TextBlock Grid.Column="3"
+                                                               Text="{Binding FormattedSize}"
+                                                               Foreground="{StaticResource AuraAccentTeal}"
+                                                               FontSize="12"
+                                                               VerticalAlignment="Center"
+                                                               MinWidth="60"
+                                                               TextAlignment="Right" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
+                        </materialDesign:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Status Bar -->
+        <materialDesign:Card Grid.Row="3"
+                             Background="{StaticResource AuraSurfaceLight}"
+                             UniformCornerRadius="6"
+                             Padding="16,8"
+                             Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="12"
+                           VerticalAlignment="Center" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock Text="{Binding TotalJunkCount, StringFormat='{}{0} items'}"
+                               Foreground="{StaticResource AuraTextSecondary}"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0" />
+                    <TextBlock Text="{Binding FormattedTotalSize}"
+                               Foreground="{StaticResource AuraAccentPurple}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+    </Grid>
+</UserControl>

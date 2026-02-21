@@ -1,0 +1,177 @@
+<UserControl x:Class="AuraClean.Views.SystemInfoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel>
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{StaticResource AuraTextBright}">
+                    <Run Text="System " /><Run Text="Information" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Text="Detailed hardware and software inventory of your system"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="13"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource AuraOutlinedButton}"
+                        Command="{Binding CopyToClipboardCommand}"
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Copy All" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding RefreshCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Refresh" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Filter Bar -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Category Tabs -->
+            <ItemsControl Grid.Column="0" ItemsSource="{Binding Categories}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Command="{Binding DataContext.FilterByCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"
+                                Margin="0,0,4,4" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" CornerRadius="8" Padding="10,5"
+                                            Background="Transparent"
+                                            BorderBrush="{StaticResource AuraBorderSubtle}"
+                                            BorderThickness="1">
+                                        <TextBlock x:Name="Txt" Text="{Binding}"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource AuraTextSecondary}" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Search -->
+            <TextBox Grid.Column="2"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     materialDesign:HintAssist.Hint="Search properties..."
+                     Background="{StaticResource AuraSurfaceLight}"
+                     Foreground="{StaticResource AuraTextPrimary}"
+                     FontSize="12" Padding="10,6" />
+        </Grid>
+
+        <!-- Info Grid -->
+        <materialDesign:Card Grid.Row="2" Background="{StaticResource AuraSurface}"
+                             UniformCornerRadius="16" Padding="0">
+            <Grid>
+                <!-- Loading indicator -->
+                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                            VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                 IsIndeterminate="True"
+                                 Width="48" Height="48"
+                                 Foreground="{StaticResource AuraAccentPurple}" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="{StaticResource AuraTextSecondary}" FontSize="13"
+                               HorizontalAlignment="Center" Margin="0,12,0,0" />
+                </StackPanel>
+
+                <!-- Info ListView -->
+                <ListView ItemsSource="{Binding FilteredEntries}"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListView.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,12,16,6"
+                                            BorderThickness="0,0,0,1"
+                                            BorderBrush="{StaticResource AuraBorderSubtle}">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AuraAccentPurple}" />
+                                    </Border>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                        </GroupStyle>
+                    </ListView.GroupStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="16,6,16,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <materialDesign:PackIcon Kind="Information" Width="18" Height="18"
+                                                         Foreground="{StaticResource AuraTextMuted}"
+                                                         VerticalAlignment="Center"
+                                                         Margin="0,0,12,0" />
+
+                                <TextBlock Grid.Column="1" Text="{Binding Label}"
+                                           Foreground="{StaticResource AuraTextSecondary}"
+                                           FontSize="13" VerticalAlignment="Center" />
+
+                                <TextBlock Grid.Column="2" Text="{Binding Value}"
+                                           Foreground="{StaticResource AuraTextPrimary}"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- Status Bar -->
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource AuraTextSecondary}"
+                   FontSize="13" Margin="0,12,0,0" />
+    </Grid>
+</UserControl>

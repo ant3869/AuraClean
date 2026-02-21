@@ -1,0 +1,78 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build AuraClean",
+			"type": "shell",
+			"command": "dotnet build -c Debug",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build AuraClean Project",
+			"type": "shell",
+			"command": "dotnet build -c Debug c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\AuraClean.csproj",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build AuraClean v2",
+			"type": "shell",
+			"command": "dotnet build -c Debug c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\AuraClean.csproj",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Kill and Rebuild",
+			"type": "shell",
+			"command": "taskkill /F /IM AuraClean.exe; Start-Sleep 2; dotnet build -c Debug c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\AuraClean.csproj",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Test App Launch",
+			"type": "shell",
+			"command": "$p = Start-Process -FilePath 'c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\bin\\Debug\\net8.0-windows\\win-x64\\AuraClean.exe' -PassThru; Start-Sleep -Seconds 8; $p.Refresh(); Write-Host \"Process alive: $(!$p.HasExited)\"; Write-Host \"MainWindowTitle: $($p.MainWindowTitle)\"; Write-Host \"MainWindowHandle: $($p.MainWindowHandle)\"; if(!$p.HasExited) { Write-Host 'App is running with window!'; $p.Kill() } else { Write-Host \"Exit code: $($p.ExitCode)\" }"
+		},
+		{
+			"label": "Rebuild AuraClean",
+			"type": "shell",
+			"command": "taskkill /F /IM AuraClean.exe 2>$null; Start-Sleep 1; dotnet build -c Debug c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\AuraClean.csproj",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Test App Launch v2",
+			"type": "shell",
+			"command": "$p = Start-Process -FilePath 'c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\bin\\Debug\\net8.0-windows\\win-x64\\AuraClean.exe' -PassThru; Start-Sleep -Seconds 6; $p.Refresh(); Write-Host \"Process alive: $(!$p.HasExited)\"; Write-Host \"MainWindowTitle: '$($p.MainWindowTitle)'\"; Write-Host \"MainWindowHandle: $($p.MainWindowHandle)\"; if(Test-Path C:\\Users\\SuperHands\\Desktop\\AuraClean_crash.log) { Write-Host '--- CRASH LOG ---'; Get-Content C:\\Users\\SuperHands\\Desktop\\AuraClean_crash.log } else { Write-Host 'No crash log found' }; if(!$p.HasExited) { $p.Kill() }"
+		},
+		{
+			"label": "Final Build",
+			"type": "shell",
+			"command": "taskkill /F /IM AuraClean.exe 2>$null; Start-Sleep 1; dotnet build -c Debug c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\AuraClean.csproj",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Rebuild Padding Fix",
+			"type": "shell",
+			"command": "taskkill /F /IM AuraClean.exe 2>$null; Start-Sleep 1; dotnet build -c Debug c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\AuraClean.csproj",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		}
+	]
+}
