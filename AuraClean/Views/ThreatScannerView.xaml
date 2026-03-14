@@ -1,0 +1,829 @@
+<UserControl x:Class="AuraClean.Views.ThreatScannerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:vm="clr-namespace:AuraClean.ViewModels"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <converters:InverseBoolToVisibilityConverter x:Key="InvBoolToVis" />
+        <converters:IntToVisibilityConverter x:Key="IntToVis" />
+
+        <!-- Threat level colors -->
+        <SolidColorBrush x:Key="ThreatCriticalBrush" Color="#FF4444" />
+        <SolidColorBrush x:Key="ThreatHighBrush" Color="#FF6B8A" />
+        <SolidColorBrush x:Key="ThreatMediumBrush" Color="#FFB74D" />
+        <SolidColorBrush x:Key="ThreatLowBrush" Color="#5BF0D7" />
+    </UserControl.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ═══ HEADER ═══ -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{StaticResource AuraTextBright}">
+                    <Run Text="Threat " /><Run Text="Scanner" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Text="Multi-layered malware, adware, and PUP detection with quarantine protection."
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="13"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <materialDesign:PackIcon Kind="ClockOutline" Width="14" Height="14"
+                                         Foreground="{StaticResource AuraTextMuted}"
+                                         VerticalAlignment="Center" Margin="0,0,4,0" />
+                <TextBlock Foreground="{StaticResource AuraTextMuted}" FontSize="11"
+                           VerticalAlignment="Center">
+                    <Run Text="Last scan: " />
+                    <Run Text="{Binding LastScanDate, Mode=OneWay}"
+                         Foreground="{StaticResource AuraTextSecondary}" />
+                </TextBlock>
+            </StackPanel>
+        </Grid>
+
+        <!-- ═══ SCAN MODE SELECTION ═══ -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Quick Scan Card -->
+            <Border Grid.Column="0" Margin="0,0,6,0" Padding="14,12" CornerRadius="8"
+                    Cursor="Hand"
+                    Background="{StaticResource AuraSurface}"
+                    BorderThickness="1.5"
+                    MouseLeftButtonDown="QuickScan_Click">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{StaticResource AuraBorder}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedScanMode}" Value="Quick">
+                                <Setter Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
+                                <Setter Property="Background" Value="{StaticResource AuraSurfaceLight}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="FlashOutline" Width="22" Height="22"
+                                                 Foreground="{StaticResource AuraAccentTeal}" />
+                        <TextBlock Text="Quick Scan" FontSize="14" FontWeight="Medium"
+                                   Foreground="{StaticResource AuraTextBright}"
+                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="Processes, startup, common locations"
+                               FontSize="11" Foreground="{StaticResource AuraTextMuted}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Full Scan Card -->
+            <Border Grid.Column="1" Margin="6,0,6,0" Padding="14,12" CornerRadius="8"
+                    Cursor="Hand"
+                    Background="{StaticResource AuraSurface}"
+                    BorderThickness="1.5"
+                    MouseLeftButtonDown="FullScan_Click">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{StaticResource AuraBorder}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedScanMode}" Value="Full">
+                                <Setter Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
+                                <Setter Property="Background" Value="{StaticResource AuraSurfaceLight}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="ShieldSearch" Width="22" Height="22"
+                                                 Foreground="{StaticResource AuraAccentPurple}" />
+                        <TextBlock Text="Full Scan" FontSize="14" FontWeight="Medium"
+                                   Foreground="{StaticResource AuraTextBright}"
+                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="Complete system-wide deep analysis"
+                               FontSize="11" Foreground="{StaticResource AuraTextMuted}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Custom Scan Card -->
+            <Border Grid.Column="2" Margin="6,0,6,0" Padding="14,12" CornerRadius="8"
+                    Cursor="Hand"
+                    Background="{StaticResource AuraSurface}"
+                    BorderThickness="1.5"
+                    MouseLeftButtonDown="CustomScan_Click">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{StaticResource AuraBorder}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedScanMode}" Value="Custom">
+                                <Setter Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
+                                <Setter Property="Background" Value="{StaticResource AuraSurfaceLight}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="FolderSearch" Width="22" Height="22"
+                                                 Foreground="{StaticResource AuraWarning}" />
+                        <TextBlock Text="Custom Scan" FontSize="14" FontWeight="Medium"
+                                   Foreground="{StaticResource AuraTextBright}"
+                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="Scan specific folders you choose"
+                               FontSize="11" Foreground="{StaticResource AuraTextMuted}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Browser Scan Card -->
+            <Border Grid.Column="3" Margin="6,0,0,0" Padding="14,12" CornerRadius="8"
+                    Cursor="Hand"
+                    Background="{StaticResource AuraSurface}"
+                    BorderThickness="1.5"
+                    MouseLeftButtonDown="BrowserScan_Click">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{StaticResource AuraBorder}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedScanMode}" Value="BrowserOnly">
+                                <Setter Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
+                                <Setter Property="Background" Value="{StaticResource AuraSurfaceLight}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="Web" Width="22" Height="22"
+                                                 Foreground="{StaticResource AuraAmber}" />
+                        <TextBlock Text="Browser Scan" FontSize="14" FontWeight="Medium"
+                                   Foreground="{StaticResource AuraTextBright}"
+                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="Extensions, hijackers, adware"
+                               FontSize="11" Foreground="{StaticResource AuraTextMuted}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ═══ ACTION BAR ═══ -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Custom path input (only visible in Custom mode) -->
+            <Grid Grid.Column="0" Margin="0,0,8,0"
+                  x:Name="CustomPathPanel" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding CustomScanPath, UpdateSourceTrigger=PropertyChanged}"
+                         materialDesign:HintAssist.Hint="Select folder..."
+                         FontSize="12"
+                         Foreground="{StaticResource AuraTextPrimary}"
+                         VerticalAlignment="Center"
+                         Margin="0,0,4,0" />
+                <Button Grid.Column="1" Style="{StaticResource AuraGhostButton}"
+                        Content="Browse" FontSize="11"
+                        Command="{Binding BrowseCustomPathCommand}"
+                        Padding="8,4" />
+            </Grid>
+
+            <!-- Scan / Cancel button -->
+            <Button Grid.Column="1"
+                    Style="{StaticResource AuraPrimaryButton}"
+                    Command="{Binding StartScanCommand}"
+                    Visibility="{Binding IsScanning, Converter={StaticResource InvBoolToVis}}"
+                    Margin="0,0,8,0">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ShieldSearch" Margin="0,0,6,0" Width="18" Height="18" />
+                    <TextBlock Text="SCAN NOW" />
+                </StackPanel>
+            </Button>
+
+            <Button Grid.Column="1"
+                    Style="{StaticResource AuraOutlinedButton}"
+                    Command="{Binding CancelScanCommand}"
+                    Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"
+                    Margin="0,0,8,0">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Stop" Margin="0,0,6,0" Width="18" Height="18" />
+                    <TextBlock Text="CANCEL" />
+                </StackPanel>
+            </Button>
+
+            <!-- Status message -->
+            <TextBlock Grid.Column="2" Text="{Binding StatusMessage}"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="12.5"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+
+            <!-- Whitelist toggle -->
+            <Button Grid.Column="3" Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding ToggleWhitelistCommand}"
+                    Margin="0,0,8,0" Padding="8,4">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16" Margin="0,0,4,0" />
+                    <TextBlock Text="Whitelist" FontSize="12" />
+                </StackPanel>
+            </Button>
+
+            <!-- Select/Deselect -->
+            <Button Grid.Column="4" Style="{StaticResource AuraGhostButton}"
+                    Content="Select All" FontSize="11"
+                    Command="{Binding SelectAllCommand}"
+                    Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}"
+                    Margin="0,0,4,0" Padding="8,4" />
+            <Button Grid.Column="5" Style="{StaticResource AuraGhostButton}"
+                    Content="Deselect" FontSize="11"
+                    Command="{Binding DeselectAllCommand}"
+                    Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}"
+                    Padding="8,4" />
+        </Grid>
+
+        <!-- ═══ PROGRESS BAR ═══ -->
+        <ProgressBar Grid.Row="2"
+                     Value="{Binding ProgressValue}"
+                     Minimum="0" Maximum="100"
+                     Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"
+                     Foreground="{StaticResource AuraAccentPurple}"
+                     Height="3" VerticalAlignment="Bottom"
+                     Margin="0,0,0,-8" />
+
+        <!-- ═══ MAIN CONTENT AREA ═══ -->
+        <Grid Grid.Row="3">
+            <!-- Clean state -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding IsClean, Converter={StaticResource BoolToVis}}">
+                <materialDesign:PackIcon Kind="ShieldCheckOutline"
+                                         Width="80" Height="80"
+                                         HorizontalAlignment="Center"
+                                         Margin="0,0,0,16">
+                    <materialDesign:PackIcon.Foreground>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="{StaticResource AuraCyanColor}" Offset="0" />
+                            <GradientStop Color="{StaticResource AuraMintColor}" Offset="1" />
+                        </LinearGradientBrush>
+                    </materialDesign:PackIcon.Foreground>
+                </materialDesign:PackIcon>
+                <TextBlock Text="No Threats Detected" FontSize="22" FontWeight="Light"
+                           Foreground="{StaticResource AuraTextBright}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Your system appears to be clean."
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="13" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+                    <TextBlock Foreground="{StaticResource AuraTextMuted}" FontSize="11">
+                        <Run Text="Scanned " />
+                        <Run Text="{Binding FilesScanned, Mode=OneWay}" Foreground="{StaticResource AuraTextSecondary}" />
+                        <Run Text=" files, " />
+                        <Run Text="{Binding ProcessesScanned, Mode=OneWay}" Foreground="{StaticResource AuraTextSecondary}" />
+                        <Run Text=" processes in " />
+                        <Run Text="{Binding ScanDuration, Mode=OneWay}" Foreground="{StaticResource AuraTextSecondary}" />
+                    </TextBlock>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Scanning state -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}">
+                <ProgressBar IsIndeterminate="True"
+                             Style="{StaticResource MaterialDesignCircularProgressBar}"
+                             Width="60" Height="60"
+                             Foreground="{StaticResource AuraAccentPurple}"
+                             HorizontalAlignment="Center"
+                             Margin="0,0,0,16" />
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="14"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center" />
+                <TextBlock FontSize="12"
+                           Foreground="{StaticResource AuraTextMuted}"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,0">
+                    <Run Text="Progress: " />
+                    <Run Text="{Binding ProgressValue, StringFormat='{}{0:F0}%', Mode=OneWay}" />
+                </TextBlock>
+            </StackPanel>
+
+            <!-- Whitelist view -->
+            <Grid Visibility="{Binding ShowWhitelist, Converter={StaticResource BoolToVis}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" FontSize="16" FontWeight="Medium"
+                           Foreground="{StaticResource AuraTextBright}"
+                           Margin="0,0,0,12">
+                    <Run Text="Whitelisted Items " />
+                    <Run Text="{Binding WhitelistEntries.Count, StringFormat='({0})', Mode=OneWay}"
+                         Foreground="{StaticResource AuraTextMuted}" />
+                </TextBlock>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding WhitelistEntries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource AuraSurface}"
+                                        CornerRadius="6" Padding="12,10"
+                                        Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{Binding FilePath}"
+                                                       Foreground="{StaticResource AuraTextPrimary}"
+                                                       FontSize="12.5"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock FontSize="11" Margin="0,2,0,0">
+                                                <Run Text="{Binding Reason}" Foreground="{StaticResource AuraTextMuted}" />
+                                                <Run Text=" — " Foreground="{StaticResource AuraTextMuted}" />
+                                                <Run Text="{Binding AddedAt}" Foreground="{StaticResource AuraTextMuted}" />
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Hash}"
+                                                   Foreground="{StaticResource AuraTextMuted}"
+                                                   FontSize="10" FontFamily="Consolas"
+                                                   VerticalAlignment="Center"
+                                                   Margin="12,0"
+                                                   MaxWidth="120" TextTrimming="CharacterEllipsis" />
+
+                                        <Button Grid.Column="2"
+                                                Style="{StaticResource AuraGhostButton}"
+                                                Command="{Binding DataContext.RemoveFromWhitelistCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Padding="6,3" FontSize="11">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Delete" Width="14" Height="14"
+                                                                         Foreground="{StaticResource AuraWarning}" />
+                                                <TextBlock Text="Remove" Margin="4,0,0,0"
+                                                           Foreground="{StaticResource AuraWarning}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Threat results list -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasResults}" Value="True" />
+                                    <Condition Binding="{Binding IsClean}" Value="False" />
+                                    <Condition Binding="{Binding IsScanning}" Value="False" />
+                                    <Condition Binding="{Binding ShowWhitelist}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
+
+                <StackPanel>
+                    <!-- Threat summary bar -->
+                    <Border Background="{StaticResource AuraSurface}"
+                            CornerRadius="8" Padding="16,12" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ShieldAlert" Width="24" Height="24"
+                                                         Foreground="{StaticResource ThreatHighBrush}"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock VerticalAlignment="Center" Margin="10,0,0,0"
+                                           Foreground="{StaticResource AuraTextBright}" FontSize="15">
+                                    <Run Text="{Binding TotalThreats, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text=" threat(s) found" FontWeight="Light" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <!-- Severity badges -->
+                            <Border Grid.Column="1" Background="#33FF4444" CornerRadius="4"
+                                    Padding="8,3" Margin="6,0"
+                                    Visibility="{Binding CriticalCount, Converter={StaticResource IntToVis}}">
+                                <TextBlock FontSize="11" Foreground="{StaticResource ThreatCriticalBrush}">
+                                    <Run Text="{Binding CriticalCount, Mode=OneWay}" FontWeight="Bold" />
+                                    <Run Text=" Critical" />
+                                </TextBlock>
+                            </Border>
+
+                            <Border Grid.Column="2" Background="#33FF6B8A" CornerRadius="4"
+                                    Padding="8,3" Margin="6,0"
+                                    Visibility="{Binding HighCount, Converter={StaticResource IntToVis}}">
+                                <TextBlock FontSize="11" Foreground="{StaticResource ThreatHighBrush}">
+                                    <Run Text="{Binding HighCount, Mode=OneWay}" FontWeight="Bold" />
+                                    <Run Text=" High" />
+                                </TextBlock>
+                            </Border>
+
+                            <Border Grid.Column="3" Background="#33FFB74D" CornerRadius="4"
+                                    Padding="8,3" Margin="6,0"
+                                    Visibility="{Binding MediumCount, Converter={StaticResource IntToVis}}">
+                                <TextBlock FontSize="11" Foreground="{StaticResource ThreatMediumBrush}">
+                                    <Run Text="{Binding MediumCount, Mode=OneWay}" FontWeight="Bold" />
+                                    <Run Text=" Medium" />
+                                </TextBlock>
+                            </Border>
+
+                            <Border Grid.Column="4" Background="#335BF0D7" CornerRadius="4"
+                                    Padding="8,3" Margin="6,0"
+                                    Visibility="{Binding LowCount, Converter={StaticResource IntToVis}}">
+                                <TextBlock FontSize="11" Foreground="{StaticResource ThreatLowBrush}">
+                                    <Run Text="{Binding LowCount, Mode=OneWay}" FontWeight="Bold" />
+                                    <Run Text=" Low" />
+                                </TextBlock>
+                            </Border>
+
+                            <TextBlock Grid.Column="5" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextMuted}" Margin="12,0,0,0">
+                                <Run Text="{Binding FilesScanned, Mode=OneWay}" />
+                                <Run Text=" files, " />
+                                <Run Text="{Binding ScanDuration, Mode=OneWay}" />
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+
+                    <!-- Threat categories -->
+                    <ItemsControl ItemsSource="{Binding Categories}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <materialDesign:Card Background="{StaticResource AuraSurface}"
+                                                     UniformCornerRadius="8"
+                                                     Margin="0,0,0,8">
+                                    <Expander IsExpanded="{Binding IsExpanded}"
+                                              Foreground="{StaticResource AuraTextPrimary}">
+                                        <Expander.Header>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <CheckBox Grid.Column="0"
+                                                          IsChecked="{Binding IsAllSelected}"
+                                                          Margin="0,0,12,0"
+                                                          VerticalAlignment="Center" />
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           FontSize="15" FontWeight="Medium" />
+
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding SeveritySummary}"
+                                                           Foreground="{StaticResource AuraTextMuted}"
+                                                           FontSize="12"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,16,0" />
+
+                                                <TextBlock Grid.Column="3"
+                                                           Foreground="{StaticResource ThreatMediumBrush}"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center">
+                                                    <Run Text="{Binding ItemCount, Mode=OneWay}" />
+                                                    <Run Text=" items" />
+                                                </TextBlock>
+                                            </Grid>
+                                        </Expander.Header>
+
+                                        <!-- Threat items within category -->
+                                        <ItemsControl ItemsSource="{Binding Items}"
+                                                      Margin="40,0,16,8">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Padding="0,6" BorderThickness="0,0,0,1"
+                                                            BorderBrush="{StaticResource AuraBorder}">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <CheckBox Grid.Column="0"
+                                                                      IsChecked="{Binding IsSelected}"
+                                                                      Margin="0,0,8,0"
+                                                                      VerticalAlignment="Center" />
+
+                                                            <!-- Severity indicator -->
+                                                            <Ellipse Grid.Column="1"
+                                                                     Width="10" Height="10"
+                                                                     Margin="0,0,8,0"
+                                                                     VerticalAlignment="Center">
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse">
+                                                                        <Setter Property="Fill" Value="{StaticResource ThreatLowBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding ThreatLevel}" Value="Medium">
+                                                                                <Setter Property="Fill" Value="{StaticResource ThreatMediumBrush}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding ThreatLevel}" Value="High">
+                                                                                <Setter Property="Fill" Value="{StaticResource ThreatHighBrush}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
+                                                                                <Setter Property="Fill" Value="{StaticResource ThreatCriticalBrush}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+
+                                                            <!-- Threat info -->
+                                                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                                                <TextBlock FontSize="12.5"
+                                                                           Foreground="{StaticResource AuraTextPrimary}"
+                                                                           TextTrimming="CharacterEllipsis">
+                                                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="Medium" />
+                                                                    <Run Text=" — " Foreground="{StaticResource AuraTextMuted}" />
+                                                                    <Run Text="{Binding ThreatTypeDisplay, Mode=OneWay}"
+                                                                         Foreground="{StaticResource AuraTextSecondary}" />
+                                                                </TextBlock>
+                                                                <TextBlock Text="{Binding Description}"
+                                                                           FontSize="11"
+                                                                           Foreground="{StaticResource AuraTextMuted}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           Margin="0,1,0,0" />
+                                                                <TextBlock Text="{Binding Path}"
+                                                                           FontSize="10"
+                                                                           Foreground="{StaticResource AuraTextMuted}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           Opacity="0.7"
+                                                                           Margin="0,1,0,0" />
+                                                            </StackPanel>
+
+                                                            <!-- Detection method badge -->
+                                                            <Border Grid.Column="3" CornerRadius="3"
+                                                                    Background="{StaticResource AuraSurfaceElevated}"
+                                                                    Padding="6,2" Margin="4,0"
+                                                                    VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding DetectionMethodDisplay}"
+                                                                           FontSize="10"
+                                                                           Foreground="{StaticResource AuraTextMuted}" />
+                                                            </Border>
+
+                                                            <!-- Threat level badge -->
+                                                            <Border Grid.Column="4" CornerRadius="3"
+                                                                    Padding="6,2" Margin="4,0"
+                                                                    VerticalAlignment="Center">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="Background" Value="#335BF0D7" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding ThreatLevel}" Value="Medium">
+                                                                                <Setter Property="Background" Value="#33FFB74D" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding ThreatLevel}" Value="High">
+                                                                                <Setter Property="Background" Value="#33FF6B8A" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
+                                                                                <Setter Property="Background" Value="#33FF4444" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <TextBlock Text="{Binding ThreatLevelDisplay}"
+                                                                           FontSize="10" FontWeight="Medium">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{StaticResource ThreatLowBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ThreatLevel}" Value="Medium">
+                                                                                    <Setter Property="Foreground" Value="{StaticResource ThreatMediumBrush}" />
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding ThreatLevel}" Value="High">
+                                                                                    <Setter Property="Foreground" Value="{StaticResource ThreatHighBrush}" />
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
+                                                                                    <Setter Property="Foreground" Value="{StaticResource ThreatCriticalBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+
+                                                            <!-- File size -->
+                                                            <TextBlock Grid.Column="5"
+                                                                       Text="{Binding FormattedSize}"
+                                                                       FontSize="11"
+                                                                       Foreground="{StaticResource AuraTextMuted}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="8,0,0,0"
+                                                                       MinWidth="60"
+                                                                       TextAlignment="Right" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Expander>
+                                </materialDesign:Card>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Initial state (no scan yet) -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasResults}" Value="False" />
+                                    <Condition Binding="{Binding IsScanning}" Value="False" />
+                                    <Condition Binding="{Binding ShowWhitelist}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+
+                <materialDesign:PackIcon Kind="ShieldSearch"
+                                         Width="64" Height="64"
+                                         HorizontalAlignment="Center"
+                                         Margin="0,0,0,16">
+                    <materialDesign:PackIcon.Foreground>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
+                            <GradientStop Color="{StaticResource AuraCyanColor}" Offset="1" />
+                        </LinearGradientBrush>
+                    </materialDesign:PackIcon.Foreground>
+                </materialDesign:PackIcon>
+                <TextBlock Text="Select a scan mode and click Scan Now"
+                           FontSize="16" FontWeight="Light"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Multi-layered detection: signatures, heuristics, entropy analysis, behavioral checks"
+                           FontSize="12"
+                           Foreground="{StaticResource AuraTextMuted}"
+                           HorizontalAlignment="Center" Margin="0,6,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ═══ FOOTER ACTION BAR ═══ -->
+        <Border Grid.Row="4"
+                Background="{StaticResource AuraSurface}"
+                CornerRadius="8"
+                Padding="16,10"
+                Margin="0,12,0,0">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding HasResults}" Value="True" />
+                                <Condition Binding="{Binding IsClean}" Value="False" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible" />
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding ActionStatusMessage}"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="12.5"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+
+                <Button Grid.Column="1"
+                        Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding WhitelistSelectedCommand}"
+                        Padding="10,5" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16"
+                                                 Margin="0,0,6,0" />
+                        <TextBlock Text="WHITELIST" FontSize="12" />
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="2"
+                        Style="{StaticResource AuraOutlinedButton}"
+                        Command="{Binding QuarantineSelectedCommand}"
+                        Padding="10,5" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ShieldLock" Width="16" Height="16"
+                                                 Margin="0,0,6,0" />
+                        <TextBlock Text="QUARANTINE" FontSize="12" />
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="3"
+                        Style="{StaticResource AuraPrimaryButton}"
+                        Command="{Binding QuarantineAllCommand}"
+                        Padding="10,5" Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ShieldLock" Width="16" Height="16"
+                                                 Margin="0,0,6,0" />
+                        <TextBlock Text="QUARANTINE ALL" FontSize="12" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Separator -->
+                <Border Grid.Column="4" Width="1" Height="20"
+                        Background="{StaticResource AuraBorder}" Margin="0,0,12,0" />
+
+                <Button Grid.Column="5"
+                        Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding DeleteSelectedCommand}"
+                        Foreground="{StaticResource AuraWarning}"
+                        Padding="10,5" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"
+                                                 Margin="0,0,6,0" />
+                        <TextBlock Text="DELETE" FontSize="12" />
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="6"
+                        Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding DeleteAllCommand}"
+                        Foreground="{StaticResource AuraWarning}"
+                        Padding="10,5">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"
+                                                 Margin="0,0,6,0" />
+                        <TextBlock Text="DELETE ALL" FontSize="12" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

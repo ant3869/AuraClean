@@ -69,6 +69,19 @@
                     Style="{StaticResource AuraPrimaryButton}"
                     Padding="16,8"
                     Command="{Binding DeepScanCommand}" />
+
+            <!-- Selection count badge -->
+            <Border Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center"
+                    HorizontalAlignment="Right"
+                    Visibility="{Binding HasCheckedItems, Converter={StaticResource BoolToVis}}">
+                <Border Background="{StaticResource AuraAccentPurple}" CornerRadius="10"
+                        Padding="10,3">
+                    <TextBlock Foreground="White" FontSize="11" FontWeight="SemiBold">
+                        <Run Text="{Binding SelectedCount, Mode=OneWay}" />
+                        <Run Text=" selected" />
+                    </TextBlock>
+                </Border>
+            </Border>
         </Grid>
 
         <!-- Program List -->
@@ -92,9 +105,21 @@
                           Background="Transparent"
                           Foreground="{StaticResource AuraTextPrimary}"
                           BorderThickness="0"
+                          SelectionMode="Extended"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListView.View>
                         <GridView>
+                            <GridViewColumn Width="40">
+                                <GridViewColumn.Header>
+                                    <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                              ToolTip="Select All" />
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
                             <GridViewColumn Header="Name" Width="280"
                                             DisplayMemberBinding="{Binding DisplayName}" />
                             <GridViewColumn Header="Publisher" Width="180"

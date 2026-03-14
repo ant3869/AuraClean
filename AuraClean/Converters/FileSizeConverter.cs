@@ -60,6 +60,33 @@ public class InverseBoolConverter : IValueConverter
 }
 
 /// <summary>
+/// Inverse of BoolToVisibilityConverter. True = Collapsed, False = Visible.
+/// </summary>
+public class InverseBoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Converts an int to Visibility. 0 = Collapsed, any other value = Visible.
+/// </summary>
+public class IntToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int i) return i > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        return System.Windows.Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
 /// Converts a health score (0-100) to a color brush for the gauge.
 /// Red (0-40) → Orange (40-70) → Green (70-100).
 /// </summary>

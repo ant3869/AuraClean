@@ -216,7 +216,7 @@
                             </StackPanel>
                             <TextBlock Text="{Binding OsName}"
                                        Foreground="{StaticResource AuraTextPrimary}"
-                                       FontSize="11.5" TextTrimming="CharacterEllipsis" MaxWidth="180" />
+                                       FontSize="11.5" TextTrimming="CharacterEllipsis" MaxWidth="240" />
                         </StackPanel>
 
                         <!-- CPU -->
@@ -230,7 +230,7 @@
                             </StackPanel>
                             <TextBlock Text="{Binding CpuName}"
                                        Foreground="{StaticResource AuraTextPrimary}"
-                                       FontSize="11.5" TextTrimming="CharacterEllipsis" MaxWidth="180" />
+                                       FontSize="11.5" TextTrimming="CharacterEllipsis" MaxWidth="240" />
                         </StackPanel>
 
                         <!-- RAM -->
@@ -305,11 +305,23 @@
 
                 <Button Style="{StaticResource AuraGhostButton}"
                         Command="{Binding NavigateToCommand}"
-                        CommandParameter="StorageMap">
+                        CommandParameter="StorageMap"
+                        Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16"
                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="STORAGE MAP" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding UndoLastCleanCommand}"
+                        Visibility="{Binding Cleaner.CanUndoLastClean, Converter={StaticResource BoolToVis}}"
+                        ToolTip="{Binding Cleaner.LastCleanedSummary}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="UndoVariant" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="UNDO CLEAN" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

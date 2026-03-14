@@ -6,11 +6,11 @@
         xmlns:views="clr-namespace:AuraClean.Views"
         xmlns:converters="clr-namespace:AuraClean.Converters"
         Title="AuraClean"
-        Width="1100" Height="720"
-        MinWidth="900" MinHeight="600"
+        Width="1280" Height="780"
+        MinWidth="1050" MinHeight="650"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource AuraBackground}"
-        TextElement.Foreground="{StaticResource AuraTextPrimary}"
+        Background="{DynamicResource AuraBackground}"
+        TextElement.Foreground="{DynamicResource AuraTextPrimary}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="14"
         TextOptions.TextFormattingMode="Ideal"
@@ -20,6 +20,19 @@
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
+
+    <Window.InputBindings>
+        <KeyBinding Key="D1" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Dashboard" />
+        <KeyBinding Key="D2" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="ThreatScanner" />
+        <KeyBinding Key="D3" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Uninstaller" />
+        <KeyBinding Key="D4" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Cleaner" />
+        <KeyBinding Key="D5" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Memory" />
+        <KeyBinding Key="D6" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Browser" />
+        <KeyBinding Key="D7" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="StorageMap" />
+        <KeyBinding Key="D8" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Startup" />
+        <KeyBinding Key="D9" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Shredder" />
+        <KeyBinding Key="D0" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Settings" />
+    </Window.InputBindings>
 
     <Window.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
@@ -35,13 +48,8 @@
 
         <!-- ═══ SIDEBAR ═══ -->
         <Border Grid.Column="0"
-                BorderBrush="{StaticResource AuraBorder}" BorderThickness="0,0,1,0">
-            <Border.Background>
-                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                    <GradientStop Color="#0C0C1A" Offset="0" />
-                    <GradientStop Color="#08080F" Offset="1" />
-                </LinearGradientBrush>
-            </Border.Background>
+                BorderBrush="{DynamicResource AuraBorder}" BorderThickness="0,0,1,0"
+                Background="{DynamicResource AuraSidebarGradient}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -104,6 +112,17 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ViewDashboard" Width="20" Height="20" VerticalAlignment="Center" />
                                 <TextBlock Text="Dashboard" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Threat Scanner -->
+                        <RadioButton x:Name="NavThreatScanner"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="ThreatScanner">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ShieldSearch" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Threat Scanner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
                             </StackPanel>
                         </RadioButton>
 
@@ -290,7 +309,7 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <TextBlock Text="v1.0.0"
+                    <TextBlock Text="v1.1.0"
                                Foreground="{StaticResource AuraTextMuted}"
                                FontSize="10"
                                Margin="0,4,0,0" />
@@ -381,15 +400,20 @@
                 <views:QuarantineView DataContext="{Binding Quarantine}"
                                       Visibility="Collapsed"
                                       x:Name="QuarantineContent" />
+
+                <!-- Threat Scanner View -->
+                <views:ThreatScannerView DataContext="{Binding ThreatScanner}"
+                                         Visibility="Collapsed"
+                                         x:Name="ThreatScannerContent" />
             </Grid>
 
             <!-- Status Bar -->
             <Border Grid.Row="1"
-                    Background="{StaticResource AuraSurface}"
-                    BorderBrush="{StaticResource AuraBorder}" BorderThickness="0,1,0,0"
+                    Background="{DynamicResource AuraSurface}"
+                    BorderBrush="{DynamicResource AuraBorder}" BorderThickness="0,1,0,0"
                     Padding="20,7">
                 <TextBlock Text="{Binding StatusBarText}"
-                           Foreground="{StaticResource AuraTextSecondary}"
+                           Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="11.5" />
             </Border>
         </Grid>

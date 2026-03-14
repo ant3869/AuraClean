@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.IO;
+using System.Runtime.CompilerServices;
 using AuraClean.Helpers;
 
 namespace AuraClean.Services;
@@ -12,8 +14,13 @@ public static class LargeFileFinderService
     /// <summary>
     /// Represents a large file found during scanning.
     /// </summary>
-    public class LargeFileEntry
+    public class LargeFileEntry : INotifyPropertyChanged
     {
+        private bool _isSelected;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public event Action? SelectionChanged;
+
         public string FullPath { get; init; } = string.Empty;
         public string FileName => Path.GetFileName(FullPath);
         public string Directory => Path.GetDirectoryName(FullPath) ?? string.Empty;
@@ -22,7 +29,23 @@ public static class LargeFileFinderService
         public string FormattedSize => FormatHelper.FormatBytes(SizeBytes);
         public DateTime LastModified { get; init; }
         public string Category => CategorizeFile(Extension);
-        public bool IsSelected { get; set; }
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    OnPropertyChanged();
+                    SelectionChanged?.Invoke();
+                }
+            }
+        }
+
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
         private static string CategorizeFile(string ext) => ext.ToUpperInvariant() switch
         {

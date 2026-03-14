@@ -2,10 +2,19 @@ using AuraClean.Helpers;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
 using System.IO;
 
 namespace AuraClean.ViewModels;
+
+/// <summary>
+/// Message sent when the quarantine manifest has changed (items added/removed).
+/// </summary>
+public sealed class QuarantineChangedMessage
+{
+    public static readonly QuarantineChangedMessage Instance = new();
+}
 
 /// <summary>
 /// ViewModel for the Quarantine Manager page.
@@ -25,6 +34,12 @@ public partial class QuarantineViewModel : ObservableObject
     {
         QuarantinePath = QuarantineService.GetQuarantineDirectory();
         LoadEntries();
+
+        // Listen for external quarantine changes (e.g. from ThreatScanner)
+        WeakReferenceMessenger.Default.Register<QuarantineChangedMessage>(this, (_, _) =>
+        {
+            System.Windows.Application.Current?.Dispatcher.Invoke(LoadEntries);
+        });
     }
 
     [RelayCommand]

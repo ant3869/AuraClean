@@ -27,6 +27,11 @@ public partial class FileShredderViewModel : ObservableObject
     [ObservableProperty] private long _lastBytesOverwritten;
     [ObservableProperty] private string _algorithmDescription = string.Empty;
 
+    // Selection
+    [ObservableProperty] private int _selectedCount;
+    [ObservableProperty] private bool _isAllSelected;
+    public bool HasCheckedItems => SelectedCount > 0;
+
     public string FormattedBytesOverwritten => FormatHelper.FormatBytes(LastBytesOverwritten);
 
     public ObservableCollection<AlgorithmOption> Algorithms { get; } =
@@ -41,6 +46,34 @@ public partial class FileShredderViewModel : ObservableObject
     {
         SelectedAlgorithmOption = Algorithms[2]; // DoD3Pass default
         UpdateAlgorithmDescription();
+    }
+
+    partial void OnIsAllSelectedChanged(bool value)
+    {
+        foreach (var file in Files)
+            file.IsSelected = value;
+        UpdateSelectionCount();
+    }
+
+    private void HookSelectionEvents()
+    {
+        foreach (var file in Files)
+        {
+            file.PropertyChanged -= OnFilePropertyChanged;
+            file.PropertyChanged += OnFilePropertyChanged;
+        }
+    }
+
+    private void OnFilePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ShredFileItem.IsSelected))
+            UpdateSelectionCount();
+    }
+
+    private void UpdateSelectionCount()
+    {
+        SelectedCount = Files.Count(f => f.IsSelected);
+        OnPropertyChanged(nameof(HasCheckedItems));
     }
 
     partial void OnSelectedAlgorithmChanged(FileShredderService.ShredAlgorithm value) =>
@@ -92,6 +125,8 @@ public partial class FileShredderViewModel : ObservableObject
             }
 
             StatusMessage = $"{Files.Count} file(s) ready to shred.";
+            HookSelectionEvents();
+            UpdateSelectionCount();
         }
     }
 
@@ -136,6 +171,8 @@ public partial class FileShredderViewModel : ObservableObject
                 }
 
                 StatusMessage = $"Added {added} files from {Path.GetFileName(dir)}. Total: {Files.Count} file(s).";
+                HookSelectionEvents();
+                UpdateSelectionCount();
             }
             catch (Exception ex)
             {
@@ -149,6 +186,7 @@ public partial class FileShredderViewModel : ObservableObject
     {
         if (item == null) return;
         Files.Remove(item);
+        UpdateSelectionCount();
         StatusMessage = $"{Files.Count} file(s) in queue.";
     }
 
@@ -169,17 +207,21 @@ public partial class FileShredderViewModel : ObservableObject
             return;
         }
 
+        var filesToShred = Files.Where(f => f.IsSelected).ToList();
+        if (filesToShred.Count == 0)
+            filesToShred = Files.ToList();
+
         IsBusy = true;
         HasResults = false;
-        ProgressTotal = Files.Count;
+        ProgressTotal = filesToShred.Count;
         ProgressCurrent = 0;
 
         int passes = FileShredderService.GetPassCount(SelectedAlgorithm);
-        StatusMessage = $"Shredding {Files.Count} files with {passes}-pass overwrite...";
+        StatusMessage = $"Shredding {filesToShred.Count} files with {passes}-pass overwrite...";
 
         try
         {
-            var paths = Files.Select(f => f.FullPath).ToList();
+            var paths = filesToShred.Select(f => f.FullPath).ToList();
 
             var progress = new Progress<(int current, int total, string fileName)>(p =>
             {
@@ -200,6 +242,8 @@ public partial class FileShredderViewModel : ObservableObject
             // Remove successfully shredded files from the list
             var remaining = Files.Where(f => File.Exists(f.FullPath)).ToList();
             Files = new ObservableCollection<ShredFileItem>(remaining);
+            HookSelectionEvents();
+            UpdateSelectionCount();
 
             StatusMessage = result.FilesFailed == 0
                 ? $"Successfully shredded {result.FilesShredded} files ({FormatHelper.FormatBytes(result.TotalBytesOverwritten)} overwritten)."
@@ -221,14 +265,75 @@ public partial class FileShredderViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Accepts files dropped via drag-and-drop.
+    /// Resolves directories to their contained files.
+    /// </summary>
+    public void AddDroppedFiles(string[] paths)
+    {
+        int added = 0;
+        foreach (var path in paths)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    foreach (var file in Directory.GetFiles(path, "*", SearchOption.TopDirectoryOnly))
+                        added += TryAddFile(file) ? 1 : 0;
+                }
+                else if (File.Exists(path))
+                {
+                    added += TryAddFile(path) ? 1 : 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("FileShredder", $"Error processing dropped path: {path}", ex);
+            }
+        }
+
+        StatusMessage = added > 0
+            ? $"Added {added} file(s) via drag-and-drop. Total: {Files.Count} file(s)."
+            : $"{Files.Count} file(s) in queue (dropped files already in list).";
+        HookSelectionEvents();
+        UpdateSelectionCount();
+    }
+
+    private bool TryAddFile(string path)
+    {
+        if (Files.Any(f => f.FullPath.Equals(path, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        try
+        {
+            var info = new FileInfo(path);
+            Files.Add(new ShredFileItem
+            {
+                FullPath = path,
+                FileName = info.Name,
+                SizeBytes = info.Length,
+                FormattedSize = FormatHelper.FormatBytes(info.Length),
+            });
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
     /// Represents a file queued for shredding.
     /// </summary>
-    public class ShredFileItem
+    public class ShredFileItem : ObservableObject
     {
         public string FullPath { get; init; } = string.Empty;
         public string FileName { get; init; } = string.Empty;
         public long SizeBytes { get; init; }
         public string FormattedSize { get; init; } = string.Empty;
+
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
     }
 
     /// <summary>

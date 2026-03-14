@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using AuraClean.Services;
 using AuraClean.ViewModels;
 
 namespace AuraClean.Views;
@@ -13,6 +14,8 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private Dictionary<string, FrameworkElement>? _viewMap;
+    private System.Windows.Forms.NotifyIcon? _trayIcon;
+    private bool _forceClose;
 
     public MainWindow()
     {
@@ -40,6 +43,7 @@ public partial class MainWindow : Window
                 ["Settings"] = SettingsContent,
                 ["History"] = HistoryContent,
                 ["Quarantine"] = QuarantineContent,
+                ["ThreatScanner"] = ThreatScannerContent,
             };
 
             // Show dashboard by default
@@ -47,6 +51,9 @@ public partial class MainWindow : Window
 
             // Auto-load installed programs when the app starts
             _ = _viewModel.Uninstaller.LoadProgramsCommand.ExecuteAsync(null);
+
+            // Initialize system tray icon
+            InitializeTrayIcon();
         }
         catch (Exception ex)
         {
@@ -58,6 +65,75 @@ public partial class MainWindow : Window
             throw; // rethrow so the app-level handler also catches it
         }
     }
+
+    private void InitializeTrayIcon()
+    {
+        _trayIcon = new System.Windows.Forms.NotifyIcon
+        {
+            Text = "AuraClean",
+            Visible = false,
+        };
+
+        // Extract icon from the running executable
+        var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+        if (exePath != null)
+        {
+            var icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath);
+            if (icon != null)
+                _trayIcon.Icon = icon;
+        }
+        _trayIcon.Icon ??= System.Drawing.SystemIcons.Application;
+
+        _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+
+        var menu = new System.Windows.Forms.ContextMenuStrip();
+        menu.Items.Add("Open AuraClean", null, (_, _) => RestoreFromTray());
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        menu.Items.Add("Exit", null, (_, _) => { _forceClose = true; Dispatcher.Invoke(Close); });
+        _trayIcon.ContextMenuStrip = menu;
+    }
+
+    private void RestoreFromTray()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+            if (_trayIcon != null) _trayIcon.Visible = false;
+        });
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+        if (WindowState == WindowState.Minimized && IsTrayEnabled())
+        {
+            Hide();
+            if (_trayIcon != null) _trayIcon.Visible = true;
+        }
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        if (!_forceClose && IsTrayEnabled())
+        {
+            e.Cancel = true;
+            WindowState = WindowState.Minimized;
+            return;
+        }
+
+        // Cleanup tray icon on actual close
+        if (_trayIcon != null)
+        {
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            _trayIcon = null;
+        }
+    }
+
+    private static bool IsTrayEnabled() => SettingsService.Load().MinimizeToTray;
 
     private void OnViewModelPropertyChanged(object? sender,
         System.ComponentModel.PropertyChangedEventArgs e)
@@ -78,5 +154,9 @@ public partial class MainWindow : Window
 
         if (_viewMap.TryGetValue(viewName, out var target))
             target.Visibility = Visibility.Visible;
+
+        // Auto-refresh quarantine list when navigating to it
+        if (viewName == "Quarantine")
+            _viewModel.Quarantine.LoadEntriesCommand.Execute(null);
     }
 }

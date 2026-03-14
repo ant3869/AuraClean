@@ -24,6 +24,11 @@ public partial class UninstallerViewModel : ObservableObject
     [ObservableProperty] private bool _hasPostUninstallResults;
     [ObservableProperty] private bool _isDryRun;
 
+    // Selection
+    [ObservableProperty] private int _selectedCount;
+    [ObservableProperty] private bool _isAllSelected;
+    public bool HasCheckedItems => SelectedCount > 0;
+
     public UninstallerViewModel()
     {
     }
@@ -31,6 +36,34 @@ public partial class UninstallerViewModel : ObservableObject
     partial void OnSearchTextChanged(string value)
     {
         ApplyFilter();
+    }
+
+    partial void OnIsAllSelectedChanged(bool value)
+    {
+        foreach (var program in FilteredPrograms)
+            program.IsSelected = value;
+        UpdateSelectionCount();
+    }
+
+    private void HookSelectionEvents(IEnumerable<InstalledProgram> programs)
+    {
+        foreach (var program in programs)
+        {
+            program.PropertyChanged -= OnProgramPropertyChanged;
+            program.PropertyChanged += OnProgramPropertyChanged;
+        }
+    }
+
+    private void OnProgramPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(InstalledProgram.IsSelected))
+            UpdateSelectionCount();
+    }
+
+    private void UpdateSelectionCount()
+    {
+        SelectedCount = FilteredPrograms.Count(p => p.IsSelected);
+        OnPropertyChanged(nameof(HasCheckedItems));
     }
 
     private void ApplyFilter()
@@ -46,6 +79,8 @@ public partial class UninstallerViewModel : ObservableObject
                     p.DisplayName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
                     p.Publisher.Contains(SearchText, StringComparison.OrdinalIgnoreCase)));
         }
+        HookSelectionEvents(FilteredPrograms);
+        UpdateSelectionCount();
     }
 
     [RelayCommand]
@@ -76,31 +111,33 @@ public partial class UninstallerViewModel : ObservableObject
     [RelayCommand]
     private async Task UninstallSelectedAsync()
     {
-        if (SelectedProgram == null) return;
+        var checkedPrograms = FilteredPrograms.Where(p => p.IsSelected).ToList();
+        if (checkedPrograms.Count == 0 && SelectedProgram != null)
+            checkedPrograms = [SelectedProgram];
+        if (checkedPrograms.Count == 0) return;
 
         IsBusy = true;
-        StatusMessage = $"Uninstalling {SelectedProgram.DisplayName}...";
+        int uninstalled = 0;
 
-        try
+        foreach (var program in checkedPrograms)
         {
-            var progress = new Progress<string>(msg => StatusMessage = msg);
-            var (success, message) = await UninstallerService.RunUninstallAsync(SelectedProgram, progress);
-            StatusMessage = message;
+            StatusMessage = $"Uninstalling {program.DisplayName}...";
 
-            if (success)
+            try
             {
-                // Refresh the program list
-                await LoadProgramsAsync();
+                var progress = new Progress<string>(msg => StatusMessage = msg);
+                var (success, message) = await UninstallerService.RunUninstallAsync(program, progress);
+                if (success) uninstalled++;
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Uninstall error: {ex.Message}";
             }
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Uninstall error: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+
+        StatusMessage = $"Uninstalled {uninstalled} program(s).";
+        await LoadProgramsAsync();
+        IsBusy = false;
     }
 
     [RelayCommand]

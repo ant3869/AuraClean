@@ -52,6 +52,12 @@ public partial class CleanerViewModel : ObservableObject
     [ObservableProperty] private int _totalJunkCount;
     [ObservableProperty] private double _progressValue;
 
+    // Last cleanup tracking for undo support
+    [ObservableProperty] private int _lastCleanedCount;
+    [ObservableProperty] private long _lastCleanedBytes;
+    [ObservableProperty] private bool _canUndoLastClean;
+    [ObservableProperty] private string _lastCleanedSummary = string.Empty;
+
     public string FormattedTotalSize => TotalJunkSize switch
     {
         0 => "0 B",
@@ -165,6 +171,12 @@ public partial class CleanerViewModel : ObservableObject
 
             StatusMessage = $"Cleaned {deleted} items ({FormatHelper.FormatBytes(bytesFreed)} freed). " +
                            $"{skipped} skipped (locked/in-use).";
+
+            // Track last cleanup for undo support
+            LastCleanedCount = deleted;
+            LastCleanedBytes = bytesFreed;
+            LastCleanedSummary = $"{deleted} items ({FormatHelper.FormatBytes(bytesFreed)}) cleaned at {DateTime.Now:HH:mm:ss}";
+            CanUndoLastClean = rpSuccess;
 
             if (errors.Count > 0)
             {

@@ -51,6 +51,7 @@ public partial class MainViewModel : ObservableObject
     public SettingsViewModel Settings { get; } = new();
     public CleanupHistoryViewModel CleanupHistory { get; } = new();
     public QuarantineViewModel Quarantine { get; } = new();
+    public ThreatScannerViewModel ThreatScanner { get; } = new();
 
     // Context menu
     [ObservableProperty] private bool _isContextMenuInstalled;
@@ -180,6 +181,32 @@ public partial class MainViewModel : ObservableObject
         StatusBarText = "Boosting memory...";
         await Memory.BoostMemoryCommand.ExecuteAsync(null);
         StatusBarText = Memory.StatusMessage;
+    }
+
+    [RelayCommand]
+    private void UndoLastClean()
+    {
+        if (!Cleaner.CanUndoLastClean)
+        {
+            StatusBarText = "No recent cleanup to undo.";
+            return;
+        }
+
+        try
+        {
+            // Launch Windows System Restore UI so user can revert to the pre-cleanup restore point
+            var psi = new System.Diagnostics.ProcessStartInfo("rstrui.exe")
+            {
+                UseShellExecute = true
+            };
+            System.Diagnostics.Process.Start(psi);
+            StatusBarText = "System Restore opened — select the AuraClean restore point to undo.";
+        }
+        catch (Exception ex)
+        {
+            StatusBarText = $"Could not open System Restore: {ex.Message}";
+            DiagnosticLogger.Warn("MainViewModel", "Failed to launch System Restore", ex);
+        }
     }
 
     [RelayCommand]

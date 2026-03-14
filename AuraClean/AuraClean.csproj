@@ -8,13 +8,22 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
 
+  <!-- Prevent WinForms implicit usings from conflicting with WPF types -->
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <PropertyGroup>
     <!-- Application metadata -->
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>AuraClean</Authors>
-    <Description>High-performance Windows system utility — deep uninstaller + system hygiene engine.</Description>
+    <Description>High-performance Windows system utility — deep uninstaller, system hygiene engine, and threat scanner.</Description>
 
     <!-- Single-file deployment -->
     <PublishSingleFile>true</PublishSingleFile>
@@ -32,6 +41,7 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
+    <PackageReference Include="TaskScheduler" Version="2.11.0" />
   </ItemGroup>
 
 </Project>

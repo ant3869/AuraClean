@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="https://img.shields.io/badge/Version-1.1.0-7C5CFC?style=for-the-badge" alt="v1.1.0" />
   <img src="https://img.shields.io/badge/.NET-8.0-purple?style=for-the-badge&logo=dotnet" alt=".NET 8" />
   <img src="https://img.shields.io/badge/WPF-Desktop-blue?style=for-the-badge&logo=windows" alt="WPF" />
   <img src="https://img.shields.io/badge/MaterialDesign-5.1-00BCD4?style=for-the-badge" alt="MaterialDesign" />
@@ -8,7 +9,7 @@
 <h1 align="center">AuraClean</h1>
 <p align="center"><strong>A modern Windows system cleaner &amp; optimizer built with WPF and .NET 8</strong></p>
 <p align="center">
-  Deep uninstaller · System hygiene engine · Privacy cleaner · RAM booster · Storage analyzer<br/>
+  Deep uninstaller · System hygiene engine · Privacy cleaner · RAM booster · Storage analyzer · Threat scanner<br/>
   All wrapped in a dark glass-morphism UI called <em>Obsidian Aurora</em>
 </p>
 
@@ -20,25 +21,26 @@
 
 ---
 
-## Features (15 Pages)
+## Features (16 Pages)
 
 | Page | Description |
 |------|-------------|
-| **Dashboard** | System health score (0–100), quick-action buttons, system info strip (OS, CPU, RAM, uptime) |
-| **Uninstaller** | Deep uninstall with orphaned registry + remnant file scanning, force uninstall for broken MSI, dry-run mode |
+| **Dashboard** | System health score (0–100), quick-action buttons, undo last clean, system info strip (OS, CPU, RAM, uptime) |
+| **Threat Scanner** | Heuristic malware/adware/PUP detection with signature database, real-time scanning of files, processes, startup entries, scheduled tasks, services, and hosts file — quarantine integration |
+| **Uninstaller** | Deep uninstall with orphaned registry + remnant file scanning, force uninstall for broken MSI, dry-run mode, batch selection |
 | **System Cleaner** | Scans 14 junk categories (temp files, Windows Update cache, prefetch, crash dumps, Recycle Bin, etc.) |
 | **RAM Booster** | Working-set trimming via `EmptyWorkingSet` + standby list purge via `NtSetSystemInformation` |
 | **Privacy Clean** | Chromium browser cache/cookies/tracking cleanup with SQLite VACUUM, DNS flush |
 | **Storage Map** | Visual treemap disk analyzer with breadcrumb navigation and top-10 largest files |
 | **Install Monitor** | Before/after snapshot diffing — captures registry keys, files, and directories created by installers |
-| **Startup Manager** | Registry Run keys + shell:startup + Task Scheduler entries with enable/disable/delete, impact ratings |
+| **Startup Manager** | Registry Run keys + shell:startup + Task Scheduler entries with enable/disable/delete, impact ratings, batch selection |
 | **Duplicate Finder** | 3-pass detection: file size → partial 4KB hash → full SHA-256, configurable size filters |
-| **Large File Finder** | Scans drives for files above a threshold (50MB–1GB), categorized by type (Video, Archive, etc.) |
-| **File Shredder** | Secure multi-pass deletion: Quick Zero, Random, DoD 5220.22-M (3-pass), Enhanced (7-pass) |
+| **Large File Finder** | Scans drives for files above a threshold (50MB–1GB), categorized by type, batch delete with selection count |
+| **File Shredder** | Secure multi-pass deletion: Quick Zero, Random, DoD 5220.22-M (3-pass), Enhanced (7-pass), drag-and-drop support |
 | **System Info** | WMI-based hardware inventory: OS, CPU, Memory, GPU, Storage, Network, Motherboard, Runtime |
-| **Quarantine** | Move suspicious files to quarantine with restore capability, auto-purge expired entries |
+| **Quarantine** | Move suspicious files to quarantine with restore capability, auto-purge expired entries, cross-module messaging |
 | **Cleanup History** | Persistent log of all past operations with summary stats, filtering, and text export |
-| **Settings** | Centralized preferences: restore points, dry-run, scan defaults, shred algorithm, retention policies |
+| **Settings** | Centralized preferences: restore points, dry-run, scan defaults, shred algorithm, retention policies, minimize-to-tray |
 
 ---
 
@@ -49,7 +51,8 @@ AuraClean/
 ├── Models/                 # ObservableObject data models
 │   ├── InstalledProgram.cs
 │   ├── JunkItem.cs         # 17-value JunkType enum
-│   └── ScanResult.cs
+│   ├── ScanResult.cs
+│   └── ThreatItem.cs       # ThreatLevel/ThreatType enums + ThreatItem model
 ├── Services/               # All static, async, with IProgress<string> + CancellationToken
 │   ├── BrowserCleanerService.cs
 │   ├── CleanupHistoryService.cs
@@ -70,14 +73,17 @@ AuraClean/
 │   ├── SettingsService.cs
 │   ├── StartupManagerService.cs
 │   ├── SystemInfoService.cs
+│   ├── ThemeService.cs              # Dynamic theme switching
+│   ├── ThreatScannerService.cs      # Heuristic malware/PUP scanner
+│   ├── ThreatSignatureDatabase.cs   # Threat signature definitions
 │   └── UninstallerService.cs
 ├── ViewModels/             # CommunityToolkit.Mvvm ObservableObject + [RelayCommand]
 │   ├── MainViewModel.cs    # Root VM: navigation, health score, system info
-│   └── ...                 # 14 feature ViewModels
+│   └── ...                 # 15 feature ViewModels
 ├── Views/                  # WPF UserControls + MainWindow
-│   ├── MainWindow.xaml     # Sidebar nav + content switching
-│   └── ...                 # 15 feature views
-├── Converters/             # FileSizeConverter, BoolToVisibility, HealthScoreColor, etc.
+│   ├── MainWindow.xaml     # Sidebar nav + content switching + system tray
+│   └── ...                 # 16 feature views
+├── Converters/             # FileSizeConverter, BoolToVisibility, InverseBoolToVisibility, IntToVisibility, etc.
 ├── Helpers/                # DiagnosticLogger, FormatHelper
 └── Assets/                 # icon.ico
 ```
@@ -87,10 +93,12 @@ AuraClean/
 | Pattern | Implementation |
 |---------|---------------|
 | **MVVM** | CommunityToolkit.Mvvm source generators (`[ObservableProperty]`, `[RelayCommand]`) |
-| **Static Services** | All 20 services are `static` classes — no DI container |
+| **Static Services** | All 23 services are `static` classes — no DI container |
 | **Navigation** | String-based view switching via `MainViewModel.CurrentViewName` → code-behind `Dictionary<string, FrameworkElement>` |
 | **Progress Reporting** | Every long operation accepts `IProgress<string>` for live status updates |
 | **Cancellation** | All async operations support `CancellationToken` |
+| **Messaging** | `WeakReferenceMessenger` for cross-module communication (e.g. ThreatScanner → Quarantine) |
+| **Dynamic Theming** | `ThemeService` swaps `DynamicResource` brushes at runtime |
 | **Diagnostic Logging** | `DiagnosticLogger` writes daily logs to `%LocalAppData%\AuraClean\Logs\` |
 
 ### Native Interop (P/Invoke)
@@ -110,12 +118,14 @@ AuraClean/
 |-----------|---------|---------|
 | [.NET 8.0](https://dotnet.microsoft.com/) | `net8.0-windows` | Runtime & SDK |
 | [WPF](https://github.com/dotnet/wpf) | Built-in | UI framework |
+| [Windows Forms](https://github.com/dotnet/winforms) | Built-in | System tray (NotifyIcon) |
 | [MaterialDesignThemes](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit) | 5.1.0 | UI components & icons |
 | [MaterialDesignColors](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit) | 3.1.0 | Color palette resources |
 | [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) | 8.3.2 | MVVM infrastructure |
 | [System.Management](https://www.nuget.org/packages/System.Management) | 8.0.0 | WMI queries |
 | [System.Data.SQLite.Core](https://www.nuget.org/packages/System.Data.SQLite.Core) | 1.0.119 | Browser database VACUUM |
 | [System.ServiceProcess.ServiceController](https://www.nuget.org/packages/System.ServiceProcess.ServiceController) | 8.0.1 | Stop/start Windows services |
+| [TaskScheduler](https://www.nuget.org/packages/TaskScheduler) | 2.11.0 | Windows Task Scheduler interaction |
 
 ---
 
@@ -224,12 +234,15 @@ The System Cleaner scans 14 categories via `FileCleanerService`:
 ## Security Notes
 
 - **Runs as Administrator** — required by design for system-level cleanup operations
+- **Threat scanning** — heuristic scanner detects malware, adware, PUPs, browser hijackers, and suspicious processes/services with automatic quarantine
 - **Restore points** — optional system restore point creation before destructive operations
+- **Undo last clean** — dashboard button to launch System Restore for quick rollback
 - **Dry-run mode** — scan-only mode that reports what would be deleted without touching files
 - **File shredding** — multi-pass overwrite algorithms (DoD 5220.22-M standard) before deletion
 - **Quarantine** — deleted files can be quarantined instead of permanently removed, with timed auto-purge
 - **File lock detection** — uses Windows Restart Manager API to identify processes holding file locks
 - **Boot-time delete** — `MoveFileEx` with `MOVEFILE_DELAY_UNTIL_REBOOT` for stubborn locked files
+- **Minimize to tray** — optional system tray integration to keep running in background
 
 ---
 

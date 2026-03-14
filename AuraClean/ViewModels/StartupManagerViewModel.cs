@@ -27,6 +27,11 @@ public partial class StartupManagerViewModel : ObservableObject
     [ObservableProperty] private int _disabledCount;
     [ObservableProperty] private int _highImpactCount;
 
+    // Selection
+    [ObservableProperty] private int _selectedCount;
+    [ObservableProperty] private bool _isAllSelected;
+    public bool HasCheckedItems => SelectedCount > 0;
+
     public StartupManagerViewModel()
     {
         _ = LoadEntriesAsync().ContinueWith(t =>
@@ -37,6 +42,34 @@ public partial class StartupManagerViewModel : ObservableObject
     partial void OnSearchTextChanged(string value) => ApplyFilter();
     partial void OnShowDisabledOnlyChanged(bool value) => ApplyFilter();
     partial void OnShowEnabledOnlyChanged(bool value) => ApplyFilter();
+
+    partial void OnIsAllSelectedChanged(bool value)
+    {
+        foreach (var entry in FilteredEntries)
+            entry.IsSelected = value;
+        UpdateSelectionCount();
+    }
+
+    private void HookSelectionEvents(IEnumerable<StartupManagerService.StartupEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            entry.PropertyChanged -= OnEntryPropertyChanged;
+            entry.PropertyChanged += OnEntryPropertyChanged;
+        }
+    }
+
+    private void OnEntryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StartupManagerService.StartupEntry.IsSelected))
+            UpdateSelectionCount();
+    }
+
+    private void UpdateSelectionCount()
+    {
+        SelectedCount = FilteredEntries.Count(e => e.IsSelected);
+        OnPropertyChanged(nameof(HasCheckedItems));
+    }
 
     private void ApplyFilter()
     {
@@ -56,6 +89,8 @@ public partial class StartupManagerViewModel : ObservableObject
             filtered = filtered.Where(e => !e.IsEnabled);
 
         FilteredEntries = new ObservableCollection<StartupManagerService.StartupEntry>(filtered);
+        HookSelectionEvents(FilteredEntries);
+        UpdateSelectionCount();
     }
 
     private void UpdateStats()
@@ -96,64 +131,73 @@ public partial class StartupManagerViewModel : ObservableObject
     [RelayCommand]
     private async Task ToggleSelectedAsync()
     {
-        if (SelectedEntry == null) return;
+        var checkedEntries = FilteredEntries.Where(e => e.IsSelected).ToList();
+        if (checkedEntries.Count == 0 && SelectedEntry != null)
+            checkedEntries = [SelectedEntry];
+        if (checkedEntries.Count == 0) return;
 
         IsBusy = true;
-        bool newState = !SelectedEntry.IsEnabled;
-        StatusMessage = newState
-            ? $"Enabling {SelectedEntry.Name}..."
-            : $"Disabling {SelectedEntry.Name}...";
+        int toggled = 0;
 
-        try
+        foreach (var entry in checkedEntries)
         {
-            var (success, message) = await StartupManagerService.ToggleStartupEntryAsync(SelectedEntry, newState);
-            StatusMessage = message;
+            bool newState = !entry.IsEnabled;
+            StatusMessage = newState
+                ? $"Enabling {entry.Name}..."
+                : $"Disabling {entry.Name}...";
 
-            if (success)
+            try
             {
-                UpdateStats();
-                ApplyFilter();
+                var (success, message) = await StartupManagerService.ToggleStartupEntryAsync(entry, newState);
+                if (success) toggled++;
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error: {ex.Message}";
             }
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+
+        UpdateStats();
+        ApplyFilter();
+        StatusMessage = $"Toggled {toggled} startup item(s).";
+        IsBusy = false;
     }
 
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
-        if (SelectedEntry == null) return;
+        var checkedEntries = FilteredEntries.Where(e => e.IsSelected).ToList();
+        if (checkedEntries.Count == 0 && SelectedEntry != null)
+            checkedEntries = [SelectedEntry];
+        if (checkedEntries.Count == 0) return;
 
         IsBusy = true;
-        StatusMessage = $"Deleting {SelectedEntry.Name}...";
+        int deleted = 0;
 
-        try
+        foreach (var entry in checkedEntries)
         {
-            var (success, message) = await StartupManagerService.DeleteStartupEntryAsync(SelectedEntry);
-            StatusMessage = message;
+            StatusMessage = $"Deleting {entry.Name}...";
 
-            if (success)
+            try
             {
-                Entries.Remove(SelectedEntry);
-                ApplyFilter();
-                UpdateStats();
-                SelectedEntry = null;
+                var (success, message) = await StartupManagerService.DeleteStartupEntryAsync(entry);
+                if (success)
+                {
+                    Entries.Remove(entry);
+                    deleted++;
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error: {ex.Message}";
             }
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+
+        ApplyFilter();
+        UpdateStats();
+        SelectedEntry = null;
+        StatusMessage = $"Deleted {deleted} startup item(s).";
+        IsBusy = false;
     }
 
     [RelayCommand]

@@ -1,0 +1,14 @@
+  Determining projects to restore...
+  Restored c:\Users\SuperHands\Desktop\cleaner\AuraClean\AuraClean.csproj (in 744 ms).
+CSC : warning WFAC010: Remove high DPI settings from c:\Users\SuperHands\Desktop\cleaner\AuraClean\app.manifest and configure via Application.SetHighDpiMode API or 'ApplicationHighDpiMode' project property [c:\Users\SuperHands\Desktop\cleaner\AuraClean\AuraClean_evs1bltc_wpftmp.csproj]
+CSC : warning WFAC010: Remove high DPI settings from c:\Users\SuperHands\Desktop\cleaner\AuraClean\app.manifest and configure via Application.SetHighDpiMode API or 'ApplicationHighDpiMode' project property [c:\Users\SuperHands\Desktop\cleaner\AuraClean\AuraClean.csproj]
+  AuraClean -> c:\Users\SuperHands\Desktop\cleaner\AuraClean\bin\Debug\net8.0-windows\win-x64\AuraClean.dll
+
+Build succeeded.
+
+CSC : warning WFAC010: Remove high DPI settings from c:\Users\SuperHands\Desktop\cleaner\AuraClean\app.manifest and configure via Application.SetHighDpiMode API or 'ApplicationHighDpiMode' project property [c:\Users\SuperHands\Desktop\cleaner\AuraClean\AuraClean_evs1bltc_wpftmp.csproj]
+CSC : warning WFAC010: Remove high DPI settings from c:\Users\SuperHands\Desktop\cleaner\AuraClean\app.manifest and configure via Application.SetHighDpiMode API or 'ApplicationHighDpiMode' project property [c:\Users\SuperHands\Desktop\cleaner\AuraClean\AuraClean.csproj]
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.92

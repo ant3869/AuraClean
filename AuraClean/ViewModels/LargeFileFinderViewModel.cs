@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 
 namespace AuraClean.ViewModels;
 
@@ -22,6 +23,11 @@ public partial class LargeFileFinderViewModel : ObservableObject
     [ObservableProperty] private int _progressFilesFound;
     [ObservableProperty] private string _progressCurrentDir = string.Empty;
     [ObservableProperty] private LargeFileFinderService.LargeFileEntry? _selectedFile;
+    [ObservableProperty] private int _selectedCount;
+    [ObservableProperty] private long _selectedSize;
+    [ObservableProperty] private bool _isAllSelected;
+
+    public string FormattedSelectedSize => FormatHelper.FormatBytes(SelectedSize);
 
     // Results summary
     [ObservableProperty] private bool _hasResults;
@@ -72,6 +78,13 @@ public partial class LargeFileFinderViewModel : ObservableObject
     partial void OnFilterTextChanged(string value) => ApplyFilter();
     partial void OnFilterCategoryChanged(string value) => ApplyFilter();
 
+    partial void OnIsAllSelectedChanged(bool value)
+    {
+        foreach (var file in FilteredFiles)
+            file.IsSelected = value;
+        UpdateSelectionCount();
+    }
+
     private void LoadDrives()
     {
         var driveList = LargeFileFinderService.GetDrives();
@@ -105,6 +118,26 @@ public partial class LargeFileFinderViewModel : ObservableObject
         }
 
         FilteredFiles = new ObservableCollection<LargeFileFinderService.LargeFileEntry>(filtered);
+        HookSelectionEvents(FilteredFiles);
+        UpdateSelectionCount();
+    }
+
+    private void HookSelectionEvents(IEnumerable<LargeFileFinderService.LargeFileEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            entry.SelectionChanged -= OnItemSelectionChanged;
+            entry.SelectionChanged += OnItemSelectionChanged;
+        }
+    }
+
+    private void OnItemSelectionChanged() => UpdateSelectionCount();
+
+    private void UpdateSelectionCount()
+    {
+        SelectedCount = FilteredFiles.Count(f => f.IsSelected);
+        SelectedSize = FilteredFiles.Where(f => f.IsSelected).Sum(f => f.SizeBytes);
+        OnPropertyChanged(nameof(FormattedSelectedSize));
     }
 
     [RelayCommand]
@@ -223,20 +256,34 @@ public partial class LargeFileFinderViewModel : ObservableObject
     [RelayCommand]
     private void DeleteSelected()
     {
-        if (SelectedFile == null) return;
+        var checkedFiles = FilteredFiles.Where(f => f.IsSelected).ToList();
 
-        var (success, message) = LargeFileFinderService.DeleteFile(SelectedFile.FullPath);
-        StatusMessage = message;
+        // Fall back to single-selected row if nothing is checked
+        if (checkedFiles.Count == 0 && SelectedFile != null)
+            checkedFiles = [SelectedFile];
 
-        if (success)
+        if (checkedFiles.Count == 0) return;
+
+        int deleted = 0;
+        long freedBytes = 0;
+
+        foreach (var file in checkedFiles)
         {
-            TotalSizeFound -= SelectedFile.SizeBytes;
-            OnPropertyChanged(nameof(FormattedTotalSize));
-            Files.Remove(SelectedFile);
-            ApplyFilter();
-            ResultCount = Files.Count;
-            SelectedFile = null;
+            var (success, _) = LargeFileFinderService.DeleteFile(file.FullPath);
+            if (success)
+            {
+                freedBytes += file.SizeBytes;
+                Files.Remove(file);
+                deleted++;
+            }
         }
+
+        TotalSizeFound -= freedBytes;
+        OnPropertyChanged(nameof(FormattedTotalSize));
+        ResultCount = Files.Count;
+        ApplyFilter();
+        SelectedFile = null;
+        StatusMessage = $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}.";
     }
 
     /// <summary>

@@ -116,7 +116,6 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <!-- Stats -->
@@ -160,13 +159,26 @@
                          FontSize="12" Padding="8,6" />
 
                 <!-- Actions -->
-                <Button Grid.Column="4" Style="{StaticResource AuraGhostButton}"
-                        Command="{Binding OpenFileLocationCommand}"
-                        Content="Open Location" Padding="12,6" Margin="8,0,0,0" />
-                <Button Grid.Column="5" Style="{StaticResource AuraGhostButton}"
-                        Command="{Binding DeleteSelectedCommand}"
-                        Foreground="{StaticResource AuraWarning}"
-                        Content="Delete" Padding="12,6" Margin="4,0,0,0" />
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="8,0,0,0">
+                    <Border Background="{StaticResource AuraSurfaceLight}" CornerRadius="8"
+                            Padding="10,4" VerticalAlignment="Center" Margin="0,0,8,0"
+                            Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                        <TextBlock FontSize="12" VerticalAlignment="Center">
+                            <Run Text="{Binding SelectedCount, Mode=OneWay}" Foreground="{StaticResource AuraAccentPurple}" FontWeight="SemiBold" />
+                            <Run Text=" checked" Foreground="{StaticResource AuraTextSecondary}" />
+                            <Run Text=" (" Foreground="{StaticResource AuraTextMuted}" />
+                            <Run Text="{Binding FormattedSelectedSize, Mode=OneWay}" Foreground="{StaticResource AuraWarning}" />
+                            <Run Text=")" Foreground="{StaticResource AuraTextMuted}" />
+                        </TextBlock>
+                    </Border>
+                    <Button Style="{StaticResource AuraGhostButton}"
+                            Command="{Binding OpenFileLocationCommand}"
+                            Content="Open Location" Padding="12,6" />
+                    <Button Style="{StaticResource AuraGhostButton}"
+                            Command="{Binding DeleteSelectedCommand}"
+                            Foreground="{StaticResource AuraWarning}"
+                            Content="Delete" Padding="12,6" Margin="4,0,0,0" />
+                </StackPanel>
             </Grid>
 
             <!-- File DataGrid -->
@@ -174,9 +186,8 @@
                       ItemsSource="{Binding FilteredFiles}"
                       SelectedItem="{Binding SelectedFile}"
                       AutoGenerateColumns="False"
-                      IsReadOnly="True"
                       CanUserSortColumns="True"
-                      SelectionMode="Single"
+                      SelectionMode="Extended"
                       Background="Transparent"
                       Foreground="{StaticResource AuraTextPrimary}"
                       BorderThickness="0"
@@ -187,16 +198,35 @@
                       HeadersVisibility="Column">
 
                 <DataGrid.Columns>
+                    <!-- Checkbox Column -->
+                    <DataGridTemplateColumn Width="42">
+                        <DataGridTemplateColumn.Header>
+                            <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                      HorizontalAlignment="Center"
+                                      ToolTip="Select / Deselect All" />
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="*"
+                                        IsReadOnly="True"
                                         Foreground="{StaticResource AuraTextPrimary}" />
                     <DataGridTextColumn Header="Size" Binding="{Binding FormattedSize}" Width="100"
+                                        IsReadOnly="True"
                                         Foreground="{StaticResource AuraAccentTeal}"
                                         SortMemberPath="SizeBytes" />
                     <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="110"
+                                        IsReadOnly="True"
                                         Foreground="{StaticResource AuraTextSecondary}" />
                     <DataGridTextColumn Header="Modified" Binding="{Binding LastModified, StringFormat=yyyy-MM-dd}" Width="100"
+                                        IsReadOnly="True"
                                         Foreground="{StaticResource AuraTextSecondary}" />
                     <DataGridTextColumn Header="Directory" Binding="{Binding Directory}" Width="*"
+                                        IsReadOnly="True"
                                         Foreground="{StaticResource AuraTextMuted}" />
                 </DataGrid.Columns>
             </DataGrid>
