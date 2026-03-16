@@ -74,6 +74,8 @@ public static class MemoryManagerService
             // Snapshot current RAM usage
             var memBefore = GC.GetGCMemoryInfo();
             var processes = Process.GetProcesses();
+            try
+            {
             progress?.Report($"Analyzing {processes.Length} processes...");
 
             // Calculate pre-boost working set
@@ -83,7 +85,7 @@ public static class MemoryManagerService
                 {
                     totalWorkingSetBefore += proc.WorkingSet64;
                 }
-                catch { }
+                catch (Exception ex) { DiagnosticLogger.Warn("MemoryManager", $"Failed to read WorkingSet64 for PID {proc.Id}", ex); }
             }
 
             if (!dryRun)
@@ -117,8 +119,9 @@ public static class MemoryManagerService
                             CloseHandle(handle);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        DiagnosticLogger.Warn("MemoryManager", $"Failed to trim process {proc.Id}", ex);
                         skipped++;
                     }
                 }
@@ -150,7 +153,7 @@ public static class MemoryManagerService
                 foreach (var proc in postProcesses)
                 {
                     try { totalWorkingSetAfter += proc.WorkingSet64; }
-                    catch { }
+                    catch (Exception ex) { DiagnosticLogger.Warn("MemoryManager", $"Failed to read post-boost WorkingSet64", ex); }
                     finally { proc.Dispose(); }
                 }
             }
@@ -165,7 +168,7 @@ public static class MemoryManagerService
                         if (!IsProtectedProcess(proc))
                             reclaimable += (long)(proc.WorkingSet64 * 0.3);
                     }
-                    catch { }
+                    catch (Exception ex) { DiagnosticLogger.Warn("MemoryManager", "Failed to estimate reclaimable memory", ex); }
                 }
 
                 totalWorkingSetAfter = totalWorkingSetBefore - reclaimable;
@@ -173,10 +176,14 @@ public static class MemoryManagerService
                 standbyPurged = purgeStandbyList;
             }
 
-            // Dispose process snapshots
-            foreach (var proc in processes)
+            }
+            finally
             {
-                try { proc.Dispose(); } catch { }
+                // Dispose process snapshots — guaranteed cleanup even if exception occurs mid-loop
+                foreach (var proc in processes)
+                {
+                    try { proc.Dispose(); } catch { /* Disposal failure is truly ignorable */ }
+                }
             }
 
             long freed = totalWorkingSetBefore - totalWorkingSetAfter;

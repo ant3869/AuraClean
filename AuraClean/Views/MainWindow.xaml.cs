@@ -44,6 +44,10 @@ public partial class MainWindow : Window
                 ["History"] = HistoryContent,
                 ["Quarantine"] = QuarantineContent,
                 ["ThreatScanner"] = ThreatScannerContent,
+                ["SoftwareUpdater"] = SoftwareUpdaterContent,
+                ["DiskOptimizer"] = DiskOptimizerContent,
+                ["FileRecovery"] = FileRecoveryContent,
+                ["EmptyFolders"] = EmptyFoldersContent,
             };
 
             // Show dashboard by default
@@ -57,6 +61,14 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            // Dispose tray icon if it was created before the crash
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+                _trayIcon = null;
+            }
+
             var logPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
                 "AuraClean_crash.log");
@@ -91,6 +103,9 @@ public partial class MainWindow : Window
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => { _forceClose = true; Dispatcher.Invoke(Close); });
         _trayIcon.ContextMenuStrip = menu;
+
+        // Register with NotificationService for app-wide tray notifications
+        NotificationService.RegisterTrayIcon(_trayIcon);
     }
 
     private void RestoreFromTray()

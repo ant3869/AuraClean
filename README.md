@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.1.0-7C5CFC?style=for-the-badge" alt="v1.1.0" />
+  <img src="https://img.shields.io/badge/Version-1.2.0-7C5CFC?style=for-the-badge" alt="v1.2.0" />
   <img src="https://img.shields.io/badge/.NET-8.0-purple?style=for-the-badge&logo=dotnet" alt=".NET 8" />
   <img src="https://img.shields.io/badge/WPF-Desktop-blue?style=for-the-badge&logo=windows" alt="WPF" />
   <img src="https://img.shields.io/badge/MaterialDesign-5.1-00BCD4?style=for-the-badge" alt="MaterialDesign" />
@@ -9,7 +9,7 @@
 <h1 align="center">AuraClean</h1>
 <p align="center"><strong>A modern Windows system cleaner &amp; optimizer built with WPF and .NET 8</strong></p>
 <p align="center">
-  Deep uninstaller · System hygiene engine · Privacy cleaner · RAM booster · Storage analyzer · Threat scanner<br/>
+  Deep uninstaller · System hygiene engine · Privacy cleaner · RAM booster · Storage analyzer · Threat scanner · Empty folder finder<br/>
   All wrapped in a dark glass-morphism UI called <em>Obsidian Aurora</em>
 </p>
 
@@ -21,7 +21,7 @@
 
 ---
 
-## Features (16 Pages)
+## Features (21 Pages)
 
 | Page | Description |
 |------|-------------|
@@ -40,7 +40,12 @@
 | **System Info** | WMI-based hardware inventory: OS, CPU, Memory, GPU, Storage, Network, Motherboard, Runtime |
 | **Quarantine** | Move suspicious files to quarantine with restore capability, auto-purge expired entries, cross-module messaging |
 | **Cleanup History** | Persistent log of all past operations with summary stats, filtering, and text export |
-| **Settings** | Centralized preferences: restore points, dry-run, scan defaults, shred algorithm, retention policies, minimize-to-tray |
+| **Disk Optimizer** | Drive analysis with TRIM, defragmentation, and optimization recommendations for HDD/SSD |
+| **Empty Folder Finder** | Bottom-up recursive scanner that detects empty folders and nested empty trees, with batch delete |
+| **File Recovery** | Scan and recover recently deleted files from disk |
+| **Software Updater** | View installed software with update status checks |
+| **WinSxS Cleanup** | Component Store analysis and cleanup via DISM (integrated into System Cleaner as category 15) |
+| **Settings** | Centralized preferences: restore points, dry-run, scan defaults, shred algorithm, retention policies, minimize-to-tray, scheduled cleanup |
 
 ---
 
@@ -50,7 +55,7 @@
 AuraClean/
 ├── Models/                 # ObservableObject data models
 │   ├── InstalledProgram.cs
-│   ├── JunkItem.cs         # 17-value JunkType enum
+│   ├── JunkItem.cs         # 18-value JunkType enum (includes WinSxS)
 │   ├── ScanResult.cs
 │   └── ThreatItem.cs       # ThreatLevel/ThreatType enums + ThreatItem model
 ├── Services/               # All static, async, with IProgress<string> + CancellationToken
@@ -76,13 +81,19 @@ AuraClean/
 │   ├── ThemeService.cs              # Dynamic theme switching
 │   ├── ThreatScannerService.cs      # Heuristic malware/PUP scanner
 │   ├── ThreatSignatureDatabase.cs   # Threat signature definitions
-│   └── UninstallerService.cs
+│   ├── UninstallerService.cs
+│   ├── DiskOptimizerService.cs       # Drive TRIM/defrag/optimization
+│   ├── EmptyFolderFinderService.cs   # Recursive empty-folder scanner + deleter
+│   ├── FileRecoveryService.cs        # Deleted file recovery
+│   ├── NotificationService.cs        # Toast notification helper
+│   ├── ScheduledCleanupService.cs    # Scheduled cleanup automation
+│   └── SoftwareUpdaterService.cs     # Installed software update checks
 ├── ViewModels/             # CommunityToolkit.Mvvm ObservableObject + [RelayCommand]
 │   ├── MainViewModel.cs    # Root VM: navigation, health score, system info
-│   └── ...                 # 15 feature ViewModels
+│   └── ...                 # 20 feature ViewModels
 ├── Views/                  # WPF UserControls + MainWindow
 │   ├── MainWindow.xaml     # Sidebar nav + content switching + system tray
-│   └── ...                 # 16 feature views
+│   └── ...                 # 21 feature views
 ├── Converters/             # FileSizeConverter, BoolToVisibility, InverseBoolToVisibility, IntToVisibility, etc.
 ├── Helpers/                # DiagnosticLogger, FormatHelper
 └── Assets/                 # icon.ico
@@ -93,7 +104,7 @@ AuraClean/
 | Pattern | Implementation |
 |---------|---------------|
 | **MVVM** | CommunityToolkit.Mvvm source generators (`[ObservableProperty]`, `[RelayCommand]`) |
-| **Static Services** | All 23 services are `static` classes — no DI container |
+| **Static Services** | All 29 services are `static` classes — no DI container |
 | **Navigation** | String-based view switching via `MainViewModel.CurrentViewName` → code-behind `Dictionary<string, FrameworkElement>` |
 | **Progress Reporting** | Every long operation accepts `IProgress<string>` for live status updates |
 | **Cancellation** | All async operations support `CancellationToken` |
@@ -205,13 +216,13 @@ The published binary is a **self-contained single-file executable** (~60MB) — 
 dotnet run --project TestFeatures/TestFeatures.csproj
 ```
 
-Tests cover `SystemInfoService`, `LargeFileFinderService`, and `FileShredderService` with pass/fail assertions.
+Tests cover `SystemInfoService`, `LargeFileFinderService`, `FileShredderService`, WinSxS DISM parsing (`ParseDismSize`), and `EmptyFolderFinderService` with 78 pass/fail assertions.
 
 ---
 
 ## Junk Categories (System Cleaner)
 
-The System Cleaner scans 14 categories via `FileCleanerService`:
+The System Cleaner scans 15 categories via `FileCleanerService`:
 
 | Category | Path(s) | Notes |
 |----------|---------|-------|
@@ -228,6 +239,7 @@ The System Cleaner scans 14 categories via `FileCleanerService`:
 | Windows Logs | `C:\Windows\Logs` | CBS, DISM, setup logs |
 | Windows.old | `C:\Windows.old` | Previous Windows installation |
 | Abandoned Files | AppData/ProgramData heuristic scan | Dirs with no matching registry entry + 180+ days stale |
+| WinSxS Component Store | `C:\Windows\WinSxS` | DISM `/AnalyzeComponentStore` + `/StartComponentCleanup` |
 
 ---
 
@@ -243,6 +255,8 @@ The System Cleaner scans 14 categories via `FileCleanerService`:
 - **File lock detection** — uses Windows Restart Manager API to identify processes holding file locks
 - **Boot-time delete** — `MoveFileEx` with `MOVEFILE_DELAY_UNTIL_REBOOT` for stubborn locked files
 - **Minimize to tray** — optional system tray integration to keep running in background
+- **Scheduled cleanup** — automated cleanup on a configurable schedule
+- **WinSxS safety** — component store cleanup uses official DISM commands (no manual file deletion)
 
 ---
 

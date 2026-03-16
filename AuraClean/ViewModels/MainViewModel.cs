@@ -1,4 +1,5 @@
 using AuraClean.Helpers;
+using AuraClean.Models;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,6 +22,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isAdmin;
     [ObservableProperty] private string _statusBarText = "AuraClean — Ready";
     [ObservableProperty] private DateTime _lastCleanedDate;
+    [ObservableProperty] private bool _isHealthCheckRunning;
+    [ObservableProperty] private string _healthCheckProgress = string.Empty;
+    [ObservableProperty] private int _healthCheckStep;
+    [ObservableProperty] private int _healthCheckTotalSteps = 4;
+    [ObservableProperty] private string _healthCheckSummary = string.Empty;
 
     // System info properties for Dashboard
     [ObservableProperty] private string _osName = string.Empty;
@@ -52,6 +58,10 @@ public partial class MainViewModel : ObservableObject
     public CleanupHistoryViewModel CleanupHistory { get; } = new();
     public QuarantineViewModel Quarantine { get; } = new();
     public ThreatScannerViewModel ThreatScanner { get; } = new();
+    public SoftwareUpdaterViewModel SoftwareUpdater { get; } = new();
+    public DiskOptimizerViewModel DiskOptimizer { get; } = new();
+    public FileRecoveryViewModel FileRecovery { get; } = new();
+    public EmptyFolderFinderViewModel EmptyFolderFinder { get; } = new();
 
     // Context menu
     [ObservableProperty] private bool _isContextMenuInstalled;
@@ -78,8 +88,10 @@ public partial class MainViewModel : ObservableObject
 
         UpdateHealthScore();
         _ = LoadSystemInfoAsync().ContinueWith(t =>
-            System.Diagnostics.Debug.WriteLine($"[MainViewModel] LoadSystemInfoAsync failed: {t.Exception}"),
-            TaskContinuationOptions.OnlyOnFaulted);
+        {
+            if (t.Exception != null)
+                DiagnosticLogger.Warn("MainViewModel", "LoadSystemInfoAsync failed", t.Exception.InnerException ?? t.Exception);
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     /// <summary>
@@ -173,6 +185,115 @@ public partial class MainViewModel : ObservableObject
         UpdateHealthScore();
         SaveLastCleanedDate();
         StatusBarText = "Cleanup complete.";
+    }
+
+    [RelayCommand]
+    private async Task RunHealthCheckAsync()
+    {
+        if (IsHealthCheckRunning) return;
+
+        IsHealthCheckRunning = true;
+        HealthCheckStep = 0;
+        HealthCheckSummary = string.Empty;
+        StatusBarText = "Running comprehensive health check...";
+
+        int score = 100;
+        var issues = new List<string>();
+
+        try
+        {
+            // Step 1: Junk Analysis
+            HealthCheckStep = 1;
+            HealthCheckProgress = "Step 1/4 — Scanning for system junk...";
+            await Cleaner.AnalyzeCommand.ExecuteAsync(null);
+
+            if (Cleaner.TotalJunkSize > 0)
+            {
+                int junkPenalty = (int)Math.Min(30, Cleaner.TotalJunkSize / (100.0 * 1024 * 1024) * 5);
+                score -= junkPenalty;
+                issues.Add($"Junk: {Cleaner.FormattedTotalSize} found");
+            }
+
+            // Step 2: Threat Scan
+            HealthCheckStep = 2;
+            HealthCheckProgress = "Step 2/4 — Scanning for threats...";
+            ThreatScanner.SelectedScanMode = ScanMode.Quick;
+            await ThreatScanner.StartScanCommand.ExecuteAsync(null);
+
+            int criticalThreats = ThreatScanner.CriticalCount + ThreatScanner.HighCount;
+            int mediumThreats = ThreatScanner.MediumCount;
+
+            if (criticalThreats > 0)
+            {
+                score -= Math.Min(30, criticalThreats * 15);
+                issues.Add($"Threats: {criticalThreats} critical/high");
+            }
+            if (mediumThreats > 0)
+            {
+                score -= Math.Min(10, mediumThreats * 3);
+                issues.Add($"Threats: {mediumThreats} medium");
+            }
+
+            // Step 3: Startup Analysis
+            HealthCheckStep = 3;
+            HealthCheckProgress = "Step 3/4 — Analyzing startup items...";
+            var startupEntries = await StartupManagerService.GetStartupEntriesAsync();
+            int highImpactStartup = startupEntries.Count(e => e.IsEnabled &&
+                e.Impact == StartupManagerService.StartupImpact.High);
+
+            if (highImpactStartup > 5)
+            {
+                score -= Math.Min(15, (highImpactStartup - 5) * 3);
+                issues.Add($"Startup: {highImpactStartup} high-impact items");
+            }
+
+            // Step 4: Browser Privacy
+            HealthCheckStep = 4;
+            HealthCheckProgress = "Step 4/4 — Checking browser privacy...";
+            await BrowserCleaner.ScanBrowsersCommand.ExecuteAsync(null);
+
+            long browserJunk = BrowserCleaner.TotalSizeBytes;
+            if (browserJunk > 100 * 1024 * 1024) // > 100 MB
+            {
+                score -= Math.Min(10, (int)(browserJunk / (100.0 * 1024 * 1024)) * 3);
+                issues.Add($"Browser: {FormatHelper.FormatBytes(browserJunk)} of tracking data");
+            }
+
+            // Cleanliness factor
+            if (LastCleanedDate == default)
+                score -= 10;
+            else if ((DateTime.Now - LastCleanedDate).TotalDays > 30)
+                score -= 5;
+
+            score = Math.Clamp(score, 0, 100);
+            SystemHealthScore = score;
+
+            // Build summary
+            if (issues.Count == 0)
+            {
+                HealthCheckSummary = "Your system is in excellent condition. No issues detected.";
+            }
+            else
+            {
+                HealthCheckSummary = $"Found {issues.Count} area(s) to improve: {string.Join(" | ", issues)}";
+            }
+
+            HealthCheckProgress = "Health check complete.";
+            StatusBarText = $"Health check complete — Score: {score}/100";
+
+            NotificationService.ShowSuccess("Health Check Complete",
+                $"System health score: {score}/100. {(issues.Count > 0 ? $"{issues.Count} issue(s) found." : "No issues.")}");
+        }
+        catch (Exception ex)
+        {
+            HealthCheckProgress = $"Error during health check: {ex.Message}";
+            StatusBarText = "Health check encountered an error.";
+            DiagnosticLogger.Error("MainViewModel", "Health check failed", ex);
+        }
+        finally
+        {
+            IsHealthCheckRunning = false;
+        }
     }
 
     [RelayCommand]

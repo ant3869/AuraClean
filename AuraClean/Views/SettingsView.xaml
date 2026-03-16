@@ -111,6 +111,12 @@
                         <CheckBox Style="{StaticResource AuraToggle}"
                                   IsChecked="{Binding MinimizeToTray}"
                                   Content="Minimize to system tray instead of closing" />
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding LaunchAtStartup}"
+                                  Content="Launch AuraClean when Windows starts" />
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding IsLightTheme}"
+                                  Content="Use light theme" />
                     </StackPanel>
                 </Border>
 
@@ -279,6 +285,67 @@
                             <ComboBox ItemsSource="{Binding HistoryLimitPresets}"
                                       SelectedItem="{Binding MaxHistoryEntries}"
                                       Width="80" Margin="8,0"
+                                      FontSize="13"
+                                      Foreground="{StaticResource AuraTextPrimary}"
+                                      Background="{StaticResource AuraSurfaceLight}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Storage path info -->
+
+                <!-- ═══ SCHEDULED CLEANUP ═══ -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="ClockOutline" Width="20" Height="20"
+                                                     Foreground="{StaticResource AuraAccentTeal}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="Scheduled Cleanup" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Automatically run cleanup on a schedule using Windows Task Scheduler." />
+
+                        <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding ScheduledCleanupEnabled}"
+                                  Content="Enable scheduled automatic cleanup" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                    IsEnabled="{Binding ScheduledCleanupEnabled}">
+                            <TextBlock Text="Frequency:"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                            <ComboBox ItemsSource="{Binding ScheduleFrequencies}"
+                                      SelectedItem="{Binding ScheduledCleanupFrequency}"
+                                      Width="100" Margin="8,0"
+                                      FontSize="13"
+                                      Foreground="{StaticResource AuraTextPrimary}"
+                                      Background="{StaticResource AuraSurfaceLight}" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                    IsEnabled="{Binding ScheduledCleanupEnabled}">
+                            <TextBlock Text="Time:"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBox Text="{Binding ScheduledCleanupTime, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="70" Margin="8,0"
+                                     FontSize="13"
+                                     Foreground="{StaticResource AuraTextPrimary}"
+                                     Background="{StaticResource AuraSurfaceLight}" />
+                            <TextBlock Text="(24h format, e.g. 03:00)"
+                                       FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextMuted}" Margin="4,0,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                    IsEnabled="{Binding ScheduledCleanupEnabled}">
+                            <TextBlock Text="Day (for weekly):"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AuraTextSecondary}" />
+                            <ComboBox ItemsSource="{Binding DayOfWeekNames}"
+                                      SelectedIndex="{Binding ScheduledCleanupDayOfWeek}"
+                                      Width="120" Margin="8,0"
                                       FontSize="13"
                                       Foreground="{StaticResource AuraTextPrimary}"
                                       Background="{StaticResource AuraSurfaceLight}" />

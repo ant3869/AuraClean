@@ -261,15 +261,55 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <!-- Section: SETTINGS -->
-                        <TextBlock Text="SETTINGS" FontSize="10" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AuraTextMuted}"
-                                   Margin="28,18,0,6" />
-
-                        <RadioButton x:Name="NavHistory"
+                        <RadioButton x:Name="NavSoftwareUpdater"
                                      Style="{StaticResource AuraNavButton}"
                                      Command="{Binding NavigateToCommand}"
-                                     CommandParameter="History">
+                                     CommandParameter="SoftwareUpdater">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Update" Width="20" Height="20" VerticalAlignment="Center" />
+                                <TextBlock Text="Software Updater" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            </StackPanel>
+                        </RadioButton>
+
+                    <RadioButton x:Name="NavDiskOptimizer"
+                                 Style="{StaticResource AuraNavButton}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="DiskOptimizer">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Harddisk" Width="20" Height="20" VerticalAlignment="Center" />
+                            <TextBlock Text="Disk Optimizer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="NavFileRecovery"
+                                 Style="{StaticResource AuraNavButton}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="FileRecovery">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FileRestore" Width="20" Height="20" VerticalAlignment="Center" />
+                            <TextBlock Text="File Recovery" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="NavEmptyFolders"
+                                 Style="{StaticResource AuraNavButton}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="EmptyFolders">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FolderRemove" Width="20" Height="20" VerticalAlignment="Center" />
+                            <TextBlock Text="Empty Folders" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <!-- Section: SETTINGS -->
+                    <TextBlock Text="SETTINGS" FontSize="10" FontWeight="SemiBold"
+                               Foreground="{StaticResource AuraTextMuted}"
+                               Margin="28,18,0,6" />
+
+                    <RadioButton x:Name="NavHistory"
+                                 Style="{StaticResource AuraNavButton}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="History">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ClipboardTextClock" Width="20" Height="20" VerticalAlignment="Center" />
                                 <TextBlock Text="Cleanup History" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
@@ -405,6 +445,26 @@
                 <views:ThreatScannerView DataContext="{Binding ThreatScanner}"
                                          Visibility="Collapsed"
                                          x:Name="ThreatScannerContent" />
+
+                <!-- Software Updater View -->
+                <views:SoftwareUpdaterView DataContext="{Binding SoftwareUpdater}"
+                                           Visibility="Collapsed"
+                                           x:Name="SoftwareUpdaterContent" />
+
+                <!-- Disk Optimizer View -->
+                <views:DiskOptimizerView DataContext="{Binding DiskOptimizer}"
+                                         Visibility="Collapsed"
+                                         x:Name="DiskOptimizerContent" />
+
+                <!-- File Recovery View -->
+                <views:FileRecoveryView DataContext="{Binding FileRecovery}"
+                                        Visibility="Collapsed"
+                                        x:Name="FileRecoveryContent" />
+
+                <!-- Empty Folder Finder View -->
+                <views:EmptyFolderFinderView DataContext="{Binding EmptyFolderFinder}"
+                                              Visibility="Collapsed"
+                                              x:Name="EmptyFoldersContent" />
             </Grid>
 
             <!-- Status Bar -->

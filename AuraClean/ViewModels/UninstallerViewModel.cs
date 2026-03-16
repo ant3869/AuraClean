@@ -4,6 +4,7 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 
 namespace AuraClean.ViewModels;
 
@@ -29,13 +30,25 @@ public partial class UninstallerViewModel : ObservableObject
     [ObservableProperty] private bool _isAllSelected;
     public bool HasCheckedItems => SelectedCount > 0;
 
+    private DispatcherTimer? _searchDebounceTimer;
+
     public UninstallerViewModel()
     {
     }
 
     partial void OnSearchTextChanged(string value)
     {
-        ApplyFilter();
+        _searchDebounceTimer?.Stop();
+        _searchDebounceTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _searchDebounceTimer.Tick += (_, _) =>
+        {
+            _searchDebounceTimer.Stop();
+            ApplyFilter();
+        };
+        _searchDebounceTimer.Start();
     }
 
     partial void OnIsAllSelectedChanged(bool value)

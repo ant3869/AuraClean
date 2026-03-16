@@ -1,5 +1,6 @@
 using AuraClean.Helpers;
 using AuraClean.Models;
+using System.Diagnostics;
 using System.IO;
 using System.ServiceProcess;
 
@@ -105,10 +106,10 @@ public static class FileCleanerService
                 {
                     foreach (var f in Directory.EnumerateFiles(@"C:\Windows.old", "*", SearchOption.AllDirectories).Take(5000))
                     {
-                        try { oldSize += new FileInfo(f).Length; } catch { }
+                        try { oldSize += new FileInfo(f).Length; } catch { /* Per-file size read failure — expected for locked files */ }
                     }
                 }
-                catch { }
+                catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", "Failed to enumerate Windows.old", ex); }
                 if (oldSize > 0)
                 {
                     results.Add(new JunkItem
@@ -124,6 +125,34 @@ public static class FileCleanerService
             }
 
         }, ct);
+
+        // 15. WinSxS Component Store (safe cleanup via DISM)
+        // Runs outside Task.Run because it needs async process execution
+        progress?.Report("Analyzing Component Store (WinSxS)...");
+        try
+        {
+            var winsxsPath = @"C:\Windows\WinSxS";
+            if (Directory.Exists(winsxsPath))
+            {
+                long winsxsReclaimable = await GetWinSxSReclaimableSizeAsync(ct);
+                if (winsxsReclaimable > 0)
+                {
+                    results.Add(new JunkItem
+                    {
+                        Path = winsxsPath,
+                        Description = "Component Store — reclaimable via DISM cleanup",
+                        Type = JunkType.WinSxS,
+                        SizeBytes = winsxsReclaimable,
+                        LastModified = Directory.GetLastWriteTime(winsxsPath),
+                        IsSelected = false
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", "Failed to analyze WinSxS", ex);
+        }
 
         return results;
     }
@@ -168,15 +197,38 @@ public static class FileCleanerService
             }
 
             // Run all file I/O on a background thread
+            // Handle WinSxS items separately (needs DISM, not file deletion)
+            var winsxsItems = itemList.Where(i => i.Type == JunkType.WinSxS).ToList();
+            var fileItems = itemList.Where(i => i.Type != JunkType.WinSxS).ToList();
+
+            // Clean WinSxS via DISM
+            foreach (var winsxsItem in winsxsItems)
+            {
+                ct.ThrowIfCancellationRequested();
+                progress?.Report("Running DISM Component Store cleanup...");
+                var (success, freedBytes) = await CleanWinSxSAsync(ct);
+                if (success)
+                {
+                    deleted++;
+                    bytesFreed += freedBytes > 0 ? freedBytes : winsxsItem.SizeBytes;
+                }
+                else
+                {
+                    skipped++;
+                    winsxsItem.IsLocked = true;
+                    winsxsItem.LockingProcess = "DISM cleanup failed";
+                }
+            }
+
             await Task.Run(() =>
             {
                 int processed = 0;
-                foreach (var item in itemList)
+                foreach (var item in fileItems)
                 {
                     ct.ThrowIfCancellationRequested();
                     processed++;
-                    if (processed % 10 == 1 || processed == itemList.Count)
-                        progress?.Report($"Cleaning ({processed}/{itemList.Count}): {Path.GetFileName(item.Path)}");
+                    if (processed % 10 == 1 || processed == fileItems.Count)
+                        progress?.Report($"Cleaning ({processed}/{fileItems.Count}): {Path.GetFileName(item.Path)}");
 
                     try
                     {
@@ -255,7 +307,39 @@ public static class FileCleanerService
             }
         }
 
+        // Write audit log for accountability
+        WriteCleanupAudit(itemList, deleted, skipped, bytesFreed);
+
         return (deleted, skipped, bytesFreed, errors);
+    }
+
+    /// <summary>
+    /// Writes a cleanup audit log to %LocalAppData%\AuraClean\Logs for accountability.
+    /// </summary>
+    private static void WriteCleanupAudit(List<JunkItem> cleanedItems, int deleted, int skipped, long bytesFreed)
+    {
+        try
+        {
+            var logDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AuraClean", "Logs");
+            Directory.CreateDirectory(logDir);
+            var logPath = Path.Combine(logDir, $"Cleanup_Audit_{DateTime.Now:yyyy-MM-dd_HHmmss}.log");
+
+            using var writer = new StreamWriter(logPath);
+            writer.WriteLine($"AuraClean Cleanup Audit — {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            writer.WriteLine($"Deleted: {deleted} | Skipped: {skipped} | Freed: {bytesFreed:N0} bytes");
+            writer.WriteLine(new string('─', 60));
+            foreach (var item in cleanedItems)
+            {
+                var status = item.IsLocked ? "SKIPPED" : "DELETED";
+                writer.WriteLine($"[{status}] {item.Path} ({item.SizeBytes:N0} B) — {item.Type}");
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", "Failed to write cleanup audit log", ex);
+        }
     }
 
     /// <summary>
@@ -295,12 +379,12 @@ public static class FileCleanerService
                         if (!Directory.EnumerateFileSystemEntries(dir).Any())
                             Directory.Delete(dir);
                     }
-                    catch { }
+                    catch { /* Expected: locked or in-use directory */ }
                 }
             }
-            catch { }
+            catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", $"Failed to enumerate subdirectories of {dirPath}", ex); }
         }
-        catch { }
+        catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", $"Failed to enumerate files in {dirPath}", ex); }
 
         return (deleted, skippedCount, bytesFreed);
     }
@@ -399,7 +483,7 @@ public static class FileCleanerService
                         });
                     }
                 }
-                catch { }
+                catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", $"Failed to scan subdirectory under {path}", ex); }
             }
         }
         catch (UnauthorizedAccessException) { }
@@ -459,6 +543,158 @@ public static class FileCleanerService
                 DiagnosticLogger.Warn("FileCleanerService", $"Could not start service '{serviceName}'", ex);
                 return false;
             }
+        });
+    }
+
+    /// <summary>
+    /// Runs DISM /AnalyzeComponentStore to estimate reclaimable WinSxS space.
+    /// Parses the "Reclaimable Packages" size from DISM output.
+    /// </summary>
+    private static async Task<long> GetWinSxSReclaimableSizeAsync(CancellationToken ct)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "Dism.exe",
+                Arguments = "/Online /Cleanup-Image /AnalyzeComponentStore",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            if (process == null) return 0;
+
+            var output = await process.StandardOutput.ReadToEndAsync(ct);
+            await process.WaitForExitAsync(ct);
+
+            // Parse "Reclaimable Packages : X.XX GB" or "X.XX MB"
+            // Also check "Component Store Cleanup Recommended : Yes"
+            foreach (var line in output.Split('\n'))
+            {
+                var trimmed = line.Trim();
+                if (trimmed.StartsWith("Reclaimable Packages", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ParseDismSize(trimmed);
+                }
+            }
+
+            // Fallback: if "Component Store Cleanup Recommended : Yes", estimate conservatively
+            if (output.Contains("Cleanup Recommended : Yes", StringComparison.OrdinalIgnoreCase))
+                return 500_000_000; // 500 MB estimate
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", "DISM AnalyzeComponentStore failed", ex);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Parses a DISM size line like "Reclaimable Packages : 1.23 GB" into bytes.
+    /// </summary>
+    internal static long ParseDismSize(string line)
+    {
+        // Extract the size portion after the colon
+        var colonIdx = line.IndexOf(':');
+        if (colonIdx < 0) return 0;
+
+        var sizePart = line[(colonIdx + 1)..].Trim();
+
+        if (double.TryParse(
+                sizePart.Replace(" GB", "").Replace(" MB", "").Replace(" KB", "").Trim(),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var value))
+        {
+            if (sizePart.Contains("GB", StringComparison.OrdinalIgnoreCase))
+                return (long)(value * 1_073_741_824);
+            if (sizePart.Contains("MB", StringComparison.OrdinalIgnoreCase))
+                return (long)(value * 1_048_576);
+            if (sizePart.Contains("KB", StringComparison.OrdinalIgnoreCase))
+                return (long)(value * 1024);
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Runs DISM /StartComponentCleanup to safely clean the WinSxS component store.
+    /// Returns (success, estimatedBytesFreed).
+    /// </summary>
+    private static async Task<(bool Success, long FreedBytes)> CleanWinSxSAsync(CancellationToken ct)
+    {
+        try
+        {
+            // Measure WinSxS size before cleanup
+            long sizeBefore = await GetWinSxSActualSizeAsync();
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "Dism.exe",
+                Arguments = "/Online /Cleanup-Image /StartComponentCleanup",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            if (process == null) return (false, 0);
+
+            await process.WaitForExitAsync(ct);
+
+            if (process.ExitCode == 0)
+            {
+                long sizeAfter = await GetWinSxSActualSizeAsync();
+                long freed = sizeBefore > sizeAfter ? sizeBefore - sizeAfter : 0;
+                DiagnosticLogger.Info("FileCleanerService",
+                    $"WinSxS cleanup succeeded. Freed ~{freed / 1_048_576} MB");
+                return (true, freed);
+            }
+
+            var stderr = await process.StandardError.ReadToEndAsync(ct);
+            DiagnosticLogger.Warn("FileCleanerService",
+                $"DISM cleanup exited with code {process.ExitCode}: {stderr}");
+            return (false, 0);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", "DISM StartComponentCleanup failed", ex);
+            return (false, 0);
+        }
+    }
+
+    /// <summary>
+    /// Quick estimation of WinSxS folder size by sampling top-level subdirectories.
+    /// </summary>
+    private static async Task<long> GetWinSxSActualSizeAsync()
+    {
+        return await Task.Run(() =>
+        {
+            long total = 0;
+            try
+            {
+                var winsxs = @"C:\Windows\WinSxS";
+                foreach (var file in Directory.EnumerateFiles(winsxs, "*", SearchOption.TopDirectoryOnly))
+                {
+                    try { total += new FileInfo(file).Length; } catch { }
+                }
+                // Sample first 200 subdirectories to estimate
+                foreach (var dir in Directory.EnumerateDirectories(winsxs).Take(200))
+                {
+                    foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Take(100))
+                    {
+                        try { total += new FileInfo(file).Length; } catch { }
+                    }
+                }
+            }
+            catch { }
+            return total;
         });
     }
 }

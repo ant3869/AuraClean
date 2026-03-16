@@ -7,7 +7,8 @@ namespace AuraClean.Services;
 
 /// <summary>
 /// Browser &amp; Privacy Deep Clean service.
-/// Targeted cleaning for Chromium-based browsers (Chrome, Edge, Brave).
+/// Targeted cleaning for Chromium-based browsers (Chrome, Edge, Brave, Vivaldi, Opera)
+/// and Mozilla Firefox.
 /// Includes SQLite VACUUM to shrink database sizes and deep-cache purge
 /// for hidden tracking blobs.
 /// </summary>
@@ -20,20 +21,25 @@ public static class BrowserCleanerService
     [
         new("Google Chrome",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Google\Chrome\User Data")),
+                @"Google\Chrome\User Data"), BrowserEngine.Chromium),
         new("Microsoft Edge",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Microsoft\Edge\User Data")),
+                @"Microsoft\Edge\User Data"), BrowserEngine.Chromium),
         new("Brave",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"BraveSoftware\Brave-Browser\User Data")),
+                @"BraveSoftware\Brave-Browser\User Data"), BrowserEngine.Chromium),
         new("Opera",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                @"Opera Software\Opera Stable")),
+                @"Opera Software\Opera Stable"), BrowserEngine.Chromium),
         new("Vivaldi",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Vivaldi\User Data")),
+                @"Vivaldi\User Data"), BrowserEngine.Chromium),
+        new("Mozilla Firefox",
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                @"Mozilla\Firefox\Profiles"), BrowserEngine.Firefox),
     ];
+
+    public enum BrowserEngine { Chromium, Firefox }
 
     /// <summary>
     /// Subdirectories/files within a Chromium profile that should be cleaned.
@@ -84,7 +90,51 @@ public static class BrowserCleanerService
         "Site Characteristics Database",
     ];
 
-    public record BrowserProfile(string Name, string UserDataPath);
+    public record BrowserProfile(string Name, string UserDataPath, BrowserEngine Engine = BrowserEngine.Chromium);
+
+    /// <summary>
+    /// Subdirectories/files within a Firefox profile that should be cleaned.
+    /// </summary>
+    private static readonly string[] FirefoxCleanableSubPaths =
+    [
+        "cache2",
+        "jumpListCache",
+        "thumbnails",
+        "startupCache",
+        "shader-cache",
+        "storage\\default",
+        "crashes",
+        "minidumps",
+        "datareporting",
+        "saved-telemetry-pings",
+    ];
+
+    /// <summary>
+    /// SQLite databases in a Firefox profile that can be vacuumed.
+    /// </summary>
+    private static readonly string[] FirefoxVacuumableDbFiles =
+    [
+        "places.sqlite",
+        "cookies.sqlite",
+        "formhistory.sqlite",
+        "webappsstore.sqlite",
+        "favicons.sqlite",
+        "content-prefs.sqlite",
+        "permissions.sqlite",
+        "storage.sqlite",
+    ];
+
+    /// <summary>
+    /// Firefox tracking-related files.
+    /// </summary>
+    private static readonly string[] FirefoxTrackingPatterns =
+    [
+        "SiteSecurityServiceState.bin",
+        "SecurityPreloadState.bin",
+        "sessionCheckpoints.json",
+        "cookies.sqlite-wal",
+        "cookies.sqlite-shm",
+    ];
 
     public record BrowserScanResult
     {
@@ -134,7 +184,11 @@ public static class BrowserCleanerService
         await Task.Run(() =>
         {
             // Find all profile directories (Default, Profile 1, Profile 2, etc.)
-            var profiles = GetProfileDirectories(browser.UserDataPath);
+            var profiles = GetProfileDirectories(browser);
+
+            var cleanPaths = browser.Engine == BrowserEngine.Firefox ? FirefoxCleanableSubPaths : CleanableSubPaths;
+            var vacuumFiles = browser.Engine == BrowserEngine.Firefox ? FirefoxVacuumableDbFiles : VacuumableDbFiles;
+            var trackPatterns = browser.Engine == BrowserEngine.Firefox ? FirefoxTrackingPatterns : TrackingPatterns;
 
             foreach (var profileDir in profiles)
             {
@@ -142,7 +196,7 @@ public static class BrowserCleanerService
                 progress?.Report($"Scanning {browser.Name}: {Path.GetFileName(profileDir)}...");
 
                 // 1. Cache directories
-                foreach (var subPath in CleanableSubPaths)
+                foreach (var subPath in cleanPaths)
                 {
                     var fullPath = Path.Combine(profileDir, subPath);
                     if (Directory.Exists(fullPath))
@@ -166,7 +220,7 @@ public static class BrowserCleanerService
                 }
 
                 // 2. SQLite databases for vacuuming
-                foreach (var dbName in VacuumableDbFiles)
+                foreach (var dbName in vacuumFiles)
                 {
                     var dbPath = Path.Combine(profileDir, dbName);
                     if (File.Exists(dbPath))
@@ -187,7 +241,7 @@ public static class BrowserCleanerService
                 }
 
                 // 3. Tracking blobs
-                foreach (var pattern in TrackingPatterns)
+                foreach (var pattern in trackPatterns)
                 {
                     try
                     {
@@ -388,11 +442,27 @@ public static class BrowserCleanerService
 
     #region Private Helpers
 
-    private static List<string> GetProfileDirectories(string userDataPath)
+    private static List<string> GetProfileDirectories(BrowserProfile browser)
     {
         var profiles = new List<string>();
+        var userDataPath = browser.UserDataPath;
 
-        // "Default" profile
+        if (browser.Engine == BrowserEngine.Firefox)
+        {
+            // Firefox stores profiles as random-named subdirectories (e.g. "a1b2c3d4.default-release")
+            if (Directory.Exists(userDataPath))
+            {
+                try
+                {
+                    foreach (var dir in Directory.EnumerateDirectories(userDataPath))
+                        profiles.Add(dir);
+                }
+                catch { }
+            }
+            return profiles;
+        }
+
+        // Chromium: "Default" profile
         var defaultDir = Path.Combine(userDataPath, "Default");
         if (Directory.Exists(defaultDir))
             profiles.Add(defaultDir);
@@ -421,6 +491,7 @@ public static class BrowserCleanerService
             "brave" => new[] { "brave" },
             "opera" => new[] { "opera" },
             "vivaldi" => new[] { "vivaldi" },
+            "mozilla firefox" => new[] { "firefox" },
             _ => Array.Empty<string>()
         };
 

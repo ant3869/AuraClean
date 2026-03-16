@@ -207,7 +207,14 @@
 
                 <!-- Duplicate Groups List -->
                 <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding DuplicateGroups}">
+                    <ItemsControl ItemsSource="{Binding DuplicateGroups}"
+                                  VirtualizingStackPanel.IsVirtualizing="True"
+                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <materialDesign:Card Background="{StaticResource AuraSurface}"

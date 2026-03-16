@@ -34,8 +34,10 @@ public partial class MemoryViewModel : ObservableObject
     public MemoryViewModel()
     {
         _ = RefreshStatsAsync().ContinueWith(t =>
-            System.Diagnostics.Debug.WriteLine($"[MemoryViewModel] RefreshStatsAsync failed: {t.Exception}"),
-            TaskContinuationOptions.OnlyOnFaulted);
+        {
+            if (t.Exception != null)
+                DiagnosticLogger.Warn("MemoryViewModel", "RefreshStatsAsync failed", t.Exception.InnerException ?? t.Exception);
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     [RelayCommand]

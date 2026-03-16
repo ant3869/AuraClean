@@ -450,6 +450,14 @@ public partial class ThreatScannerViewModel : ObservableObject
         StatusMessage = $"Scan complete: {TotalThreats} threat(s) found" +
             (CriticalCount > 0 ? $" ({CriticalCount} critical!)" : "") +
             $" in {ScanDuration}";
+
+        // Tray notification for threats
+        if (CriticalCount > 0)
+            NotificationService.ShowWarning("Threats Detected",
+                $"{TotalThreats} threat(s) found — {CriticalCount} critical!");
+        else
+            NotificationService.ShowSuccess("Scan Complete",
+                $"{TotalThreats} threat(s) found in {ScanDuration}.");
     }
 
     private void UpdateThreatCounts()

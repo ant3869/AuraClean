@@ -106,6 +106,8 @@
                           Foreground="{StaticResource AuraTextPrimary}"
                           BorderThickness="0"
                           SelectionMode="Extended"
+                          VirtualizingStackPanel.IsVirtualizing="True"
+                          VirtualizingStackPanel.VirtualizationMode="Recycling"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListView.View>
                         <GridView>

@@ -35,8 +35,10 @@ public partial class StartupManagerViewModel : ObservableObject
     public StartupManagerViewModel()
     {
         _ = LoadEntriesAsync().ContinueWith(t =>
-            System.Diagnostics.Debug.WriteLine($"[StartupManagerViewModel] LoadEntriesAsync failed: {t.Exception}"),
-            TaskContinuationOptions.OnlyOnFaulted);
+        {
+            if (t.Exception != null)
+                DiagnosticLogger.Warn("StartupManagerViewModel", "LoadEntriesAsync failed", t.Exception.InnerException ?? t.Exception);
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();

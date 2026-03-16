@@ -16,6 +16,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _showConfirmationDialogs;
     [ObservableProperty] private bool _minimizeToTray;
     [ObservableProperty] private bool _launchAtStartup;
+    [ObservableProperty] private bool _isLightTheme;
 
     // ── Cleaner ──
     [ObservableProperty] private bool _cleanTempFiles;
@@ -42,6 +43,12 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _maxHistoryEntries;
     [ObservableProperty] private bool _logCleanupOperations;
 
+    // ── Scheduled Cleanup ──
+    [ObservableProperty] private bool _scheduledCleanupEnabled;
+    [ObservableProperty] private string _scheduledCleanupFrequency;
+    [ObservableProperty] private string _scheduledCleanupTime;
+    [ObservableProperty] private int _scheduledCleanupDayOfWeek;
+
     // ── UI State ──
     [ObservableProperty] private string _statusMessage = "Settings loaded.";
     [ObservableProperty] private bool _hasUnsavedChanges;
@@ -56,9 +63,16 @@ public partial class SettingsViewModel : ObservableObject
 
     public int[] HistoryLimitPresets { get; } = [100, 250, 500, 1000, 2000];
 
+    public string[] ScheduleFrequencies { get; } = ["Daily", "Weekly", "Monthly"];
+
+    public string[] DayOfWeekNames { get; } =
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
     public SettingsViewModel()
     {
-        DefaultShredAlgorithm = "DoD3Pass"; // safe default before Load
+        DefaultShredAlgorithm = "DoD3Pass";
+        ScheduledCleanupFrequency = "Weekly";
+        ScheduledCleanupTime = "03:00";
         LoadFromDisk();
     }
 
@@ -74,6 +88,7 @@ public partial class SettingsViewModel : ObservableObject
         ShowConfirmationDialogs = s.ShowConfirmationDialogs;
         MinimizeToTray = s.MinimizeToTray;
         LaunchAtStartup = s.LaunchAtStartup;
+        IsLightTheme = s.IsLightTheme;
 
         CleanTempFiles = s.CleanTempFiles;
         CleanWindowsUpdate = s.CleanWindowsUpdate;
@@ -96,6 +111,11 @@ public partial class SettingsViewModel : ObservableObject
         MaxHistoryEntries = s.MaxHistoryEntries;
         LogCleanupOperations = s.LogCleanupOperations;
 
+        ScheduledCleanupEnabled = s.ScheduledCleanupEnabled;
+        ScheduledCleanupFrequency = s.ScheduledCleanupFrequency;
+        ScheduledCleanupTime = s.ScheduledCleanupTime;
+        ScheduledCleanupDayOfWeek = s.ScheduledCleanupDayOfWeek;
+
         SettingsPath = SettingsService.GetSettingsDirectory();
         HasUnsavedChanges = false;
         StatusMessage = "Settings loaded.";
@@ -105,7 +125,7 @@ public partial class SettingsViewModel : ObservableObject
     /// Maps ViewModel properties back to AppSettings and persists.
     /// </summary>
     [RelayCommand]
-    private void SaveSettings()
+    private async Task SaveSettingsAsync()
     {
         var s = new AppSettings
         {
@@ -114,6 +134,7 @@ public partial class SettingsViewModel : ObservableObject
             ShowConfirmationDialogs = ShowConfirmationDialogs,
             MinimizeToTray = MinimizeToTray,
             LaunchAtStartup = LaunchAtStartup,
+            IsLightTheme = IsLightTheme,
 
             CleanTempFiles = CleanTempFiles,
             CleanWindowsUpdate = CleanWindowsUpdate,
@@ -136,10 +157,20 @@ public partial class SettingsViewModel : ObservableObject
             MaxHistoryEntries = MaxHistoryEntries,
             LogCleanupOperations = LogCleanupOperations,
 
+            ScheduledCleanupEnabled = ScheduledCleanupEnabled,
+            ScheduledCleanupFrequency = ScheduledCleanupFrequency,
+            ScheduledCleanupTime = ScheduledCleanupTime,
+            ScheduledCleanupDayOfWeek = ScheduledCleanupDayOfWeek,
+
             LastModified = DateTime.Now
         };
 
         SettingsService.Save(s);
+
+        // Apply scheduled cleanup task
+        try { await ScheduledCleanupService.ApplyScheduleAsync(); }
+        catch { /* non-critical */ }
+
         HasUnsavedChanges = false;
         StatusMessage = $"Settings saved at {DateTime.Now:HH:mm:ss}.";
     }
@@ -168,6 +199,11 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnShowConfirmationDialogsChanged(bool value) => HasUnsavedChanges = true;
     partial void OnMinimizeToTrayChanged(bool value) => HasUnsavedChanges = true;
     partial void OnLaunchAtStartupChanged(bool value) => HasUnsavedChanges = true;
+    partial void OnIsLightThemeChanged(bool value)
+    {
+        HasUnsavedChanges = true;
+        ThemeService.ApplyTheme(value);
+    }
     partial void OnCleanTempFilesChanged(bool value) => HasUnsavedChanges = true;
     partial void OnCleanWindowsUpdateChanged(bool value) => HasUnsavedChanges = true;
     partial void OnCleanPrefetchChanged(bool value) => HasUnsavedChanges = true;
@@ -185,4 +221,8 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnAutoPurgeExpiredQuarantineChanged(bool value) => HasUnsavedChanges = true;
     partial void OnMaxHistoryEntriesChanged(int value) => HasUnsavedChanges = true;
     partial void OnLogCleanupOperationsChanged(bool value) => HasUnsavedChanges = true;
+    partial void OnScheduledCleanupEnabledChanged(bool value) => HasUnsavedChanges = true;
+    partial void OnScheduledCleanupFrequencyChanged(string value) => HasUnsavedChanges = true;
+    partial void OnScheduledCleanupTimeChanged(string value) => HasUnsavedChanges = true;
+    partial void OnScheduledCleanupDayOfWeekChanged(int value) => HasUnsavedChanges = true;
 }

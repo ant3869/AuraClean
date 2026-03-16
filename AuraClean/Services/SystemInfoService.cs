@@ -11,10 +11,23 @@ namespace AuraClean.Services;
 /// </summary>
 public static class SystemInfoService
 {
+    /// <summary>WMI query timeout to prevent indefinite hangs.</summary>
+    private static readonly TimeSpan WmiTimeout = TimeSpan.FromSeconds(10);
+
     /// <summary>
     /// A single piece of system information displayed in the info grid.
     /// </summary>
     public record InfoEntry(string Category, string Label, string Value, string Icon = "Information");
+
+    /// <summary>
+    /// Creates a ManagementObjectSearcher with a timeout to prevent WMI hangs.
+    /// </summary>
+    private static ManagementObjectSearcher CreateSearcher(string query)
+    {
+        var scope = new ManagementScope(@"\\.\root\cimv2");
+        var options = new System.Management.EnumerationOptions { Timeout = WmiTimeout };
+        return new ManagementObjectSearcher(scope, new ObjectQuery(query), options);
+    }
 
     /// <summary>
     /// Collects all system information on a background thread.
@@ -78,7 +91,7 @@ public static class SystemInfoService
 
         try
         {
-            using var mos = new ManagementObjectSearcher(
+            using var mos = CreateSearcher(
                 "SELECT Caption, Version, BuildNumber, OSArchitecture, InstallDate, " +
                 "LastBootUpTime, RegisteredUser, SerialNumber FROM Win32_OperatingSystem");
 
@@ -124,7 +137,7 @@ public static class SystemInfoService
 
         try
         {
-            using var mos = new ManagementObjectSearcher(
+            using var mos = CreateSearcher(
                 "SELECT Name, Manufacturer, NumberOfCores, NumberOfLogicalProcessors, " +
                 "MaxClockSpeed, L2CacheSize, L3CacheSize FROM Win32_Processor");
 
@@ -169,7 +182,7 @@ public static class SystemInfoService
             entries.Add(new InfoEntry(cat, "Total Physical", FormatHelper.FormatBytes(gcInfo.TotalAvailableMemoryBytes), "Memory"));
 
             // Memory module details
-            using var mos = new ManagementObjectSearcher(
+            using var mos = CreateSearcher(
                 "SELECT Manufacturer, Capacity, Speed, MemoryType, FormFactor FROM Win32_PhysicalMemory");
 
             int slotIndex = 0;
@@ -206,7 +219,7 @@ public static class SystemInfoService
 
         try
         {
-            using var mos = new ManagementObjectSearcher(
+            using var mos = CreateSearcher(
                 "SELECT Name, DriverVersion, AdapterRAM, VideoProcessor, " +
                 "CurrentHorizontalResolution, CurrentVerticalResolution FROM Win32_VideoController");
 
@@ -260,7 +273,7 @@ public static class SystemInfoService
             }
 
             // Physical disk info via WMI
-            using var mos = new ManagementObjectSearcher(
+            using var mos = CreateSearcher(
                 "SELECT Model, Size, MediaType, InterfaceType FROM Win32_DiskDrive");
             int diskIdx = 0;
             foreach (var obj in mos.Get())
@@ -290,7 +303,7 @@ public static class SystemInfoService
 
         try
         {
-            using var mos = new ManagementObjectSearcher(
+            using var mos = CreateSearcher(
                 "SELECT Name, MACAddress, Speed, NetConnectionStatus FROM Win32_NetworkAdapter " +
                 "WHERE PhysicalAdapter = True AND NetConnectionStatus IS NOT NULL");
 
@@ -337,7 +350,7 @@ public static class SystemInfoService
 
         try
         {
-            using var mos = new ManagementObjectSearcher(
+            using var mos = CreateSearcher(
                 "SELECT Manufacturer, Product, SerialNumber FROM Win32_BaseBoard");
 
             foreach (var obj in mos.Get())
@@ -348,7 +361,7 @@ public static class SystemInfoService
             }
 
             // BIOS
-            using var bios = new ManagementObjectSearcher(
+            using var bios = CreateSearcher(
                 "SELECT Manufacturer, SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS");
             foreach (var obj in bios.Get())
             {

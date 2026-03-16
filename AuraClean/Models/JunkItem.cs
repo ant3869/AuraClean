@@ -23,7 +23,8 @@ public enum JunkType
     WindowsErrorReporting,
     FontCache,
     LogFile,
-    WindowsOld
+    WindowsOld,
+    WinSxS
 }
 
 /// <summary>
@@ -63,6 +64,7 @@ public partial class JunkItem : ObservableObject
             JunkType.FontCache => "Font Cache",
             JunkType.LogFile => "Log Files",
             JunkType.WindowsOld => "Windows.old",
+            JunkType.WinSxS => "Component Store (WinSxS)",
             _ => "Other"
         };
         set => _categoryOverride = value;

@@ -1,0 +1,203 @@
+<UserControl x:Class="AuraClean.Views.FileRecoveryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock FontSize="26" FontWeight="Light"
+                       Foreground="{StaticResource AuraTextBright}">
+                <Run Text="File " /><Run Text="Recovery" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Text="Recover recently deleted files from the Recycle Bin"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="13" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Action Bar -->
+        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
+                             UniformCornerRadius="14" Padding="20" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Scan Button -->
+                <Button Grid.Column="0"
+                        Style="{StaticResource AuraPrimaryButton}"
+                        Command="{Binding ScanRecycleBinCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="20,10">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Scan Recycle Bin" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Restore Button -->
+                <Button Grid.Column="1" Margin="8,0,0,0"
+                        Command="{Binding RestoreSelectedCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="20,10">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatMidBgButton}">
+                            <Setter Property="Background" Value="{StaticResource AuraAccentTeal}" />
+                            <Setter Property="Foreground" Value="White" />
+                            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FileRestore" Width="18" Height="18"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Restore Selected" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Select All / Deselect All -->
+                <Button Grid.Column="2" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding SelectAllCommand}"
+                        Content="Select All" Padding="14,8" Margin="16,0,0,0" />
+
+                <Button Grid.Column="3" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding DeselectAllCommand}"
+                        Content="Deselect All" Padding="14,8" Margin="4,0,0,0" />
+
+                <!-- Progress -->
+                <ProgressBar Grid.Column="4" IsIndeterminate="True"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                             Margin="16,0,0,0" VerticalAlignment="Center"
+                             Foreground="{StaticResource AuraAccentTeal}" />
+
+                <!-- Cancel -->
+                <Button Grid.Column="5" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding CancelCommand}"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                        Content="Cancel" Padding="14,8" Margin="8,0,0,0" />
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- Filter Bar -->
+        <Grid Grid.Row="2" Margin="0,0,0,12"
+              Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Total count -->
+            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                    Padding="14,8" Margin="0,0,8,0">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="DeleteRestore" Foreground="{StaticResource AuraAccentPurple}"
+                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="{Binding TotalItems}" FontWeight="SemiBold" FontSize="14"
+                               Foreground="{StaticResource AuraTextPrimary}" VerticalAlignment="Center" />
+                    <TextBlock Text=" items" Foreground="{StaticResource AuraTextSecondary}"
+                               VerticalAlignment="Center" FontSize="12" />
+                </StackPanel>
+            </Border>
+
+            <!-- Type Filter -->
+            <ComboBox Grid.Column="1" ItemsSource="{Binding FileTypes}"
+                      SelectedItem="{Binding FilterType}"
+                      Background="{StaticResource AuraSurfaceLight}"
+                      Foreground="{StaticResource AuraTextPrimary}"
+                      FontSize="12" Width="130" Margin="0,0,8,0" />
+
+            <!-- Search -->
+            <TextBox Grid.Column="2"
+                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                     materialDesign:HintAssist.Hint="Filter by name or path..."
+                     Background="{StaticResource AuraSurfaceLight}"
+                     Foreground="{StaticResource AuraTextPrimary}"
+                     FontSize="12" Padding="8,6" />
+        </Grid>
+
+        <!-- File DataGrid -->
+        <DataGrid Grid.Row="3"
+                  ItemsSource="{Binding FilteredFiles}"
+                  SelectedItem="{Binding SelectedFile}"
+                  AutoGenerateColumns="False"
+                  CanUserSortColumns="True"
+                  CanUserAddRows="False"
+                  SelectionMode="Extended"
+                  Background="Transparent"
+                  Foreground="{StaticResource AuraTextPrimary}"
+                  BorderThickness="0"
+                  GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
+                  RowBackground="Transparent"
+                  AlternatingRowBackground="#06FFFFFF"
+                  HeadersVisibility="Column">
+
+            <DataGrid.Columns>
+                <!-- Checkbox -->
+                <DataGridTemplateColumn Width="42">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- File Name -->
+                <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="*"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextPrimary}" />
+
+                <!-- Type -->
+                <DataGridTextColumn Header="Type" Binding="{Binding FileType}" Width="80"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraAccentTeal}" />
+
+                <!-- Size -->
+                <DataGridTextColumn Header="Size" Binding="{Binding FormattedSize}" Width="100"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextSecondary}"
+                                    SortMemberPath="SizeBytes" />
+
+                <!-- Deleted Date -->
+                <DataGridTextColumn Header="Deleted" Binding="{Binding DeletedDateDisplay}" Width="140"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextSecondary}"
+                                    SortMemberPath="DeletedDate" />
+
+                <!-- Original Path -->
+                <DataGridTextColumn Header="Original Location" Binding="{Binding OriginalPath}" Width="300"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextMuted}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="4" Margin="0,12,0,0" Padding="8,8"
+                Background="{StaticResource AuraSurfaceLight}" CornerRadius="8">
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="12" VerticalAlignment="Center" />
+        </Border>
+    </Grid>
+</UserControl>

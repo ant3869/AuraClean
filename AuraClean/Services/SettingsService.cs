@@ -1,4 +1,5 @@
 using AuraClean.Helpers;
+using Microsoft.Win32;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -78,6 +79,40 @@ public static class SettingsService
             {
                 DiagnosticLogger.Warn("SettingsService", "Failed to save settings", ex);
             }
+
+            // Apply side-effects
+            ApplyLaunchAtStartup(settings.LaunchAtStartup);
+        }
+    }
+
+    /// <summary>
+    /// Writes or removes the AuraClean entry from the Windows Registry Run key
+    /// so the app auto-starts (or stops auto-starting) with Windows.
+    /// </summary>
+    private static void ApplyLaunchAtStartup(bool enable)
+    {
+        const string keyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+        const string valueName = "AuraClean";
+
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(keyPath, writable: true);
+            if (key == null) return;
+
+            if (enable)
+            {
+                var exePath = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(exePath))
+                    key.SetValue(valueName, $"\"{exePath}\" --minimized");
+            }
+            else
+            {
+                key.DeleteValue(valueName, throwOnMissingValue: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("SettingsService", "Failed to apply LaunchAtStartup", ex);
         }
     }
 
@@ -119,6 +154,7 @@ public class AppSettings
     public bool ShowConfirmationDialogs { get; set; } = true;
     public bool MinimizeToTray { get; set; } = false;
     public bool LaunchAtStartup { get; set; } = false;
+    public bool IsLightTheme { get; set; } = false;
 
     // ── Cleaner ──
     public bool CleanTempFiles { get; set; } = true;
@@ -148,6 +184,12 @@ public class AppSettings
     // ── History ──
     public int MaxHistoryEntries { get; set; } = 500;
     public bool LogCleanupOperations { get; set; } = true;
+
+    // ── Scheduled Cleanup ──
+    public bool ScheduledCleanupEnabled { get; set; } = false;
+    public string ScheduledCleanupFrequency { get; set; } = "Weekly";  // Daily, Weekly, Monthly
+    public string ScheduledCleanupTime { get; set; } = "03:00";       // 24h format
+    public int ScheduledCleanupDayOfWeek { get; set; } = 1;           // 1=Mon ... 7=Sun (for Weekly)
 
     // ── Metadata ──
     public DateTime LastModified { get; set; } = DateTime.Now;

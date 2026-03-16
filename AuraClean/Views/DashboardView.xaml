@@ -15,6 +15,7 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- ═══ HEADER ═══ -->
@@ -289,6 +290,17 @@
                                    FontSize="14" FontWeight="SemiBold" />
                     </StackPanel>
                 </Button>
+
+                <Button Style="{StaticResource AuraOutlinedButton}"
+                        Command="{Binding RunHealthCheckCommand}"
+                        Margin="12,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ShieldCheck" Width="18" Height="18"
+                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="HEALTH CHECK" VerticalAlignment="Center"
+                                   FontSize="14" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <!-- Secondary row -->
@@ -327,8 +339,23 @@
             </StackPanel>
         </StackPanel>
 
+        <!-- ═══ HEALTH CHECK STATUS ═══ -->
+        <StackPanel Grid.Row="3" HorizontalAlignment="Center" Margin="0,8,0,0"
+                    Visibility="{Binding IsHealthCheckRunning, Converter={StaticResource BoolToVis}}">
+            <ProgressBar IsIndeterminate="True" Width="300" Height="4" Margin="0,0,0,6"
+                         Foreground="{StaticResource AuraAccentPurple}" />
+            <TextBlock Text="{Binding HealthCheckProgress}"
+                       Foreground="{StaticResource AuraTextMuted}" FontSize="11"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="3" Text="{Binding HealthCheckSummary}"
+                   HorizontalAlignment="Center" Margin="0,8,0,0"
+                   Foreground="{StaticResource AuraTextSecondary}" FontSize="12"
+                   FontWeight="Medium" TextWrapping="Wrap" MaxWidth="500"/>
+
         <!-- ═══ CONTEXT MENU TOGGLE ═══ -->
-        <StackPanel Grid.Row="3" HorizontalAlignment="Center" Margin="0,16,0,0" Orientation="Horizontal">
+        <StackPanel Grid.Row="4" HorizontalAlignment="Center" Margin="0,16,0,0" Orientation="Horizontal">
             <TextBlock Text="Explorer Context Menu:"
                        Foreground="{StaticResource AuraTextMuted}" FontSize="11"
                        VerticalAlignment="Center" Margin="0,0,8,0" />

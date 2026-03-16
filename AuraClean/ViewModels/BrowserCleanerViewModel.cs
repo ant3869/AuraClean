@@ -46,7 +46,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
             var browsers = BrowserCleanerService.DetectBrowsers();
             if (browsers.Count == 0)
             {
-                StatusMessage = "No supported Chromium-based browsers detected.";
+                StatusMessage = "No supported browsers detected.";
                 IsBusy = false;
                 return;
             }
@@ -154,6 +154,10 @@ public partial class BrowserCleanerViewModel : ObservableObject
             StatusMessage = StatusMessage.Replace(" Flushing DNS cache...", "") +
                             (dnsOk ? " DNS cache flushed." : $" DNS: {dnsMsg}");
         }
+
+        if (!IsDryRun && totalFreed > 0)
+            NotificationService.ShowSuccess("Browser Cleanup Complete",
+                $"Freed {FormatHelper.FormatBytes(totalFreed)} across {selectedBrowsers.Count} browser(s).");
 
         IsBusy = false;
     }

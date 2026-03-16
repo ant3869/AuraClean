@@ -273,8 +273,9 @@ public static class DuplicateFinderService
                             deleted++;
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        DiagnosticLogger.Warn("DuplicateFinderService", $"Failed to delete duplicate: {file.FullPath}", ex);
                         failed++;
                     }
                 }

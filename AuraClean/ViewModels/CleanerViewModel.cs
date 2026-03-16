@@ -178,6 +178,10 @@ public partial class CleanerViewModel : ObservableObject
             LastCleanedSummary = $"{deleted} items ({FormatHelper.FormatBytes(bytesFreed)}) cleaned at {DateTime.Now:HH:mm:ss}";
             CanUndoLastClean = rpSuccess;
 
+            // Send tray notification
+            NotificationService.ShowSuccess("Cleanup Complete",
+                $"Freed {FormatHelper.FormatBytes(bytesFreed)} by cleaning {deleted} items.");
+
             if (errors.Count > 0)
             {
                 var details = string.Join("\n", errors.Take(10));

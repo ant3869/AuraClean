@@ -1,3 +1,4 @@
+using AuraClean.Helpers;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -27,8 +28,10 @@ public partial class SystemInfoViewModel : ObservableObject
     public SystemInfoViewModel()
     {
         _ = LoadInfoAsync().ContinueWith(t =>
-            System.Diagnostics.Debug.WriteLine($"[SystemInfoViewModel] LoadInfoAsync failed: {t.Exception}"),
-            TaskContinuationOptions.OnlyOnFaulted);
+        {
+            if (t.Exception != null)
+                DiagnosticLogger.Warn("SystemInfoViewModel", "LoadInfoAsync failed", t.Exception.InnerException ?? t.Exception);
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     partial void OnFilterCategoryChanged(string value) => ApplyFilter();

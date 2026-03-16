@@ -1,0 +1,213 @@
+<UserControl x:Class="AuraClean.Views.DiskOptimizerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock FontSize="26" FontWeight="Light"
+                       Foreground="{StaticResource AuraTextBright}">
+                <Run Text="Disk " /><Run Text="Optimizer" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Text="Defragment HDDs and TRIM SSDs to maintain peak drive performance"
+                       Foreground="{StaticResource AuraTextSecondary}"
+                       FontSize="13" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Action Bar -->
+        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
+                             UniformCornerRadius="14" Padding="20" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Analyze Button -->
+                <Button Grid.Column="0"
+                        Style="{StaticResource AuraPrimaryButton}"
+                        Command="{Binding AnalyzeDrivesCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="20,10">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Analyze" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Optimize Button -->
+                <Button Grid.Column="1"
+                        Command="{Binding OptimizeDrivesCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="20,10" Margin="8,0,0,0">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatMidBgButton}">
+                            <Setter Property="Background" Value="{StaticResource AuraAccentTeal}" />
+                            <Setter Property="Foreground" Value="White" />
+                            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="RocketLaunch" Width="18" Height="18"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Optimize" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Select All -->
+                <Button Grid.Column="2" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding SelectAllCommand}"
+                        Content="Select All" Padding="14,8" Margin="16,0,0,0" />
+
+                <!-- Deselect All -->
+                <Button Grid.Column="3" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding DeselectAllCommand}"
+                        Content="Deselect All" Padding="14,8" Margin="4,0,0,0" />
+
+                <!-- Refresh -->
+                <Button Grid.Column="4" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding RefreshDrivesCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Padding="14,8" Margin="4,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBlock Text="Refresh" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Progress -->
+                <ProgressBar Grid.Column="5" IsIndeterminate="True"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                             Margin="16,0,0,0" VerticalAlignment="Center"
+                             Foreground="{StaticResource AuraAccentTeal}" />
+
+                <!-- Cancel -->
+                <Button Grid.Column="6" Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding CancelCommand}"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                        Content="Cancel" Padding="14,8" Margin="8,0,0,0" />
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- Drive List -->
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Drives}"
+                  AutoGenerateColumns="False"
+                  CanUserSortColumns="True"
+                  CanUserAddRows="False"
+                  SelectionMode="Single"
+                  Background="Transparent"
+                  Foreground="{StaticResource AuraTextPrimary}"
+                  BorderThickness="0"
+                  GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
+                  RowBackground="Transparent"
+                  AlternatingRowBackground="#06FFFFFF"
+                  HeadersVisibility="Column">
+
+            <DataGrid.Columns>
+                <!-- Checkbox -->
+                <DataGridTemplateColumn Width="42">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Drive -->
+                <DataGridTextColumn Header="Drive" Binding="{Binding DisplayName}" Width="*"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextPrimary}" />
+
+                <!-- Type -->
+                <DataGridTextColumn Header="Type" Binding="{Binding MediaTypeLabel}" Width="80"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraAccentTeal}" />
+
+                <!-- File System -->
+                <DataGridTextColumn Header="Format" Binding="{Binding FileSystem}" Width="80"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextSecondary}" />
+
+                <!-- Total Size -->
+                <DataGridTextColumn Header="Total" Binding="{Binding FormattedTotal}" Width="100"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextSecondary}" />
+
+                <!-- Free Space -->
+                <DataGridTextColumn Header="Free" Binding="{Binding FormattedFree}" Width="100"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextSecondary}" />
+
+                <!-- Fragmentation -->
+                <DataGridTemplateColumn Header="Fragmentation" Width="120">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <ProgressBar Value="{Binding FragmentPercent, Mode=OneWay}"
+                                             Maximum="100" Height="16"
+                                             Background="#20FFFFFF"
+                                             Foreground="{StaticResource AuraWarning}" />
+                                <TextBlock Text="{Binding FragmentPercent, StringFormat={}{0}%}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           FontSize="11" Foreground="White" />
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Action -->
+                <DataGridTextColumn Header="Action" Binding="{Binding OptimizeAction}" Width="120"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraAccentPurple}" />
+
+                <!-- Status -->
+                <DataGridTextColumn Header="Status" Binding="{Binding StatusMessage}" Width="200"
+                                    IsReadOnly="True"
+                                    Foreground="{StaticResource AuraTextSecondary}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="3" Margin="0,12,0,0" Padding="8,8"
+                Background="{StaticResource AuraSurfaceLight}" CornerRadius="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource AuraTextSecondary}"
+                           FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding CurrentOperation}"
+                           Foreground="{StaticResource AuraAccentTeal}"
+                           FontSize="12" VerticalAlignment="Center"
+                           Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

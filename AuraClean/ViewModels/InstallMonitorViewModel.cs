@@ -35,8 +35,10 @@ public partial class InstallMonitorViewModel : ObservableObject
     public InstallMonitorViewModel()
     {
         _ = LoadSnapshotsAsync().ContinueWith(t =>
-            System.Diagnostics.Debug.WriteLine($"[InstallMonitorViewModel] LoadSnapshotsAsync failed: {t.Exception}"),
-            TaskContinuationOptions.OnlyOnFaulted);
+        {
+            if (t.Exception != null)
+                DiagnosticLogger.Warn("InstallMonitorViewModel", "LoadSnapshotsAsync failed", t.Exception.InnerException ?? t.Exception);
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     /// <summary>
