@@ -317,19 +317,20 @@ public static partial class StartupManagerService
                 var line = reader.ReadLine();
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
-                // CSV parse — look for tasks with Logon/Boot triggers
+                // CSV columns with /V: [0]=HostName, [1]=TaskName, [3]=Status,
+                // [8]=Task To Run, [18]=Schedule Type
                 var parts = ParseCsvLine(line);
-                if (parts.Length < 9) continue;
+                if (parts.Length < 19) continue;
 
-                var taskName = parts[0].Trim('"');
+                var taskName = parts[1].Trim('"');
                 var status = parts[3].Trim('"');
-                var triggerType = parts.Length > 8 ? parts[8].Trim('"') : "";
-                var taskToRun = parts.Length > 7 ? parts[7].Trim('"') : "";
+                var taskToRun = parts[8].Trim('"');
+                var scheduleType = parts[18].Trim('"');
 
                 // Only include logon/boot triggered tasks  
-                if (!triggerType.Contains("logon", StringComparison.OrdinalIgnoreCase) &&
-                    !triggerType.Contains("boot", StringComparison.OrdinalIgnoreCase) &&
-                    !triggerType.Contains("startup", StringComparison.OrdinalIgnoreCase))
+                if (!scheduleType.Contains("logon", StringComparison.OrdinalIgnoreCase) &&
+                    !scheduleType.Contains("boot", StringComparison.OrdinalIgnoreCase) &&
+                    !scheduleType.Contains("startup", StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 // Skip system tasks

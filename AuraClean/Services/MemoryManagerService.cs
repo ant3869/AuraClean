@@ -202,24 +202,38 @@ public static class MemoryManagerService
     {
         return await Task.Run(() =>
         {
-            var gcInfo = GC.GetGCMemoryInfo();
-            long totalPhysical = gcInfo.TotalAvailableMemoryBytes;
+            var memStatus = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
+            GlobalMemoryStatusEx(ref memStatus);
 
-            long usedByProcesses = 0;
-            foreach (var proc in Process.GetProcesses())
-            {
-                try { usedByProcesses += proc.WorkingSet64; }
-                catch { }
-                finally { proc.Dispose(); }
-            }
+            long totalPhysical = (long)memStatus.ullTotalPhys;
+            long availablePhysical = (long)memStatus.ullAvailPhys;
+            long usedPhysical = totalPhysical - availablePhysical;
 
             return new MemorySnapshot(
                 TotalPhysicalBytes: totalPhysical,
-                UsedBytes: usedByProcesses,
-                AvailableBytes: totalPhysical - usedByProcesses,
+                UsedBytes: usedPhysical,
+                AvailableBytes: availablePhysical,
                 UsagePercent: totalPhysical > 0
-                    ? (double)usedByProcesses / totalPhysical * 100.0 : 0);
+                    ? (double)usedPhysical / totalPhysical * 100.0 : 0);
         });
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MEMORYSTATUSEX
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
     }
 
     /// <summary>

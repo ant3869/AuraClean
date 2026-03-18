@@ -140,3 +140,58 @@ public class TreemapColorConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Converts a score (0-100) to a percentage width for score bars.
+/// Parameter is the max width as a double string.
+/// </summary>
+public class ScoreToWidthConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        double score = System.Convert.ToDouble(value);
+        double maxWidth = 200;
+        if (parameter is string s && double.TryParse(s, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out double mw))
+            maxWidth = mw;
+        return Math.Max(4, score / 100.0 * maxWidth);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Converts a hex color string like "#FF6B8A" to a SolidColorBrush.
+/// </summary>
+public class HexToBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string hex && hex.StartsWith('#') && hex.Length == 7)
+        {
+            byte r = System.Convert.ToByte(hex.Substring(1, 2), 16);
+            byte g = System.Convert.ToByte(hex.Substring(3, 2), 16);
+            byte b = System.Convert.ToByte(hex.Substring(5, 2), 16);
+            return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+        }
+        return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x7C, 0x5C, 0xFC));
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Converts a score 0-100 into the arc sweep angle (0-360) for the circular gauge.
+/// </summary>
+public class ScoreToAngleConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        double score = System.Convert.ToDouble(value);
+        return score / 100.0 * 360.0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

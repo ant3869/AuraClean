@@ -62,6 +62,7 @@ public partial class MainViewModel : ObservableObject
     public DiskOptimizerViewModel DiskOptimizer { get; } = new();
     public FileRecoveryViewModel FileRecovery { get; } = new();
     public EmptyFolderFinderViewModel EmptyFolderFinder { get; } = new();
+    public AppInstallerViewModel AppInstaller { get; } = new();
 
     // Context menu
     [ObservableProperty] private bool _isContextMenuInstalled;

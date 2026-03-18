@@ -301,6 +301,16 @@
                         </StackPanel>
                     </RadioButton>
 
+                    <RadioButton x:Name="NavAppInstaller"
+                                 Style="{StaticResource AuraNavButton}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="AppInstaller">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="PackageDown" Width="20" Height="20" VerticalAlignment="Center" />
+                            <TextBlock Text="App Installer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                        </StackPanel>
+                    </RadioButton>
+
                     <!-- Section: SETTINGS -->
                     <TextBlock Text="SETTINGS" FontSize="10" FontWeight="SemiBold"
                                Foreground="{StaticResource AuraTextMuted}"
@@ -465,6 +475,11 @@
                 <views:EmptyFolderFinderView DataContext="{Binding EmptyFolderFinder}"
                                               Visibility="Collapsed"
                                               x:Name="EmptyFoldersContent" />
+
+                <!-- App Bundle Installer View -->
+                <views:AppInstallerView DataContext="{Binding AppInstaller}"
+                                        Visibility="Collapsed"
+                                        x:Name="AppInstallerContent" />
             </Grid>
 
             <!-- Status Bar -->

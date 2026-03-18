@@ -221,24 +221,48 @@ public static class SystemInfoService
         {
             using var mos = CreateSearcher(
                 "SELECT Name, DriverVersion, AdapterRAM, VideoProcessor, " +
-                "CurrentHorizontalResolution, CurrentVerticalResolution FROM Win32_VideoController");
+                "CurrentHorizontalResolution, CurrentVerticalResolution, PNPDeviceID FROM Win32_VideoController");
+
+            // Collect all GPUs first, then sort so the best discrete GPU is primary
+            var gpuList = new List<(string Name, string DriverVersion, long VramBytes, string? HRes, string? VRes, string PnpId)>();
+
+            foreach (var obj in mos.Get())
+            {
+                string name = obj["Name"]?.ToString() ?? "N/A";
+                string driverVersion = obj["DriverVersion"]?.ToString() ?? "N/A";
+                string pnpId = obj["PNPDeviceID"]?.ToString() ?? "";
+
+                // Get VRAM: try registry first for accurate >4 GB values, fall back to WMI uint32
+                long vramBytes = GetAccurateVram(pnpId);
+                if (vramBytes <= 0 && obj["AdapterRAM"] is uint wmiVram && wmiVram > 0)
+                    vramBytes = wmiVram;
+
+                string? hRes = obj["CurrentHorizontalResolution"]?.ToString();
+                string? vRes = obj["CurrentVerticalResolution"]?.ToString();
+
+                gpuList.Add((name, driverVersion, vramBytes, hRes, vRes, pnpId));
+            }
+
+            // Sort: discrete GPUs first (by highest VRAM), then integrated
+            var sorted = gpuList
+                .OrderByDescending(g => IsDiscreteGpuName(g.Name) ? 1 : 0)
+                .ThenByDescending(g => g.VramBytes)
+                .ToList();
 
             int gpuIndex = 0;
-            foreach (var obj in mos.Get())
+            foreach (var gpu in sorted)
             {
                 gpuIndex++;
                 string prefix = gpuIndex > 1 ? $"GPU {gpuIndex} " : "";
 
-                entries.Add(new InfoEntry(cat, $"{prefix}Name", obj["Name"]?.ToString() ?? "N/A", "Gpu"));
-                entries.Add(new InfoEntry(cat, $"{prefix}Driver Version", obj["DriverVersion"]?.ToString() ?? "N/A", "Update"));
+                entries.Add(new InfoEntry(cat, $"{prefix}Name", gpu.Name, "Gpu"));
+                entries.Add(new InfoEntry(cat, $"{prefix}Driver Version", gpu.DriverVersion, "Update"));
 
-                if (obj["AdapterRAM"] is uint vramBytes && vramBytes > 0)
-                    entries.Add(new InfoEntry(cat, $"{prefix}VRAM", FormatHelper.FormatBytes(vramBytes), "Memory"));
+                if (gpu.VramBytes > 0)
+                    entries.Add(new InfoEntry(cat, $"{prefix}VRAM", FormatHelper.FormatBytes(gpu.VramBytes), "Memory"));
 
-                var hRes = obj["CurrentHorizontalResolution"];
-                var vRes = obj["CurrentVerticalResolution"];
-                if (hRes != null && vRes != null)
-                    entries.Add(new InfoEntry(cat, $"{prefix}Resolution", $"{hRes} x {vRes}", "Monitor"));
+                if (gpu.HRes != null && gpu.VRes != null)
+                    entries.Add(new InfoEntry(cat, $"{prefix}Resolution", $"{gpu.HRes} x {gpu.VRes}", "Monitor"));
             }
         }
         catch (Exception ex)
@@ -247,6 +271,58 @@ public static class SystemInfoService
         }
 
         return entries;
+    }
+
+    /// <summary>
+    /// Reads the accurate VRAM size from the registry using the PNP Device ID.
+    /// Win32_VideoController.AdapterRAM is uint32, capping at ~4 GB.
+    /// The registry stores a QWORD (64-bit) value under HardwareInformation.qwMemorySize.
+    /// </summary>
+    private static long GetAccurateVram(string pnpDeviceId)
+    {
+        if (string.IsNullOrWhiteSpace(pnpDeviceId)) return 0;
+
+        try
+        {
+            string regPath = @"SYSTEM\CurrentControlSet\Enum\" + pnpDeviceId;
+            using var deviceKey = Registry.LocalMachine.OpenSubKey(regPath);
+            if (deviceKey == null) return 0;
+
+            string? driver = deviceKey.GetValue("Driver")?.ToString();
+            if (string.IsNullOrEmpty(driver)) return 0;
+
+            string videoKeyPath = @"SYSTEM\CurrentControlSet\Control\Class\" + driver;
+            using var videoKey = Registry.LocalMachine.OpenSubKey(videoKeyPath);
+            if (videoKey == null) return 0;
+
+            // Try qwMemorySize (QWORD, accurate for >4 GB GPUs)
+            object? qwVal = videoKey.GetValue("HardwareInformation.qwMemorySize");
+            if (qwVal is long longVal && longVal > 0) return longVal;
+            if (qwVal is ulong ulongVal && ulongVal > 0) return (long)ulongVal;
+
+            // Fallback: HardwareInformation.MemorySize (DWORD, may cap at 4 GB)
+            object? dwVal = videoKey.GetValue("HardwareInformation.MemorySize");
+            if (dwVal is int intVal && intVal > 0) return intVal;
+            if (dwVal is uint uintVal && uintVal > 0) return uintVal;
+        }
+        catch
+        {
+            // Registry access may fail without admin — fall back to WMI value
+        }
+
+        return 0;
+    }
+
+    /// <summary>Check if a GPU name indicates a discrete GPU (used during collection sorting).</summary>
+    private static bool IsDiscreteGpuName(string gpuName)
+    {
+        if (string.IsNullOrWhiteSpace(gpuName)) return false;
+        string upper = gpuName.ToUpperInvariant();
+        return upper.Contains("GEFORCE") || upper.Contains("RADEON") ||
+               upper.Contains("RTX") || upper.Contains("GTX") ||
+               upper.Contains("QUADRO") || upper.Contains("TESLA") ||
+               upper.Contains("ARC ") || upper.Contains("FIREPRO") ||
+               upper.Contains("RX ") || upper.Contains("TITAN");
     }
 
     private static List<InfoEntry> GetStorageInfo()

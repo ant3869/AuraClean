@@ -362,11 +362,11 @@ public static class ThreatSignatureDatabase
 
     public static readonly string[] LegitimateSystemPaths =
     [
-        @"C:\Windows\System32\",
-        @"C:\Windows\SysWOW64\",
-        @"C:\Windows\",
-        @"C:\Program Files\",
-        @"C:\Program Files (x86)\",
+        Environment.GetFolderPath(Environment.SpecialFolder.System) + @"\",
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), @"SysWOW64\"),
+        Environment.GetFolderPath(Environment.SpecialFolder.Windows) + @"\",
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) + @"\",
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86) + @"\",
     ];
 
     // ══════════════════════════════════════════

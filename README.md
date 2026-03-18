@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.2.0-7C5CFC?style=for-the-badge" alt="v1.2.0" />
+  <img src="https://img.shields.io/badge/Version-1.3.0-7C5CFC?style=for-the-badge" alt="v1.3.0" />
   <img src="https://img.shields.io/badge/.NET-8.0-purple?style=for-the-badge&logo=dotnet" alt=".NET 8" />
   <img src="https://img.shields.io/badge/WPF-Desktop-blue?style=for-the-badge&logo=windows" alt="WPF" />
   <img src="https://img.shields.io/badge/MaterialDesign-5.1-00BCD4?style=for-the-badge" alt="MaterialDesign" />
@@ -9,7 +9,7 @@
 <h1 align="center">AuraClean</h1>
 <p align="center"><strong>A modern Windows system cleaner &amp; optimizer built with WPF and .NET 8</strong></p>
 <p align="center">
-  Deep uninstaller · System hygiene engine · Privacy cleaner · RAM booster · Storage analyzer · Threat scanner · Empty folder finder<br/>
+  Deep uninstaller · System hygiene engine · Privacy cleaner · RAM booster · Storage analyzer · Threat scanner · Hardware rating · App installer<br/>
   All wrapped in a dark glass-morphism UI called <em>Obsidian Aurora</em>
 </p>
 
@@ -21,7 +21,7 @@
 
 ---
 
-## Features (21 Pages)
+## Features (22 Pages)
 
 | Page | Description |
 |------|-------------|
@@ -37,13 +37,14 @@
 | **Duplicate Finder** | 3-pass detection: file size → partial 4KB hash → full SHA-256, configurable size filters |
 | **Large File Finder** | Scans drives for files above a threshold (50MB–1GB), categorized by type, batch delete with selection count |
 | **File Shredder** | Secure multi-pass deletion: Quick Zero, Random, DoD 5220.22-M (3-pass), Enhanced (7-pass), drag-and-drop support |
-| **System Info** | WMI-based hardware inventory: OS, CPU, Memory, GPU, Storage, Network, Motherboard, Runtime |
+| **System Info** | WMI-based hardware inventory with weighted performance scoring (CPU 30%, Memory 25%, GPU 20%, Storage 20%, System 5%) and letter grades (S–F) |
 | **Quarantine** | Move suspicious files to quarantine with restore capability, auto-purge expired entries, cross-module messaging |
 | **Cleanup History** | Persistent log of all past operations with summary stats, filtering, and text export |
 | **Disk Optimizer** | Drive analysis with TRIM, defragmentation, and optimization recommendations for HDD/SSD |
 | **Empty Folder Finder** | Bottom-up recursive scanner that detects empty folders and nested empty trees, with batch delete |
 | **File Recovery** | Scan and recover recently deleted files from disk |
 | **Software Updater** | View installed software with update status checks |
+| **App Installer** | Bundle app installer for streamlined application deployment |
 | **WinSxS Cleanup** | Component Store analysis and cleanup via DISM (integrated into System Cleaner as category 15) |
 | **Settings** | Centralized preferences: restore points, dry-run, scan defaults, shred algorithm, retention policies, minimize-to-tray, scheduled cleanup |
 
@@ -54,11 +55,13 @@
 ```
 AuraClean/
 ├── Models/                 # ObservableObject data models
+│   ├── BundleApp.cs
 │   ├── InstalledProgram.cs
 │   ├── JunkItem.cs         # 18-value JunkType enum (includes WinSxS)
 │   ├── ScanResult.cs
 │   └── ThreatItem.cs       # ThreatLevel/ThreatType enums + ThreatItem model
 ├── Services/               # All static, async, with IProgress<string> + CancellationToken
+│   ├── AppInstallerService.cs
 │   ├── BrowserCleanerService.cs
 │   ├── CleanupHistoryService.cs
 │   ├── ContextMenuService.cs
@@ -85,16 +88,17 @@ AuraClean/
 │   ├── DiskOptimizerService.cs       # Drive TRIM/defrag/optimization
 │   ├── EmptyFolderFinderService.cs   # Recursive empty-folder scanner + deleter
 │   ├── FileRecoveryService.cs        # Deleted file recovery
+│   ├── HardwareScoreService.cs       # Weighted hardware performance scoring
 │   ├── NotificationService.cs        # Toast notification helper
 │   ├── ScheduledCleanupService.cs    # Scheduled cleanup automation
 │   └── SoftwareUpdaterService.cs     # Installed software update checks
 ├── ViewModels/             # CommunityToolkit.Mvvm ObservableObject + [RelayCommand]
 │   ├── MainViewModel.cs    # Root VM: navigation, health score, system info
-│   └── ...                 # 20 feature ViewModels
+│   └── ...                 # 21 feature ViewModels
 ├── Views/                  # WPF UserControls + MainWindow
 │   ├── MainWindow.xaml     # Sidebar nav + content switching + system tray
-│   └── ...                 # 21 feature views
-├── Converters/             # FileSizeConverter, BoolToVisibility, InverseBoolToVisibility, IntToVisibility, etc.
+│   └── ...                 # 22 feature views
+├── Converters/             # FileSizeConverter, BoolToVisibility, InverseBoolToVisibility, IntToVisibility, HexToBrush, ScoreToWidth, ScoreToAngle
 ├── Helpers/                # DiagnosticLogger, FormatHelper
 └── Assets/                 # icon.ico
 ```
@@ -104,7 +108,7 @@ AuraClean/
 | Pattern | Implementation |
 |---------|---------------|
 | **MVVM** | CommunityToolkit.Mvvm source generators (`[ObservableProperty]`, `[RelayCommand]`) |
-| **Static Services** | All 29 services are `static` classes — no DI container |
+| **Static Services** | All 30 services are `static` classes — no DI container |
 | **Navigation** | String-based view switching via `MainViewModel.CurrentViewName` → code-behind `Dictionary<string, FrameworkElement>` |
 | **Progress Reporting** | Every long operation accepts `IProgress<string>` for live status updates |
 | **Cancellation** | All async operations support `CancellationToken` |
@@ -117,6 +121,7 @@ AuraClean/
 | DLL | Function | Used By |
 |-----|----------|---------|
 | `kernel32.dll` | `MoveFileEx` | ForceDeleteService — boot-time delete for locked files |
+| `kernel32.dll` | `GlobalMemoryStatusEx` | MemoryManagerService — accurate physical memory stats |
 | `psapi.dll` | `EmptyWorkingSet` | MemoryManagerService — trim process working sets |
 | `ntdll.dll` | `NtSetSystemInformation` | MemoryManagerService — purge standby memory list |
 | `rstrtmgr.dll` | `RmStartSession`, `RmRegisterResources`, `RmGetList` | FileLockDetector — identify processes locking files |

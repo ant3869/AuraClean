@@ -211,12 +211,13 @@ public static class RegistryScannerService
             var backupPath = Path.Combine(backupDir, fileName);
 
             // Use reg.exe export for reliable .reg file generation
+            var regPath = NormalizeKeyPath(keyPath);
             var process = new System.Diagnostics.Process
             {
                 StartInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "reg.exe",
-                    Arguments = $"export \"{keyPath}\" \"{backupPath}\" /y",
+                    Arguments = $"export \"{regPath}\" \"{backupPath}\" /y",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -265,6 +266,20 @@ public static class RegistryScannerService
         }
     }
 
+    /// <summary>
+    /// Converts display paths like "HKLM (64-bit)\Software\Key" to reg.exe-friendly "HKLM\Software\Key".
+    /// </summary>
+    private static string NormalizeKeyPath(string keyPath)
+    {
+        if (keyPath.StartsWith("HKLM (", StringComparison.OrdinalIgnoreCase))
+        {
+            var firstSlash = keyPath.IndexOf('\\');
+            if (firstSlash >= 0)
+                return "HKLM" + keyPath[firstSlash..];
+        }
+        return keyPath;
+    }
+
     private static (RegistryHive? Hive, string? SubKey) ParseKeyPath(string keyPath)
     {
         if (keyPath.StartsWith("HKCU\\", StringComparison.OrdinalIgnoreCase) ||
@@ -275,6 +290,7 @@ public static class RegistryScannerService
         }
 
         if (keyPath.StartsWith("HKLM\\", StringComparison.OrdinalIgnoreCase) ||
+            keyPath.StartsWith("HKLM ", StringComparison.OrdinalIgnoreCase) ||
             keyPath.StartsWith("HKEY_LOCAL_MACHINE\\", StringComparison.OrdinalIgnoreCase))
         {
             var idx = keyPath.IndexOf('\\') + 1;

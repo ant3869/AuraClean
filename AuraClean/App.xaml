@@ -241,7 +241,11 @@
             <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
             <converters:FileSizeConverter x:Key="FileSizeConverter" />
             <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+            <converters:IntToVisibilityConverter x:Key="IntToVisibilityConverter" />
             <converters:TreemapColorConverter x:Key="TreemapColorConverter" />
+            <converters:HexToBrushConverter x:Key="HexToBrush" />
+            <converters:ScoreToWidthConverter x:Key="ScoreToWidth" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

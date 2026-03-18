@@ -1705,22 +1705,25 @@ public static class ThreatScannerService
         CheckSystemFileImpersonation(string filePath, string fileName)
     {
         // System process names that should ONLY exist in System32/SysWOW64
+        var sys32 = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        var winDir = Path.GetDirectoryName(sys32) ?? @"C:\Windows";
+
         var systemOnly = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["svchost.exe"] = @"C:\Windows\System32\svchost.exe",
-            ["csrss.exe"] = @"C:\Windows\System32\csrss.exe",
-            ["lsass.exe"] = @"C:\Windows\System32\lsass.exe",
-            ["smss.exe"] = @"C:\Windows\System32\smss.exe",
-            ["services.exe"] = @"C:\Windows\System32\services.exe",
-            ["winlogon.exe"] = @"C:\Windows\System32\winlogon.exe",
-            ["wininit.exe"] = @"C:\Windows\System32\wininit.exe",
-            ["conhost.exe"] = @"C:\Windows\System32\conhost.exe",
+            ["svchost.exe"] = Path.Combine(sys32, "svchost.exe"),
+            ["csrss.exe"] = Path.Combine(sys32, "csrss.exe"),
+            ["lsass.exe"] = Path.Combine(sys32, "lsass.exe"),
+            ["smss.exe"] = Path.Combine(sys32, "smss.exe"),
+            ["services.exe"] = Path.Combine(sys32, "services.exe"),
+            ["winlogon.exe"] = Path.Combine(sys32, "winlogon.exe"),
+            ["wininit.exe"] = Path.Combine(sys32, "wininit.exe"),
+            ["conhost.exe"] = Path.Combine(sys32, "conhost.exe"),
         };
 
         if (systemOnly.TryGetValue(fileName, out var legitimatePath))
         {
             if (!filePath.Equals(legitimatePath, StringComparison.OrdinalIgnoreCase) &&
-                !filePath.StartsWith(@"C:\Windows\", StringComparison.OrdinalIgnoreCase))
+                !filePath.StartsWith(winDir + @"\", StringComparison.OrdinalIgnoreCase))
             {
                 return (true,
                     $"System file '{fileName}' found outside Windows directory — likely malware impersonation",

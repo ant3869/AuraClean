@@ -496,7 +496,12 @@ public static class BrowserCleanerService
         };
 
         return processNames.Any(name =>
-            System.Diagnostics.Process.GetProcessesByName(name).Length > 0);
+        {
+            var procs = System.Diagnostics.Process.GetProcessesByName(name);
+            var running = procs.Length > 0;
+            foreach (var p in procs) p.Dispose();
+            return running;
+        });
     }
 
     private static long GetDirectorySize(string path)

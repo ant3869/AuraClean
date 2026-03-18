@@ -6,27 +6,60 @@
 
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+        <converters:HexToBrushConverter x:Key="HexToBrush" />
+        <converters:ScoreToWidthConverter x:Key="ScoreToWidth" />
+
+        <!-- Score bar style -->
+        <Style x:Key="ScoreBarTrack" TargetType="Border">
+            <Setter Property="Height" Value="6" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Background" Value="#10FFFFFF" />
+        </Style>
+        <Style x:Key="ScoreBarFill" TargetType="Border">
+            <Setter Property="Height" Value="6" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+
+        <!-- Category card style -->
+        <Style x:Key="CategoryCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource AuraSurface}" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="20,16" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{StaticResource AuraBorderSubtle}" />
+        </Style>
+
+        <!-- Score badge style -->
+        <Style x:Key="ScoreBadge" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Title -->
+        <!-- ═══════════════════════════════════════════ -->
+        <!--                 HEADER                      -->
+        <!-- ═══════════════════════════════════════════ -->
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
                 <TextBlock FontSize="26" FontWeight="Light"
                            Foreground="{StaticResource AuraTextBright}">
                     <Run Text="System " /><Run Text="Information" FontWeight="SemiBold" />
                 </TextBlock>
-                <TextBlock Text="Detailed hardware and software inventory of your system"
+                <TextBlock Text="Hardware inventory, performance analysis &amp; scoring"
                            Foreground="{StaticResource AuraTextSecondary}"
-                           FontSize="13"
-                           Margin="0,4,0,0" />
+                           FontSize="13" Margin="0,4,0,0" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -52,126 +85,530 @@
             </StackPanel>
         </Grid>
 
-        <!-- Filter Bar -->
-        <Grid Grid.Row="1" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <!-- ═══════════════════════════════════════════ -->
+        <!--              LOADING INDICATOR              -->
+        <!-- ═══════════════════════════════════════════ -->
+        <StackPanel Grid.Row="1"
+                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                         IsIndeterminate="True" Width="48" Height="48"
+                         Foreground="{StaticResource AuraAccentPurple}" />
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{StaticResource AuraTextSecondary}" FontSize="13"
+                       HorizontalAlignment="Center" Margin="0,12,0,0" />
+        </StackPanel>
 
-            <!-- Category Tabs -->
-            <ItemsControl Grid.Column="0" ItemsSource="{Binding Categories}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Button Command="{Binding DataContext.FilterByCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}"
-                                Margin="0,0,4,4" Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" CornerRadius="8" Padding="10,5"
-                                            Background="Transparent"
-                                            BorderBrush="{StaticResource AuraBorderSubtle}"
-                                            BorderThickness="1">
-                                        <TextBlock x:Name="Txt" Text="{Binding}"
-                                                   FontSize="12"
-                                                   Foreground="{StaticResource AuraTextSecondary}" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+        <!-- ═══════════════════════════════════════════ -->
+        <!--              MAIN CONTENT                   -->
+        <!-- ═══════════════════════════════════════════ -->
+        <ScrollViewer Grid.Row="1"
+                      Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
 
-            <!-- Search -->
-            <TextBox Grid.Column="2"
-                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     materialDesign:HintAssist.Hint="Search properties..."
-                     Background="{StaticResource AuraSurfaceLight}"
-                     Foreground="{StaticResource AuraTextPrimary}"
-                     FontSize="12" Padding="10,6" />
-        </Grid>
+                <!-- ═══════════════════════════════════════════ -->
+                <!--          OVERALL SCORE HERO CARD            -->
+                <!-- ═══════════════════════════════════════════ -->
+                <Border CornerRadius="16" Padding="28,24" Margin="0,0,0,20"
+                        BorderThickness="1" BorderBrush="{StaticResource AuraBorderSubtle}">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#0D0D1A" Offset="0" />
+                            <GradientStop Color="#12122A" Offset="0.5" />
+                            <GradientStop Color="#0D0D1A" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
 
-        <!-- Info Grid -->
-        <materialDesign:Card Grid.Row="2" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="16" Padding="0">
-            <Grid>
-                <!-- Loading indicator -->
-                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
-                            VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
-                                 IsIndeterminate="True"
-                                 Width="48" Height="48"
-                                 Foreground="{StaticResource AuraAccentPurple}" />
-                    <TextBlock Text="{Binding StatusMessage}"
-                               Foreground="{StaticResource AuraTextSecondary}" FontSize="13"
-                               HorizontalAlignment="Center" Margin="0,12,0,0" />
-                </StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                <!-- Info ListView -->
-                <ListView ItemsSource="{Binding FilteredEntries}"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListView.GroupStyle>
-                        <GroupStyle>
-                            <GroupStyle.HeaderTemplate>
-                                <DataTemplate>
-                                    <Border Padding="16,12,16,6"
-                                            BorderThickness="0,0,0,1"
-                                            BorderBrush="{StaticResource AuraBorderSubtle}">
-                                        <TextBlock Text="{Binding Name}"
-                                                   FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource AuraAccentPurple}" />
-                                    </Border>
-                                </DataTemplate>
-                            </GroupStyle.HeaderTemplate>
-                        </GroupStyle>
-                    </ListView.GroupStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="16,6,16,6">
+                        <!-- Score Circle -->
+                        <Grid Grid.Column="0" Width="140" Height="140">
+                            <!-- Background ring -->
+                            <Ellipse Width="140" Height="140" StrokeThickness="6"
+                                     Stroke="#10FFFFFF" Fill="Transparent" />
+                            <!-- Score ring (using accent color) -->
+                            <Ellipse Width="140" Height="140" StrokeThickness="6"
+                                     Stroke="{Binding OverallColor, Converter={StaticResource HexToBrush}}"
+                                     Fill="Transparent"
+                                     StrokeDashArray="3.5,0.5"
+                                     Opacity="0.6" />
+                            <!-- Center content -->
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding OverallScore}"
+                                           FontSize="42" FontWeight="Bold"
+                                           Foreground="{Binding OverallColor, Converter={StaticResource HexToBrush}}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding OverallGrade}"
+                                           FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{Binding OverallColor, Converter={StaticResource HexToBrush}}"
+                                           HorizontalAlignment="Center" Margin="0,-4,0,0" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Score Details -->
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <TextBlock FontSize="20" FontWeight="SemiBold"
+                                       Foreground="{StaticResource AuraTextBright}">
+                                <Run Text="Overall Performance: " />
+                                <Run Text="{Binding OverallGradeLabel, Mode=OneWay}"
+                                     Foreground="{Binding OverallColor, Converter={StaticResource HexToBrush}}" />
+                            </TextBlock>
+
+                            <TextBlock Foreground="{StaticResource AuraTextSecondary}"
+                                       FontSize="12" Margin="0,6,0,14" TextWrapping="Wrap">
+                                Weighted score based on CPU (30%), Memory (25%), GPU (20%), Storage (20%), and System (5%).
+                            </TextBlock>
+
+                            <!-- Quick hardware summary -->
+                            <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                                <materialDesign:PackIcon Kind="Information" Width="18" Height="18"
-                                                         Foreground="{StaticResource AuraTextMuted}"
-                                                         VerticalAlignment="Center"
-                                                         Margin="0,0,12,0" />
+                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,8">
+                                    <TextBlock Text="Processor" FontSize="10" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="{Binding CpuName}" FontSize="12" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
 
-                                <TextBlock Grid.Column="1" Text="{Binding Label}"
-                                           Foreground="{StaticResource AuraTextSecondary}"
-                                           FontSize="13" VerticalAlignment="Center" />
+                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
+                                    <TextBlock Text="Graphics" FontSize="10" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="{Binding GpuName}" FontSize="12" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
 
-                                <TextBlock Grid.Column="2" Text="{Binding Value}"
-                                           Foreground="{StaticResource AuraTextPrimary}"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           TextWrapping="Wrap" />
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,0">
+                                    <TextBlock Text="Memory" FontSize="10" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="{Binding RamSummary}" FontSize="12" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextPrimary}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="1">
+                                    <TextBlock Text="Operating System" FontSize="10" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="{Binding OsSummary}" FontSize="12" FontWeight="Medium"
+                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
                             </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Grid>
-        </materialDesign:Card>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!--         CATEGORY SCORE CARDS (2-col)        -->
+                <!-- ═══════════════════════════════════════════ -->
+                <UniformGrid Columns="2" Margin="0,0,0,8">
+
+                    <!-- ── CPU Card ── -->
+                    <Border Style="{StaticResource CategoryCard}" Margin="0,0,5,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border CornerRadius="10" Width="36" Height="36"
+                                            Background="#157C5CFC" Margin="0,0,12,0">
+                                        <materialDesign:PackIcon Kind="Cpu64Bit" Width="20" Height="20"
+                                                                 Foreground="#7C5CFC"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Processor" FontSize="15" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AuraTextBright}" />
+                                        <TextBlock Text="{Binding CpuSummary}" FontSize="11"
+                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <Border Style="{StaticResource ScoreBadge}"
+                                        Background="{Binding CpuColor, Converter={StaticResource HexToBrush}}"
+                                        Opacity="0.15">
+                                    <TextBlock Text="{Binding CpuGrade}" FontSize="14" FontWeight="Bold"
+                                               Foreground="{Binding CpuColor, Converter={StaticResource HexToBrush}}"
+                                               Opacity="1" HorizontalAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <Grid Grid.Row="1" Margin="0,0,0,6">
+                                <Border Style="{StaticResource ScoreBarTrack}" />
+                                <Border Style="{StaticResource ScoreBarFill}"
+                                        Width="{Binding CpuScore, Converter={StaticResource ScoreToWidth}, ConverterParameter=280}"
+                                        Background="{Binding CpuColor, Converter={StaticResource HexToBrush}}" />
+                            </Grid>
+
+                            <Grid Grid.Row="2">
+                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                    <Run Text="Score: " />
+                                    <Run Text="{Binding CpuScore, Mode=OneWay}" FontWeight="SemiBold"
+                                         Foreground="{Binding CpuColor, Converter={StaticResource HexToBrush}}" />
+                                    <Run Text=" / 100" />
+                                </TextBlock>
+                                <TextBlock Text="30% weight" FontSize="10"
+                                           Foreground="{StaticResource AuraTextMuted}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── Memory Card ── -->
+                    <Border Style="{StaticResource CategoryCard}" Margin="5,0,0,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border CornerRadius="10" Width="36" Height="36"
+                                            Background="#1500E5C3" Margin="0,0,12,0">
+                                        <materialDesign:PackIcon Kind="Memory" Width="20" Height="20"
+                                                                 Foreground="#00E5C3"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Memory" FontSize="15" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AuraTextBright}" />
+                                        <TextBlock Text="{Binding MemorySummary}" FontSize="11"
+                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <Border Style="{StaticResource ScoreBadge}"
+                                        Background="{Binding MemoryColor, Converter={StaticResource HexToBrush}}"
+                                        Opacity="0.15">
+                                    <TextBlock Text="{Binding MemoryGrade}" FontSize="14" FontWeight="Bold"
+                                               Foreground="{Binding MemoryColor, Converter={StaticResource HexToBrush}}"
+                                               Opacity="1" HorizontalAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <Grid Grid.Row="1" Margin="0,0,0,6">
+                                <Border Style="{StaticResource ScoreBarTrack}" />
+                                <Border Style="{StaticResource ScoreBarFill}"
+                                        Width="{Binding MemoryScore, Converter={StaticResource ScoreToWidth}, ConverterParameter=280}"
+                                        Background="{Binding MemoryColor, Converter={StaticResource HexToBrush}}" />
+                            </Grid>
+
+                            <Grid Grid.Row="2">
+                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                    <Run Text="Score: " />
+                                    <Run Text="{Binding MemoryScore, Mode=OneWay}" FontWeight="SemiBold"
+                                         Foreground="{Binding MemoryColor, Converter={StaticResource HexToBrush}}" />
+                                    <Run Text=" / 100" />
+                                </TextBlock>
+                                <TextBlock Text="25% weight" FontSize="10"
+                                           Foreground="{StaticResource AuraTextMuted}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── GPU Card ── -->
+                    <Border Style="{StaticResource CategoryCard}" Margin="0,0,5,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border CornerRadius="10" Width="36" Height="36"
+                                            Background="#15FF6B8A" Margin="0,0,12,0">
+                                        <materialDesign:PackIcon Kind="Gpu" Width="20" Height="20"
+                                                                 Foreground="#FF6B8A"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Graphics" FontSize="15" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AuraTextBright}" />
+                                        <TextBlock Text="{Binding GpuSummary}" FontSize="11"
+                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="240" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <Border Style="{StaticResource ScoreBadge}"
+                                        Background="{Binding GpuColor, Converter={StaticResource HexToBrush}}"
+                                        Opacity="0.15">
+                                    <TextBlock Text="{Binding GpuGrade}" FontSize="14" FontWeight="Bold"
+                                               Foreground="{Binding GpuColor, Converter={StaticResource HexToBrush}}"
+                                               Opacity="1" HorizontalAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <Grid Grid.Row="1" Margin="0,0,0,6">
+                                <Border Style="{StaticResource ScoreBarTrack}" />
+                                <Border Style="{StaticResource ScoreBarFill}"
+                                        Width="{Binding GpuScore, Converter={StaticResource ScoreToWidth}, ConverterParameter=280}"
+                                        Background="{Binding GpuColor, Converter={StaticResource HexToBrush}}" />
+                            </Grid>
+
+                            <Grid Grid.Row="2">
+                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                    <Run Text="Score: " />
+                                    <Run Text="{Binding GpuScore, Mode=OneWay}" FontWeight="SemiBold"
+                                         Foreground="{Binding GpuColor, Converter={StaticResource HexToBrush}}" />
+                                    <Run Text=" / 100" />
+                                </TextBlock>
+                                <TextBlock Text="20% weight" FontSize="10"
+                                           Foreground="{StaticResource AuraTextMuted}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── Storage Card ── -->
+                    <Border Style="{StaticResource CategoryCard}" Margin="5,0,0,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border CornerRadius="10" Width="36" Height="36"
+                                            Background="#15FFB74D" Margin="0,0,12,0">
+                                        <materialDesign:PackIcon Kind="Harddisk" Width="20" Height="20"
+                                                                 Foreground="#FFB74D"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Storage" FontSize="15" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AuraTextBright}" />
+                                        <TextBlock Text="{Binding StorageSummary}" FontSize="11"
+                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <Border Style="{StaticResource ScoreBadge}"
+                                        Background="{Binding StorageColor, Converter={StaticResource HexToBrush}}"
+                                        Opacity="0.15">
+                                    <TextBlock Text="{Binding StorageGrade}" FontSize="14" FontWeight="Bold"
+                                               Foreground="{Binding StorageColor, Converter={StaticResource HexToBrush}}"
+                                               Opacity="1" HorizontalAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <Grid Grid.Row="1" Margin="0,0,0,6">
+                                <Border Style="{StaticResource ScoreBarTrack}" />
+                                <Border Style="{StaticResource ScoreBarFill}"
+                                        Width="{Binding StorageScore, Converter={StaticResource ScoreToWidth}, ConverterParameter=280}"
+                                        Background="{Binding StorageColor, Converter={StaticResource HexToBrush}}" />
+                            </Grid>
+
+                            <Grid Grid.Row="2">
+                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                    <Run Text="Score: " />
+                                    <Run Text="{Binding StorageScore, Mode=OneWay}" FontWeight="SemiBold"
+                                         Foreground="{Binding StorageColor, Converter={StaticResource HexToBrush}}" />
+                                    <Run Text=" / 100" />
+                                </TextBlock>
+                                <TextBlock Text="20% weight" FontSize="10"
+                                           Foreground="{StaticResource AuraTextMuted}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </UniformGrid>
+
+                <!-- ── System/OS Score Card (full width) ── -->
+                <Border Style="{StaticResource CategoryCard}" Margin="0,0,0,16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border CornerRadius="10" Width="36" Height="36"
+                                Background="#1564B5F6">
+                            <materialDesign:PackIcon Kind="MicrosoftWindows" Width="20" Height="20"
+                                                     Foreground="#64B5F6"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <TextBlock Text="System &amp; OS" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{StaticResource AuraTextBright}" />
+                            <TextBlock Text="{Binding SystemSummary}" FontSize="11"
+                                       Foreground="{StaticResource AuraTextSecondary}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock HorizontalAlignment="Right" FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                <Run Text="{Binding SystemScore, Mode=OneWay}" FontWeight="Bold"
+                                     Foreground="{Binding SystemColor, Converter={StaticResource HexToBrush}}" />
+                                <Run Text="/100" />
+                                <Run Text=" · " />
+                                <Run Text="{Binding SystemGrade, Mode=OneWay}" FontWeight="Bold"
+                                     Foreground="{Binding SystemColor, Converter={StaticResource HexToBrush}}" />
+                            </TextBlock>
+                            <Grid Margin="0,4,0,0" Width="120">
+                                <Border Style="{StaticResource ScoreBarTrack}" />
+                                <Border Style="{StaticResource ScoreBarFill}"
+                                        Width="{Binding SystemScore, Converter={StaticResource ScoreToWidth}, ConverterParameter=120}"
+                                        Background="{Binding SystemColor, Converter={StaticResource HexToBrush}}" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!--        DETAILED SPECS (Filter + List)       -->
+                <!-- ═══════════════════════════════════════════ -->
+                <TextBlock Text="Detailed Specifications" FontSize="16" FontWeight="SemiBold"
+                           Foreground="{StaticResource AuraTextBright}" Margin="0,4,0,12" />
+
+                <!-- Filter Bar -->
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Category Tabs -->
+                    <ItemsControl Grid.Column="0" ItemsSource="{Binding Categories}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Command="{Binding DataContext.FilterByCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Margin="0,0,4,4" Cursor="Hand">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Bd" CornerRadius="8" Padding="10,5"
+                                                    Background="Transparent"
+                                                    BorderBrush="{StaticResource AuraBorderSubtle}"
+                                                    BorderThickness="1">
+                                                <TextBlock x:Name="Txt" Text="{Binding}"
+                                                           FontSize="12"
+                                                           Foreground="{StaticResource AuraTextSecondary}" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Search -->
+                    <TextBox Grid.Column="2"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             materialDesign:HintAssist.Hint="Search properties..."
+                             Background="{StaticResource AuraSurfaceLight}"
+                             Foreground="{StaticResource AuraTextPrimary}"
+                             FontSize="12" Padding="10,6" />
+                </Grid>
+
+                <!-- Info Grid -->
+                <materialDesign:Card Background="{StaticResource AuraSurface}"
+                                     UniformCornerRadius="16" Padding="0"
+                                     Margin="0,0,0,8">
+                    <ListView ItemsSource="{Binding FilteredEntries}"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              MaxHeight="500">
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="16,14,16,8"
+                                                BorderThickness="0,0,0,1"
+                                                BorderBrush="{StaticResource AuraBorderSubtle}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Width="18" Height="18"
+                                                                         VerticalAlignment="Center"
+                                                                         Margin="0,0,8,0"
+                                                                         Foreground="{StaticResource AuraAccentPurple}"
+                                                                         Kind="FolderOutline" />
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource AuraAccentPurple}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="16,5,16,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <materialDesign:PackIcon Kind="{Binding Icon}" Width="16" Height="16"
+                                                             Foreground="{StaticResource AuraTextMuted}"
+                                                             VerticalAlignment="Center"
+                                                             Margin="0,0,10,0" />
+
+                                    <TextBlock Grid.Column="1" Text="{Binding Label}"
+                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               FontSize="12.5" VerticalAlignment="Center" />
+
+                                    <TextBlock Grid.Column="2" Text="{Binding Value}"
+                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               FontSize="12.5" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </materialDesign:Card>
+
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- Status Bar -->
-        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}"
+        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
                    Foreground="{StaticResource AuraTextSecondary}"
-                   FontSize="13" Margin="0,12,0,0" />
+                   FontSize="12" Margin="0,8,0,0" />
     </Grid>
 </UserControl>

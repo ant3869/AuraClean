@@ -48,6 +48,7 @@ public partial class MainWindow : Window
                 ["DiskOptimizer"] = DiskOptimizerContent,
                 ["FileRecovery"] = FileRecoveryContent,
                 ["EmptyFolders"] = EmptyFoldersContent,
+                ["AppInstaller"] = AppInstallerContent,
             };
 
             // Show dashboard by default

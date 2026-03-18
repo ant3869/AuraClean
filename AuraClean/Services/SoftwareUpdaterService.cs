@@ -139,10 +139,27 @@ public static class SoftwareUpdaterService
     }
 
     /// <summary>
+    /// Cleans winget output by splitting on both \n and \r to handle progress spinners
+    /// that use carriage returns to overwrite text on the same line.
+    /// Returns clean individual lines ready for column-based parsing.
+    /// </summary>
+    private static string CleanWingetOutput(string rawOutput)
+    {
+        // winget uses \r to overwrite progress/spinner text on the same line,
+        // so a single \n-delimited "line" can contain multiple \r-separated segments.
+        // Split on both \r and \n to get all logical segments.
+        var segments = rawOutput.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        return string.Join('\n', segments);
+    }
+
+    /// <summary>
     /// Parses the tabular output of 'winget upgrade'.
     /// </summary>
     private static List<OutdatedProgram> ParseWingetUpgradeOutput(string output)
     {
+        // Clean up winget output (handles \r progress spinners)
+        output = CleanWingetOutput(output);
+
         var results = new List<OutdatedProgram>();
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 

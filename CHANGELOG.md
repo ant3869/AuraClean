@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] — 2026-03-18
+
+### Added
+
+- **Hardware Performance Rating System** — New weighted scoring engine for System Info page
+  - `HardwareScoreService` — scores CPU (30%), Memory (25%), GPU (20%), Storage (20%), System (5%) with letter grades S–F
+  - CPU scoring factors: core count (45%), clock speed (35%), L3 cache (15%), HT/SMT bonus
+  - Memory scoring factors: capacity (70%), speed (30%) with DDR4/DDR5 tiers
+  - GPU scoring: VRAM-based with discrete GPU detection and bonus, integrated GPU capping
+  - Storage scoring: capacity (25%), free space health (30%), disk type SSD/NVMe (45%)
+  - System scoring: OS build recency (70%), architecture 64-bit (30%)
+  - Color-coded grade badges: S (cyan) → A (mint) → B (violet) → C (purple) → D (amber) → E (orange) → F (coral)
+  - Score bar visualizations for each category
+- **App Installer** — Bundle application installer page for streamlined software deployment
+  - `AppInstallerService`, `AppInstallerViewModel`, `AppInstallerView.xaml`
+  - `BundleApp` model for app bundle definitions
+  - Sidebar navigation entry under Tools section
+- **New Converters** — `HexToBrushConverter`, `ScoreToWidthConverter`, `ScoreToAngleConverter` for hardware rating UI
+
+### Changed
+
+- **SystemInfoService (GPU)** — Complete rewrite of GPU detection for accuracy
+  - Reads VRAM from Windows registry (`HardwareInformation.qwMemorySize` QWORD) instead of WMI `AdapterRAM` (uint32) — fixes >4 GB GPUs showing incorrect VRAM (e.g., 16 GB GPU reported as 4 GB)
+  - Multi-GPU sorting: discrete GPUs (NVIDIA/AMD/Intel Arc) sorted first by VRAM, then integrated GPUs — ensures the most powerful GPU is used for scoring
+  - Queries `PNPDeviceID` from WMI to locate accurate registry VRAM values
+- **SystemInfoView.xaml** — Major redesign with hardware score cards, circular gauge, category bars, and overall grade display
+- **SystemInfoViewModel** — Extended with 20+ scoring properties for category-level score/grade/summary/color binding
+- **MemoryManagerService** — Replaced per-process `WorkingSet64` enumeration with `GlobalMemoryStatusEx` P/Invoke for accurate physical memory usage stats
+- **BrowserCleanerService** — Fixed process handle leak: `Process` objects from `GetProcessesByName` are now disposed
+- **RegistryScannerService** — Fixed `reg.exe export` failing on display paths like `"HKLM (64-bit)\..."` — new `NormalizeKeyPath` strips bitness suffix; `ParseKeyPath` now handles `"HKLM "` prefix
+- **StartupManagerService** — Fixed CSV column parsing for `/V` verbose output: task name moved from column 0 to 1, schedule type from column 8 to 18
+- **SoftwareUpdaterService** — Fixed winget output parsing: new `CleanWingetOutput` splits on `\r` and `\n` to handle progress spinner carriage returns
+- **ThreatScannerService** — Replaced hardcoded `C:\Windows\System32\` paths with `Environment.SpecialFolder.System` for cross-environment compatibility
+- **ThreatSignatureDatabase** — Replaced hardcoded system paths with `Environment.GetFolderPath()` calls for `System32`, `SysWOW64`, `Windows`, `ProgramFiles`, `ProgramFilesX86`
+- **MainViewModel** — Added `AppInstallerViewModel` property for sidebar navigation
+- **MainWindow.xaml** — Added App Installer sidebar entry and content area
+
+---
+
 ## [1.2.0] — 2026-03-16
 
 ### Added
