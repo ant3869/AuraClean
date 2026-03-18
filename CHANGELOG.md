@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] — 2026-03-18
+
+### Added
+
+- **One-click install script** (`install.ps1`) — fully automated setup pipeline
+  - Detects and installs .NET 8 SDK automatically if missing (via official `dotnet-install.ps1`)
+  - Publishes self-contained single-file EXE (~73 MB, no .NET runtime required on target)
+  - Installs to `%LocalAppData%\AuraClean\` and creates a desktop shortcut
+  - Launches as Administrator with UAC prompt
+  - Flags: `-SkipLaunch` (install only), `-NoBuild` (reuse existing publish output)
+- **Build helper script** (`build.ps1`) — streamlined developer build commands
+  - `.\build.ps1` (Debug build), `-Release` (single-file publish), `-Run` (build + launch), `-Clean` (clean artifacts)
+
+### Changed
+
+- **README** — Rewritten "Getting Started" section with quick-install one-liner and developer build options
+  - Removed manual prerequisite steps in favor of automated install script
+  - Updated published EXE size from ~60 MB to ~73 MB
+
+---
+
 ## [1.3.0] — 2026-03-18
 
 ### Added

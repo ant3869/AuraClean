@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.3.0-7C5CFC?style=for-the-badge" alt="v1.3.0" />
+  <img src="https://img.shields.io/badge/Version-1.3.1-7C5CFC?style=for-the-badge" alt="v1.3.1" />
   <img src="https://img.shields.io/badge/.NET-8.0-purple?style=for-the-badge&logo=dotnet" alt=".NET 8" />
   <img src="https://img.shields.io/badge/WPF-Desktop-blue?style=for-the-badge&logo=windows" alt="WPF" />
   <img src="https://img.shields.io/badge/MaterialDesign-5.1-00BCD4?style=for-the-badge" alt="MaterialDesign" />
@@ -186,34 +186,50 @@ All user data lives in `%LocalAppData%\AuraClean\`:
 
 ## Getting Started
 
-### Prerequisites
+### Quick Install (recommended)
 
-- **Windows 10/11** (x64)
-- [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- **Administrator privileges** (required for registry scanning, prefetch cleanup, restore points, memory management)
-
-### Build & Run
+Clone the repo and run the install script — it handles everything automatically (checks for .NET SDK, builds a self-contained single-file EXE, installs to `%LocalAppData%\AuraClean`, and creates a desktop shortcut):
 
 ```powershell
+git clone https://github.com/ant3869/AuraClean.git
+cd AuraClean
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+That's it. The app will launch automatically after install. A UAC prompt will appear because AuraClean needs Administrator privileges.
+
+> **No .NET SDK on your machine?** The install script detects this and installs it for you automatically — no manual setup needed.
+
+### Manual Build (for developers)
+
+If you prefer to build manually or want more control:
+
+```powershell
+# Prerequisites: .NET 8.0 SDK, Windows 10/11 x64
+
 # Clone
 git clone https://github.com/ant3869/AuraClean.git
 cd AuraClean
 
-# Build
-dotnet build -c Debug AuraClean/AuraClean.csproj
+# Option A: Use the build helper
+.\build.ps1              # Debug build
+.\build.ps1 -Release     # Release publish (single-file ~73 MB)
+.\build.ps1 -Run         # Build + launch as admin
+.\build.ps1 -Clean       # Clean artifacts
 
-# Run (as Administrator)
+# Option B: Standard dotnet commands
+dotnet build -c Debug AuraClean/AuraClean.csproj
 .\AuraClean\bin\Debug\net8.0-windows\win-x64\AuraClean.exe
 ```
 
-### Publish (single-file)
+### Publish (single-file portable EXE)
 
 ```powershell
 dotnet publish -c Release AuraClean/AuraClean.csproj
 # Output: AuraClean/bin/Release/net8.0-windows/win-x64/publish/AuraClean.exe
 ```
 
-The published binary is a **self-contained single-file executable** (~60MB) — no .NET runtime installation required on the target machine.
+The published binary is a **self-contained single-file executable** (~73 MB). No .NET runtime installation required on the target machine — just copy and run.
 
 ### Run Tests
 
