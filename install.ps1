@@ -81,6 +81,12 @@ function Publish-App {
     }
 
     Write-Step 'Publishing AuraClean (self-contained single-file, Release)...'
+
+    # Clean previous publish output to avoid stale binaries
+    if (Test-Path $PublishDir) {
+        Remove-Item $PublishDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     & dotnet publish $Project -c Release --self-contained true -r win-x64 /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:EnableCompressionInSingleFile=true
 
     if ($LASTEXITCODE -ne 0) {
@@ -101,6 +107,10 @@ function Publish-App {
 
 function Install-App {
     Write-Step "Installing to $InstallDir ..."
+
+    # Kill any running instance before overwriting
+    Get-Process -Name 'AuraClean' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
 
     if (-not (Test-Path $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
@@ -126,10 +136,17 @@ function Create-Shortcut {
     $shortcut = $shell.CreateShortcut($lnkPath)
     $shortcut.TargetPath       = $InstalledExe
     $shortcut.WorkingDirectory = $InstallDir
+    $shortcut.IconLocation     = "$InstalledExe,0"
     $shortcut.Description      = 'AuraClean - Windows System Cleaner'
     $shortcut.Save()
 
+    # Set the RunAs (admin) flag on the shortcut so UAC prompts on double-click
+    $bytes = [System.IO.File]::ReadAllBytes($lnkPath)
+    $bytes[0x15] = $bytes[0x15] -bor 0x20
+    [System.IO.File]::WriteAllBytes($lnkPath, $bytes)
+
     Write-Ok "Shortcut created: $lnkPath"
+    Write-Ok 'Shortcut is set to Run as Administrator (UAC prompt expected).'
 }
 
 # --- 5. Launch ---

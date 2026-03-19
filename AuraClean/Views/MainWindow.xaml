@@ -6,7 +6,7 @@
         xmlns:views="clr-namespace:AuraClean.Views"
         xmlns:converters="clr-namespace:AuraClean.Converters"
         Title="AuraClean"
-        Icon="/Assets/icon2.png"
+        Icon="/Assets/icon.ico"
         Width="1280" Height="780"
         MinWidth="1050" MinHeight="650"
         WindowStartupLocation="CenterScreen"
@@ -61,7 +61,7 @@
                 <!-- Brand -->
                 <StackPanel Grid.Row="0" Margin="24,28,24,20">
                     <StackPanel Orientation="Horizontal">
-                        <Image Source="/Assets/icon2.png"
+                        <Image Source="/Assets/auraimage.png"
                                Width="34" Height="34"
                                RenderOptions.BitmapScalingMode="HighQuality"
                                VerticalAlignment="Center" />

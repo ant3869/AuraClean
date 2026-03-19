@@ -36,6 +36,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\auraimage.png" />
+    <Resource Include="Assets\icon2.png" />
+    <Resource Include="Assets\icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="MaterialDesignThemes" Version="5.1.0" />
     <PackageReference Include="MaterialDesignColors" Version="3.1.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
