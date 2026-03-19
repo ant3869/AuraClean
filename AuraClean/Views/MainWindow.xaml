@@ -61,7 +61,7 @@
                 <!-- Brand -->
                 <StackPanel Grid.Row="0" Margin="24,28,24,20">
                     <StackPanel Orientation="Horizontal">
-                        <Image Source="/Assets/auraimage.png"
+                        <Image Source="/Assets/icon2.png"
                                Width="34" Height="34"
                                RenderOptions.BitmapScalingMode="HighQuality"
                                VerticalAlignment="Center" />

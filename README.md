@@ -1,10 +1,6 @@
 <div align="center">
-  <img src="docs/logo.png" alt="AuraClean" width="200">
-
-  <h1>AuraClean</h1>
-
-  <p><strong>A modern, all-in-one Windows system utility</strong></p>
-  <p>Clean junk · Boost RAM · Scan threats · Manage startups · Shred files · Analyze storage<br/>Built with .NET 8 &amp; WPF — wrapped in a sleek dark UI</p>
+  <img src="docs/logo.png" alt="AuraClean" width="800">
+  <br>
 
   <p>
     <img src="https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue?style=flat-square&logo=windows" alt="Platform" />
@@ -12,18 +8,18 @@
     <img src="https://img.shields.io/badge/Version-1.3.1-7C5CFC?style=flat-square" alt="v1.3.1" />
     <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="MIT License" />
   </p>
-</div>
 
----
+  <p>Clean junk · Boost RAM · Scan threats · Manage startups · Shred files · Analyze storage<br/>Built with .NET 8 &amp; WPF — wrapped in a sleek dark UI</p>
+
+
+</div>
 
 ## Screenshots
 
 <div align="center">
-  <img src="docs/screenshot-dashboard.png" alt="Dashboard" width="45%">
-  <img src="docs/screenshot-systeminfo.png" alt="System Info" width="45%">
+  <img src="docs/screenshot-dashboard.png" alt="Dashboard" width="%">
+  <img src="docs/screenshot-systeminfo.png" alt="System Info" width="%">
 </div>
-
----
 
 ## Features
 
