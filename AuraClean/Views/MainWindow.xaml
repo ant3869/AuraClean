@@ -6,6 +6,7 @@
         xmlns:views="clr-namespace:AuraClean.Views"
         xmlns:converters="clr-namespace:AuraClean.Converters"
         Title="AuraClean"
+        Icon="/Assets/icon2.png"
         Width="1280" Height="780"
         MinWidth="1050" MinHeight="650"
         WindowStartupLocation="CenterScreen"
@@ -60,16 +61,10 @@
                 <!-- Brand -->
                 <StackPanel Grid.Row="0" Margin="24,28,24,20">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ShieldCheck"
-                                                 Width="34" Height="34"
-                                                 VerticalAlignment="Center">
-                            <materialDesign:PackIcon.Foreground>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
-                                    <GradientStop Color="{StaticResource AuraCyanColor}" Offset="1" />
-                                </LinearGradientBrush>
-                            </materialDesign:PackIcon.Foreground>
-                        </materialDesign:PackIcon>
+                        <Image Source="/Assets/icon2.png"
+                               Width="34" Height="34"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               VerticalAlignment="Center" />
                         <StackPanel Margin="12,0,0,0">
                             <TextBlock FontSize="22" FontWeight="Bold">
                                 <TextBlock.Foreground>
@@ -359,7 +354,7 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <TextBlock Text="v1.1.0"
+                    <TextBlock Text="v1.3.1"
                                Foreground="{StaticResource AuraTextMuted}"
                                FontSize="10"
                                Margin="0,4,0,0" />
