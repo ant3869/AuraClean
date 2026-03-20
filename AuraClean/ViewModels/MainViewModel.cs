@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.IO;
 using System.Management;
+using System.Reflection;
 using System.Security.Principal;
 
 namespace AuraClean.ViewModels;
@@ -27,6 +28,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _healthCheckStep;
     [ObservableProperty] private int _healthCheckTotalSteps = 4;
     [ObservableProperty] private string _healthCheckSummary = string.Empty;
+
+    public string AppVersion { get; } = $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
 
     // System info properties for Dashboard
     [ObservableProperty] private string _osName = string.Empty;
@@ -68,6 +71,11 @@ public partial class MainViewModel : ObservableObject
     // Context menu
     [ObservableProperty] private bool _isContextMenuInstalled;
     [ObservableProperty] private string _contextMenuStatus = string.Empty;
+
+    // Navigation section collapse state
+    [ObservableProperty] private bool _isCleanupExpanded = true;
+    [ObservableProperty] private bool _isAnalyzeExpanded = true;
+    [ObservableProperty] private bool _isToolsExpanded = false;
 
     public MainViewModel()
     {
@@ -171,6 +179,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ToggleCleanup() => IsCleanupExpanded = !IsCleanupExpanded;
+
+    [RelayCommand]
+    private void ToggleAnalyze() => IsAnalyzeExpanded = !IsAnalyzeExpanded;
+
+    [RelayCommand]
+    private void ToggleTools() => IsToolsExpanded = !IsToolsExpanded;
+
+    [RelayCommand]
     private async Task QuickAnalyzeAsync()
     {
         StatusBarText = "Running quick analysis...";
@@ -207,58 +224,86 @@ public partial class MainViewModel : ObservableObject
             // Step 1: Junk Analysis
             HealthCheckStep = 1;
             HealthCheckProgress = "Step 1/4 — Scanning for system junk...";
-            await Cleaner.AnalyzeCommand.ExecuteAsync(null);
-
-            if (Cleaner.TotalJunkSize > 0)
+            try
             {
-                int junkPenalty = (int)Math.Min(30, Cleaner.TotalJunkSize / (100.0 * 1024 * 1024) * 5);
-                score -= junkPenalty;
-                issues.Add($"Junk: {Cleaner.FormattedTotalSize} found");
+                await Cleaner.AnalyzeCommand.ExecuteAsync(null);
+
+                if (Cleaner.TotalJunkSize > 0)
+                {
+                    int junkPenalty = (int)Math.Min(30, Cleaner.TotalJunkSize / (100.0 * 1024 * 1024) * 5);
+                    score -= junkPenalty;
+                    issues.Add($"Junk: {Cleaner.FormattedTotalSize} found");
+                }
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Error("HealthCheck", "Step 1 (Junk Analysis) failed", ex);
             }
 
             // Step 2: Threat Scan
             HealthCheckStep = 2;
             HealthCheckProgress = "Step 2/4 — Scanning for threats...";
-            ThreatScanner.SelectedScanMode = ScanMode.Quick;
-            await ThreatScanner.StartScanCommand.ExecuteAsync(null);
-
-            int criticalThreats = ThreatScanner.CriticalCount + ThreatScanner.HighCount;
-            int mediumThreats = ThreatScanner.MediumCount;
-
-            if (criticalThreats > 0)
+            try
             {
-                score -= Math.Min(30, criticalThreats * 15);
-                issues.Add($"Threats: {criticalThreats} critical/high");
+                ThreatScanner.SelectedScanMode = ScanMode.Quick;
+                await ThreatScanner.StartScanCommand.ExecuteAsync(null);
+
+                int criticalThreats = ThreatScanner.CriticalCount + ThreatScanner.HighCount;
+                int mediumThreats = ThreatScanner.MediumCount;
+
+                if (criticalThreats > 0)
+                {
+                    score -= Math.Min(30, criticalThreats * 15);
+                    issues.Add($"Threats: {criticalThreats} critical/high");
+                }
+                if (mediumThreats > 0)
+                {
+                    score -= Math.Min(10, mediumThreats * 3);
+                    issues.Add($"Threats: {mediumThreats} medium");
+                }
             }
-            if (mediumThreats > 0)
+            catch (Exception ex)
             {
-                score -= Math.Min(10, mediumThreats * 3);
-                issues.Add($"Threats: {mediumThreats} medium");
+                DiagnosticLogger.Error("HealthCheck", "Step 2 (Threat Scan) failed", ex);
             }
 
             // Step 3: Startup Analysis
             HealthCheckStep = 3;
             HealthCheckProgress = "Step 3/4 — Analyzing startup items...";
-            var startupEntries = await StartupManagerService.GetStartupEntriesAsync();
-            int highImpactStartup = startupEntries.Count(e => e.IsEnabled &&
-                e.Impact == StartupManagerService.StartupImpact.High);
-
-            if (highImpactStartup > 5)
+            try
             {
-                score -= Math.Min(15, (highImpactStartup - 5) * 3);
-                issues.Add($"Startup: {highImpactStartup} high-impact items");
+                var startupEntries = await StartupManagerService.GetStartupEntriesAsync();
+                int highImpactStartup = startupEntries.Count(e => e.IsEnabled &&
+                    e.Impact == StartupManagerService.StartupImpact.High);
+
+                if (highImpactStartup > 5)
+                {
+                    score -= Math.Min(15, (highImpactStartup - 5) * 3);
+                    issues.Add($"Startup: {highImpactStartup} high-impact items");
+                }
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Error("HealthCheck", "Step 3 (Startup Analysis) failed", ex);
             }
 
             // Step 4: Browser Privacy
             HealthCheckStep = 4;
             HealthCheckProgress = "Step 4/4 — Checking browser privacy...";
-            await BrowserCleaner.ScanBrowsersCommand.ExecuteAsync(null);
-
-            long browserJunk = BrowserCleaner.TotalSizeBytes;
-            if (browserJunk > 100 * 1024 * 1024) // > 100 MB
+            try
             {
-                score -= Math.Min(10, (int)(browserJunk / (100.0 * 1024 * 1024)) * 3);
-                issues.Add($"Browser: {FormatHelper.FormatBytes(browserJunk)} of tracking data");
+                await BrowserCleaner.ScanBrowsersCommand.ExecuteAsync(null);
+
+                long browserJunk = BrowserCleaner.TotalSizeBytes;
+                if (browserJunk > 100 * 1024 * 1024) // > 100 MB
+                {
+                    score -= Math.Min(10, (int)(browserJunk / (100.0 * 1024 * 1024)) * 3);
+                    issues.Add($"Browser: {FormatHelper.FormatBytes(browserJunk)} of tracking data");
+                }
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Error("HealthCheck", "Step 4 (Browser Privacy) failed", ex);
             }
 
             // Cleanliness factor

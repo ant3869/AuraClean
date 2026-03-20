@@ -45,7 +45,7 @@ public partial class DiskOptimizerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading drives: {ex.Message}";
+            StatusMessage = "Couldn't load drive information. Please try again.";
             DiagnosticLogger.Error("DiskOptimizer", "Failed to load drives", ex);
         }
     }
@@ -80,7 +80,7 @@ public partial class DiskOptimizerViewModel : ObservableObject
                 drive.FragmentPercent = fragmentPercent;
                 drive.Status = DiskOptimizerService.OptimizeStatus.Pending;
                 drive.StatusMessage = drive.MediaType == DiskOptimizerService.DriveMediaType.SSD
-                    ? "SSD — TRIM recommended"
+                    ? "SSD — optimization recommended"
                     : fragmentPercent > 5
                         ? $"{fragmentPercent}% fragmented — defrag recommended"
                         : $"{fragmentPercent}% fragmented — OK";
@@ -94,7 +94,8 @@ public partial class DiskOptimizerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during analysis. Please try again.";
+            DiagnosticLogger.Error("DiskOptimizerVM", "AnalyzeDrivesAsync failed", ex);
         }
         finally
         {
@@ -126,7 +127,7 @@ public partial class DiskOptimizerViewModel : ObservableObject
                 _cts.Token.ThrowIfCancellationRequested();
                 drive.Status = DiskOptimizerService.OptimizeStatus.Running;
                 drive.StatusMessage = drive.MediaType == DiskOptimizerService.DriveMediaType.SSD
-                    ? "Running TRIM..."
+                    ? "Optimizing..."
                     : "Defragmenting...";
 
                 CurrentOperation = $"Optimizing {drive.DriveLetter} ({drive.MediaTypeLabel})...";
@@ -169,7 +170,8 @@ public partial class DiskOptimizerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during optimization. Please try again.";
+            DiagnosticLogger.Error("DiskOptimizerVM", "OptimizeDrivesAsync failed", ex);
         }
         finally
         {

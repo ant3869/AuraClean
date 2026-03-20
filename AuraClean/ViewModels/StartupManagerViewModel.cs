@@ -16,7 +16,7 @@ public partial class StartupManagerViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<StartupManagerService.StartupEntry> _filteredEntries = [];
     [ObservableProperty] private StartupManagerService.StartupEntry? _selectedEntry;
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Click Refresh to load startup programs.";
+    [ObservableProperty] private string _statusMessage = "Ready to manage startup programs.";
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private bool _showDisabledOnly;
     [ObservableProperty] private bool _showEnabledOnly;
@@ -124,7 +124,8 @@ public partial class StartupManagerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Couldn't load startup programs. Please try again.";
+            DiagnosticLogger.Error("StartupManagerVM", "LoadEntriesAsync failed", ex);
             HasScanned = true;
         }
         finally
@@ -158,7 +159,8 @@ public partial class StartupManagerViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Error: {ex.Message}";
+                StatusMessage = $"Couldn't toggle {entry.Name}. It may be protected.";
+                DiagnosticLogger.Error("StartupManagerVM", $"Toggle failed for {entry.Name}", ex);
             }
         }
 
@@ -194,7 +196,8 @@ public partial class StartupManagerViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Error: {ex.Message}";
+                StatusMessage = $"Couldn't remove {entry.Name}. It may be protected.";
+                DiagnosticLogger.Error("StartupManagerVM", $"Delete failed for {entry.Name}", ex);
             }
         }
 

@@ -4,6 +4,7 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Windows.Data;
 
 namespace AuraClean.ViewModels;
 
@@ -43,10 +44,22 @@ public partial class JunkCategory : ObservableObject
 /// </summary>
 public partial class CleanerViewModel : ObservableObject
 {
+    private readonly object _categoriesLock = new();
+
     [ObservableProperty] private ObservableCollection<JunkCategory> _categories = [];
+
+    public CleanerViewModel()
+    {
+        BindingOperations.EnableCollectionSynchronization(Categories, _categoriesLock);
+    }
+
+    partial void OnCategoriesChanged(ObservableCollection<JunkCategory> value)
+    {
+        BindingOperations.EnableCollectionSynchronization(value, _categoriesLock);
+    }
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isAnalyzing;
-    [ObservableProperty] private string _statusMessage = "Click Analyze to scan for system junk.";
+    [ObservableProperty] private string _statusMessage = "Ready to analyze your system for unnecessary files.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private long _totalJunkSize;
     [ObservableProperty] private int _totalJunkCount;
@@ -118,11 +131,12 @@ public partial class CleanerViewModel : ObservableObject
 
             StatusMessage = allItems.Count > 0
                 ? $"Found {TotalJunkCount} items ({FormattedTotalSize}) of reclaimable space."
-                : "System is clean — no junk found!";
+                : "No unnecessary files found.";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Analysis error: {ex.Message}";
+            StatusMessage = "Something went wrong during analysis. Please try again.";
+            DiagnosticLogger.Error("CleanerVM", "Analysis failed", ex);
         }
         finally
         {
@@ -208,7 +222,8 @@ public partial class CleanerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Cleanup error: {ex.Message}";
+            StatusMessage = "Something went wrong during cleanup. Please try again.";
+            DiagnosticLogger.Error("CleanerVM", "Cleanup failed", ex);
         }
         finally
         {

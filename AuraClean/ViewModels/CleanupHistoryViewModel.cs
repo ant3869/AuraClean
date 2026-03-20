@@ -63,7 +63,8 @@ public partial class CleanupHistoryViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading history: {ex.Message}";
+            StatusMessage = "Couldn't load cleanup history. Please try again.";
+            DiagnosticLogger.Error("CleanupHistoryVM", "Failed to load history", ex);
         }
         finally
         {
@@ -107,7 +108,8 @@ public partial class CleanupHistoryViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Export failed: {ex.Message}";
+            StatusMessage = "Couldn't save the export. Check that the location is writable and try again.";
+            DiagnosticLogger.Error("CleanupHistoryVM", "Export failed", ex);
         }
     }
 
@@ -122,7 +124,8 @@ public partial class CleanupHistoryViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Copy failed: {ex.Message}";
+            StatusMessage = "Couldn't copy to clipboard. Please try again.";
+            DiagnosticLogger.Error("CleanupHistoryVM", "Copy to clipboard failed", ex);
         }
     }
 

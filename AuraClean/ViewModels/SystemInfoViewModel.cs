@@ -154,7 +154,8 @@ public partial class SystemInfoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Couldn't load system information. Please try again.";
+            DiagnosticLogger.Error("SystemInfoVM", "LoadInfoAsync failed", ex);
         }
         finally
         {
@@ -173,7 +174,8 @@ public partial class SystemInfoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Failed to copy: {ex.Message}";
+            StatusMessage = "Couldn't copy to clipboard. Please try again.";
+            DiagnosticLogger.Error("SystemInfoVM", "Copy to clipboard failed", ex);
         }
     }
 

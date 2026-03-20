@@ -14,34 +14,34 @@ public static class ThemeService
 
     public static bool IsLightTheme => _isLightTheme;
 
-    // Dark theme colors (original Obsidian Aurora)
+    // Dark theme colors (Storm Dark)
     private static readonly Dictionary<string, Color> DarkColors = new()
     {
-        ["AuraBgColor"]              = (Color)ColorConverter.ConvertFromString("#080810"),
-        ["AuraSurfaceColor"]         = (Color)ColorConverter.ConvertFromString("#0F0F1E"),
-        ["AuraSurfaceLightColor"]    = (Color)ColorConverter.ConvertFromString("#171730"),
-        ["AuraSurfaceElevatedColor"] = (Color)ColorConverter.ConvertFromString("#1F1F42"),
-        ["AuraTextBrightColor"]      = (Color)ColorConverter.ConvertFromString("#F0F0FF"),
-        ["AuraTextColor"]            = (Color)ColorConverter.ConvertFromString("#C8C8E0"),
-        ["AuraTextDimColor"]         = (Color)ColorConverter.ConvertFromString("#7B7BA0"),
-        ["AuraTextMutedColor"]       = (Color)ColorConverter.ConvertFromString("#3D3D5C"),
-        ["AuraBorderColor"]          = (Color)ColorConverter.ConvertFromString("#222244"),
-        ["AuraBorderSubtleColor"]    = (Color)ColorConverter.ConvertFromString("#1A1A36"),
+        ["AuraBgColor"]              = (Color)ColorConverter.ConvertFromString("#06080C"),
+        ["AuraSurfaceColor"]         = (Color)ColorConverter.ConvertFromString("#0C1016"),
+        ["AuraSurfaceLightColor"]    = (Color)ColorConverter.ConvertFromString("#141A22"),
+        ["AuraSurfaceElevatedColor"] = (Color)ColorConverter.ConvertFromString("#1A2230"),
+        ["AuraTextBrightColor"]      = (Color)ColorConverter.ConvertFromString("#E8ECF0"),
+        ["AuraTextColor"]            = (Color)ColorConverter.ConvertFromString("#B0B8C4"),
+        ["AuraTextDimColor"]         = (Color)ColorConverter.ConvertFromString("#6B7A8A"),
+        ["AuraTextMutedColor"]       = (Color)ColorConverter.ConvertFromString("#3A4450"),
+        ["AuraBorderColor"]          = (Color)ColorConverter.ConvertFromString("#1E2832"),
+        ["AuraBorderSubtleColor"]    = (Color)ColorConverter.ConvertFromString("#161E26"),
     };
 
-    // Light theme colors (Aurora Light)
+    // Light theme colors (Storm Light)
     private static readonly Dictionary<string, Color> LightColors = new()
     {
-        ["AuraBgColor"]              = (Color)ColorConverter.ConvertFromString("#F5F5FA"),
-        ["AuraSurfaceColor"]         = (Color)ColorConverter.ConvertFromString("#FFFFFF"),
-        ["AuraSurfaceLightColor"]    = (Color)ColorConverter.ConvertFromString("#EDEDF5"),
-        ["AuraSurfaceElevatedColor"] = (Color)ColorConverter.ConvertFromString("#E0E0F0"),
-        ["AuraTextBrightColor"]      = (Color)ColorConverter.ConvertFromString("#1A1A2E"),
-        ["AuraTextColor"]            = (Color)ColorConverter.ConvertFromString("#2E2E4A"),
-        ["AuraTextDimColor"]         = (Color)ColorConverter.ConvertFromString("#6B6B8A"),
-        ["AuraTextMutedColor"]       = (Color)ColorConverter.ConvertFromString("#A0A0BA"),
-        ["AuraBorderColor"]          = (Color)ColorConverter.ConvertFromString("#D0D0E0"),
-        ["AuraBorderSubtleColor"]    = (Color)ColorConverter.ConvertFromString("#E0E0EC"),
+        ["AuraBgColor"]              = (Color)ColorConverter.ConvertFromString("#F2F4F6"),
+        ["AuraSurfaceColor"]         = (Color)ColorConverter.ConvertFromString("#FAFBFC"),
+        ["AuraSurfaceLightColor"]    = (Color)ColorConverter.ConvertFromString("#E8ECF0"),
+        ["AuraSurfaceElevatedColor"] = (Color)ColorConverter.ConvertFromString("#DDE2E8"),
+        ["AuraTextBrightColor"]      = (Color)ColorConverter.ConvertFromString("#141A22"),
+        ["AuraTextColor"]            = (Color)ColorConverter.ConvertFromString("#2A3440"),
+        ["AuraTextDimColor"]         = (Color)ColorConverter.ConvertFromString("#5A6878"),
+        ["AuraTextMutedColor"]       = (Color)ColorConverter.ConvertFromString("#94A0AE"),
+        ["AuraBorderColor"]          = (Color)ColorConverter.ConvertFromString("#CAD0D8"),
+        ["AuraBorderSubtleColor"]    = (Color)ColorConverter.ConvertFromString("#DDE2E8"),
     };
 
     // Mapping from Color resource keys to their SolidColorBrush resource keys
@@ -101,13 +101,13 @@ public static class ThemeService
                 };
                 if (light)
                 {
-                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F0F0F8"), 0));
-                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#E8E8F0"), 1));
+                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#E8ECF0"), 0));
+                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#DDE2E8"), 1));
                 }
                 else
                 {
-                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0C0C1A"), 0));
-                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#08080F"), 1));
+                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0A0E14"), 0));
+                    newBrush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#060810"), 1));
                 }
                 res["AuraSidebarGradient"] = newBrush;
             }
@@ -115,13 +115,13 @@ public static class ThemeService
             {
                 if (light)
                 {
-                    sidebarBrush.GradientStops[0].Color = (Color)ColorConverter.ConvertFromString("#F0F0F8");
-                    sidebarBrush.GradientStops[1].Color = (Color)ColorConverter.ConvertFromString("#E8E8F0");
+                    sidebarBrush.GradientStops[0].Color = (Color)ColorConverter.ConvertFromString("#E8ECF0");
+                    sidebarBrush.GradientStops[1].Color = (Color)ColorConverter.ConvertFromString("#DDE2E8");
                 }
                 else
                 {
-                    sidebarBrush.GradientStops[0].Color = (Color)ColorConverter.ConvertFromString("#0C0C1A");
-                    sidebarBrush.GradientStops[1].Color = (Color)ColorConverter.ConvertFromString("#08080F");
+                    sidebarBrush.GradientStops[0].Color = (Color)ColorConverter.ConvertFromString("#0A0E14");
+                    sidebarBrush.GradientStops[1].Color = (Color)ColorConverter.ConvertFromString("#060810");
                 }
             }
         }

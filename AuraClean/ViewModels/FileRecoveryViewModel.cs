@@ -75,7 +75,7 @@ public partial class FileRecoveryViewModel : ObservableObject
             HasResults = entries.Count > 0;
             StatusMessage = entries.Count > 0
                 ? $"Found {entries.Count} recoverable items in Recycle Bin."
-                : "Recycle Bin is empty.";
+                : "Recycle Bin is empty. Deleted files will appear here.";
         }
         catch (OperationCanceledException)
         {
@@ -83,7 +83,7 @@ public partial class FileRecoveryViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during the scan. Please try again.";
             DiagnosticLogger.Error("FileRecoveryVM", "Scan failed", ex);
         }
         finally
@@ -140,7 +140,8 @@ public partial class FileRecoveryViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Some files couldn't be restored. They may no longer be available.";
+            DiagnosticLogger.Error("FileRecoveryVM", "Restore failed", ex);
         }
         finally
         {

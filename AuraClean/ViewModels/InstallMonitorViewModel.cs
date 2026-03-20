@@ -14,7 +14,7 @@ public partial class InstallMonitorViewModel : ObservableObject
 {
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isMonitoring;
-    [ObservableProperty] private string _statusMessage = "Enter a program name and click 'Start Monitoring' before installing.";
+    [ObservableProperty] private string _statusMessage = "Name the program you're about to install, then start monitoring.";
     [ObservableProperty] private string _programLabel = string.Empty;
     [ObservableProperty] private string? _activeSnapshotId;
     [ObservableProperty] private bool _isDryRun;
@@ -69,7 +69,8 @@ public partial class InstallMonitorViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Couldn't start monitoring. Please try again.";
+            DiagnosticLogger.Error("InstallMonitorVM", "StartMonitoringAsync failed", ex);
         }
         finally
         {
@@ -111,13 +112,14 @@ public partial class InstallMonitorViewModel : ObservableObject
 
             StatusMessage = $"Installation tracked: {delta.NewRegistryKeys.Count} registry keys, " +
                           $"{delta.NewFiles.Count} files ({FormatHelper.FormatBytes(delta.TotalNewFileSizeBytes)}), " +
-                          $"{delta.NewDirectories.Count} directories. Report saved.";
+                          $"{delta.NewDirectories.Count} folders. Report saved.";
 
             await LoadSnapshotsAsync();
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong while analyzing changes. Please try again.";
+            DiagnosticLogger.Error("InstallMonitorVM", "StopMonitoringAsync failed", ex);
         }
         finally
         {

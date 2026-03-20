@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
+             xmlns:helpers="clr-namespace:AuraClean.Helpers"
              AllowDrop="True"
              Drop="OnFileDrop"
              DragOver="OnDragOver">
@@ -17,11 +18,11 @@
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,24">
             <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{StaticResource AuraTextBright}">
+                       Foreground="{DynamicResource AuraTextBright}">
                 <Run Text="File " /><Run Text="Shredder" FontWeight="SemiBold" />
             </TextBlock>
             <TextBlock Text="Securely delete files by overwriting data — making recovery impossible"
-                       Foreground="{StaticResource AuraTextSecondary}"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
                        Margin="0,4,0,0" />
         </StackPanel>
@@ -46,14 +47,15 @@
 
                     <!-- Header -->
                     <Border Grid.Row="0" Padding="20,16" BorderThickness="0,0,0,1"
-                            BorderBrush="{StaticResource AuraBorderSubtle}">
+                            BorderBrush="{DynamicResource AuraBorderSubtle}">
                         <Grid>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <CheckBox IsChecked="{Binding IsAllSelected}"
+                                          AutomationProperties.Name="Select All Files"
                                           ToolTip="Select All" Margin="0,0,10,0"
                                           VerticalAlignment="Center" />
                                 <TextBlock Text="Files to Shred" FontSize="16" FontWeight="SemiBold"
-                                           Foreground="{StaticResource AuraTextPrimary}"
+                                           Foreground="{DynamicResource AuraTextPrimary}"
                                            VerticalAlignment="Center" />
                                 <Border Background="{StaticResource AuraAccentPurple}" CornerRadius="10"
                                         Padding="8,2" Margin="10,0,0,0"
@@ -102,18 +104,19 @@
                                     </Grid.ColumnDefinitions>
 
                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
+                                              AutomationProperties.Name="Select File"
                                               VerticalAlignment="Center" Margin="0,0,8,0" />
 
                                     <materialDesign:PackIcon Grid.Column="1" Kind="FileDocument" Width="20" Height="20"
-                                                             Foreground="{StaticResource AuraTextSecondary}"
+                                                             Foreground="{DynamicResource AuraTextSecondary}"
                                                              VerticalAlignment="Center" Margin="0,0,12,0" />
 
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding FileName}"
-                                                   Foreground="{StaticResource AuraTextPrimary}"
+                                                   Foreground="{DynamicResource AuraTextPrimary}"
                                                    FontSize="13" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding FullPath}"
-                                                   Foreground="{StaticResource AuraTextMuted}"
+                                                   Foreground="{DynamicResource AuraTextMuted}"
                                                    FontSize="11" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
 
@@ -149,14 +152,14 @@
                             </Style>
                         </StackPanel.Style>
                         <materialDesign:PackIcon Kind="ShieldLockOutline" Width="48" Height="48"
-                                                 Foreground="{StaticResource AuraTextMuted}"
+                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                  HorizontalAlignment="Center" />
                         <TextBlock Text="No files added yet"
-                                   Foreground="{StaticResource AuraTextMuted}"
+                                   Foreground="{DynamicResource AuraTextMuted}"
                                    FontSize="14" HorizontalAlignment="Center"
                                    Margin="0,8,0,0" />
                         <TextBlock Text="Drag &amp; drop files here, or click 'Add Files' / 'Add Folder'"
-                                   Foreground="{StaticResource AuraTextMuted}"
+                                   Foreground="{DynamicResource AuraTextMuted}"
                                    FontSize="12" HorizontalAlignment="Center"
                                    Margin="0,4,0,0" />
                     </StackPanel>
@@ -168,9 +171,10 @@
                             <ProgressBar Minimum="0" Maximum="{Binding ProgressTotal}"
                                          Value="{Binding ProgressCurrent}"
                                          Foreground="{StaticResource AuraWarning}"
-                                         Height="4" />
+                                         Height="4"
+                                         helpers:AnimationHelper.SmoothProgress="True" />
                             <TextBlock Text="{Binding ProgressText}"
-                                       Foreground="{StaticResource AuraTextSecondary}"
+                                       Foreground="{DynamicResource AuraTextSecondary}"
                                        FontSize="11" Margin="0,6,0,0" />
                         </StackPanel>
                     </Border>
@@ -184,7 +188,7 @@
                         CornerRadius="16" Margin="0,0,0,16">
                     <StackPanel>
                         <TextBlock Text="Shred Algorithm" FontSize="16" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AuraTextPrimary}" Margin="0,0,0,12" />
+                                   Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,0,12" />
 
                         <ListBox ItemsSource="{Binding Algorithms}"
                                  SelectedItem="{Binding SelectedAlgorithmOption}"
@@ -200,7 +204,7 @@
                                             <ControlTemplate TargetType="ListBoxItem">
                                                 <Border x:Name="Bd" CornerRadius="10" Padding="12,10"
                                                         Background="Transparent"
-                                                        BorderBrush="{StaticResource AuraBorderSubtle}"
+                                                        BorderBrush="{DynamicResource AuraBorderSubtle}"
                                                         BorderThickness="1" Cursor="Hand">
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
@@ -209,15 +213,15 @@
                                                             <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
                                                         <Ellipse x:Name="Dot" Width="16" Height="16"
-                                                                 Stroke="{StaticResource AuraTextMuted}"
+                                                                 Stroke="{DynamicResource AuraTextMuted}"
                                                                  StrokeThickness="2" Fill="Transparent"
                                                                  VerticalAlignment="Center" Margin="0,0,10,0" />
                                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding Name}"
-                                                                       Foreground="{StaticResource AuraTextPrimary}"
+                                                                       Foreground="{DynamicResource AuraTextPrimary}"
                                                                        FontSize="13" FontWeight="SemiBold" />
                                                             <TextBlock Text="{Binding Description}"
-                                                                       Foreground="{StaticResource AuraTextSecondary}"
+                                                                       Foreground="{DynamicResource AuraTextSecondary}"
                                                                        FontSize="11" />
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="2"
@@ -267,20 +271,20 @@
                         Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <TextBlock Text="Shred Results" FontSize="16" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AuraTextPrimary}" Margin="0,0,0,12" />
+                                   Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,0,12" />
 
                         <Grid Margin="0,4">
-                            <TextBlock Text="Files Shredded" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock Text="Files Shredded" Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBlock Text="{Binding LastShredded}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource AuraSuccess}" FontWeight="SemiBold" />
                         </Grid>
                         <Grid Margin="0,4">
-                            <TextBlock Text="Failed" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock Text="Failed" Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBlock Text="{Binding LastFailed}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource AuraWarning}" FontWeight="SemiBold" />
                         </Grid>
                         <Grid Margin="0,4">
-                            <TextBlock Text="Data Overwritten" Foreground="{StaticResource AuraTextSecondary}" />
+                            <TextBlock Text="Data Overwritten" Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBlock Text="{Binding FormattedBytesOverwritten}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource AuraAccentPurple}" FontWeight="SemiBold" />
                         </Grid>
@@ -291,7 +295,8 @@
 
         <!-- Status Bar -->
         <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
-                   Foreground="{StaticResource AuraTextSecondary}"
+                   AutomationProperties.LiveSetting="Polite"
+                   Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,16,0,0" />
     </Grid>
 </UserControl>

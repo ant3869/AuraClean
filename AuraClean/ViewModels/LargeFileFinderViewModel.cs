@@ -222,7 +222,8 @@ public partial class LargeFileFinderViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during the scan. Please try again.";
+            DiagnosticLogger.Error("LargeFileFinderVM", "Scan failed", ex);
         }
         finally
         {

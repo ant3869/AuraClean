@@ -3,31 +3,39 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Windows.Data;
 
 namespace AuraClean.ViewModels;
 
 public partial class SoftwareUpdaterViewModel : ObservableObject
 {
+    private readonly object _programsLock = new();
+
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Click 'Check for Updates' to scan for outdated software.";
+    [ObservableProperty] private string _statusMessage = "Ready to check for software updates.";
     [ObservableProperty] private bool _isWingetAvailable;
     [ObservableProperty] private int _outdatedCount;
     [ObservableProperty] private bool _hasScanned;
 
     public ObservableCollection<UpdatableEntry> Programs { get; } = [];
 
+    public SoftwareUpdaterViewModel()
+    {
+        BindingOperations.EnableCollectionSynchronization(Programs, _programsLock);
+    }
+
     [RelayCommand]
     private async Task CheckForUpdatesAsync()
     {
         IsBusy = true;
-        StatusMessage = "Checking winget availability...";
+        StatusMessage = "Checking for update tools...";
         Programs.Clear();
         OutdatedCount = 0;
 
         IsWingetAvailable = await SoftwareUpdaterService.IsWingetAvailableAsync();
         if (!IsWingetAvailable)
         {
-            StatusMessage = "Windows Package Manager (winget) is not available. Please install it from the Microsoft Store.";
+            StatusMessage = "The Windows update tool isn't available. Install 'App Installer' from the Microsoft Store to enable updates.";
             IsBusy = false;
             return;
         }
@@ -56,7 +64,8 @@ public partial class SoftwareUpdaterViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong while checking for updates. Please try again.";
+            DiagnosticLogger.Error("SoftwareUpdaterVM", "CheckForUpdatesAsync failed", ex);
         }
         finally
         {

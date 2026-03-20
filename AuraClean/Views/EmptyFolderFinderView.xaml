@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:converters="clr-namespace:AuraClean.Converters">
+             xmlns:converters="clr-namespace:AuraClean.Converters"
+             xmlns:helpers="clr-namespace:AuraClean.Helpers">
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
@@ -14,13 +15,15 @@
         </Grid.RowDefinitions>
 
         <!-- Title -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+        <StackPanel Grid.Row="0" Margin="0,0,0,20"
+                    helpers:AnimationHelper.AnimateOnVisible="True"
+                    helpers:AnimationHelper.StaggerIndex="0">
             <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{StaticResource AuraTextBright}">
+                       Foreground="{DynamicResource AuraTextBright}">
                 <Run Text="Empty Folder " /><Run Text="Finder" FontWeight="SemiBold" />
             </TextBlock>
-            <TextBlock Text="Find and remove empty directories cluttering your file system"
-                       Foreground="{StaticResource AuraTextSecondary}"
+            <TextBlock Text="Clean up empty folders left behind by uninstalled programs"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -34,13 +37,13 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Text="Scan Locations" FontSize="14" FontWeight="SemiBold"
-                           Foreground="{StaticResource AuraTextPrimary}" Margin="0,0,0,10" />
+                           Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,0,10" />
 
                 <!-- Path list -->
                 <ItemsControl Grid.Row="1" ItemsSource="{Binding ScanPaths}" Margin="0,0,0,10">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="{StaticResource AuraSurfaceLight}"
+                            <Border Background="{DynamicResource AuraSurfaceLight}"
                                     CornerRadius="8" Padding="10,6" Margin="0,0,0,4">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -52,7 +55,7 @@
                                                              Foreground="{StaticResource AuraAccentTeal}"
                                                              VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12"
-                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               Foreground="{DynamicResource AuraTextSecondary}"
                                                VerticalAlignment="Center" Margin="8,0,0,0" />
                                     <Button Grid.Column="2" Style="{StaticResource AuraGhostButton}"
                                             Command="{Binding DataContext.RemovePathCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -115,7 +118,8 @@
                                              Foreground="{StaticResource AuraAccentTeal}"
                                              VerticalAlignment="Center" Margin="0,0,8,0" />
                     <TextBlock Text="{Binding StatusMessage}" FontSize="12"
-                               Foreground="{StaticResource AuraTextSecondary}"
+                               AutomationProperties.LiveSetting="Polite"
+                               Foreground="{DynamicResource AuraTextSecondary}"
                                VerticalAlignment="Center" />
                 </StackPanel>
 
@@ -153,7 +157,7 @@
                   GridLinesVisibility="None"
                   Background="Transparent"
                   BorderThickness="0"
-                  Foreground="{StaticResource AuraTextPrimary}"
+                  Foreground="{DynamicResource AuraTextPrimary}"
                   FontSize="12"
                   Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
             <DataGrid.Columns>
@@ -161,16 +165,16 @@
                                         Width="40" Header="" />
                 <DataGridTextColumn Binding="{Binding Name}" Header="Folder Name"
                                     Width="200" IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextPrimary}" />
+                                    Foreground="{DynamicResource AuraTextPrimary}" />
                 <DataGridTextColumn Binding="{Binding ParentPath}" Header="Location"
                                     Width="*" IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextSecondary}" />
+                                    Foreground="{DynamicResource AuraTextSecondary}" />
                 <DataGridTextColumn Binding="{Binding DisplayInfo}" Header="Info"
                                     Width="200" IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextMuted}" />
+                                    Foreground="{DynamicResource AuraTextMuted}" />
                 <DataGridTextColumn Binding="{Binding LastModified, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
                                     Header="Last Modified" Width="140" IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextMuted}" />
+                                    Foreground="{DynamicResource AuraTextMuted}" />
             </DataGrid.Columns>
         </DataGrid>
 
@@ -178,10 +182,10 @@
         <StackPanel Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{Binding HasResults, Converter={StaticResource InverseBoolToVis}}">
             <materialDesign:PackIcon Kind="FolderRemove" Width="64" Height="64"
-                                     Foreground="{StaticResource AuraTextMuted}"
+                                     Foreground="{DynamicResource AuraTextMuted}"
                                      HorizontalAlignment="Center" Opacity="0.3" />
             <TextBlock Text="No empty folders found yet" FontSize="14"
-                       Foreground="{StaticResource AuraTextMuted}"
+                       Foreground="{DynamicResource AuraTextMuted}"
                        HorizontalAlignment="Center" Margin="0,12,0,0"
                        Visibility="{Binding IsScanning, Converter={StaticResource InverseBoolToVis}}" />
             <ProgressBar IsIndeterminate="True" Width="200" Margin="0,12,0,0"
@@ -199,10 +203,11 @@
 
             <CheckBox Grid.Column="0" Content="Select All"
                       IsChecked="{Binding SelectAll}"
-                      Foreground="{StaticResource AuraTextSecondary}"
+                      AutomationProperties.Name="Select All Empty Folders"
+                      Foreground="{DynamicResource AuraTextSecondary}"
                       VerticalAlignment="Center" FontSize="12" />
 
-            <Button Grid.Column="2" Style="{StaticResource AuraPrimaryButton}"
+            <Button Grid.Column="2" Style="{StaticResource AuraOutlinedButton}"
                     Command="{Binding DeleteSelectedCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
                     Padding="20,10">

@@ -17,11 +17,11 @@
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
                 <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{StaticResource AuraTextBright}">
+                           Foreground="{DynamicResource AuraTextBright}">
                     <Run Text="Cleanup " /><Run Text="History" FontWeight="SemiBold" />
                 </TextBlock>
                 <TextBlock Text="Review past cleanup operations and track space recovered"
-                           Foreground="{StaticResource AuraTextSecondary}"
+                           Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13" Margin="0,4,0,0" />
             </StackPanel>
 
@@ -77,11 +77,11 @@
                         <materialDesign:PackIcon Kind="Counter" Width="18" Height="18"
                                                  Foreground="{StaticResource AuraAccentPurple}" />
                         <TextBlock Text="Operations" FontSize="11" Margin="6,0,0,0"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding TotalOperations}" FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource AuraTextBright}" />
+                               Foreground="{DynamicResource AuraTextBright}" />
                 </StackPanel>
             </Border>
 
@@ -92,11 +92,11 @@
                         <materialDesign:PackIcon Kind="HarddiskRemove" Width="18" Height="18"
                                                  Foreground="{StaticResource AuraAccentTeal}" />
                         <TextBlock Text="Space Freed" FontSize="11" Margin="6,0,0,0"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding TotalBytesFreedDisplay}" FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource AuraTextBright}" />
+                               Foreground="{DynamicResource AuraTextBright}" />
                 </StackPanel>
             </Border>
 
@@ -107,11 +107,11 @@
                         <materialDesign:PackIcon Kind="FileRemove" Width="18" Height="18"
                                                  Foreground="{StaticResource AuraSuccess}" />
                         <TextBlock Text="Items Cleaned" FontSize="11" Margin="6,0,0,0"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding TotalItemsCleaned}" FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource AuraTextBright}" />
+                               Foreground="{DynamicResource AuraTextBright}" />
                 </StackPanel>
             </Border>
 
@@ -122,11 +122,11 @@
                         <materialDesign:PackIcon Kind="ClockOutline" Width="18" Height="18"
                                                  Foreground="{StaticResource AuraAmber}" />
                         <TextBlock Text="Last Cleanup" FontSize="11" Margin="6,0,0,0"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding LastOperationDate}" FontSize="16" FontWeight="SemiBold"
-                               Foreground="{StaticResource AuraTextBright}" TextTrimming="CharacterEllipsis" />
+                               Foreground="{DynamicResource AuraTextBright}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -155,11 +155,11 @@
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Bd" CornerRadius="8" Padding="10,5"
                                             Background="Transparent"
-                                            BorderBrush="{StaticResource AuraBorderSubtle}"
+                                            BorderBrush="{DynamicResource AuraBorderSubtle}"
                                             BorderThickness="1">
                                         <TextBlock x:Name="Txt" Text="{Binding}"
                                                    FontSize="11"
-                                                   Foreground="{StaticResource AuraTextSecondary}" />
+                                                   Foreground="{DynamicResource AuraTextSecondary}" />
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
@@ -178,9 +178,9 @@
                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                      materialDesign:HintAssist.Hint="Search history..."
                      FontSize="13"
-                     Foreground="{StaticResource AuraTextPrimary}"
-                     Background="{StaticResource AuraSurfaceLight}"
-                     BorderBrush="{StaticResource AuraBorder}"
+                     Foreground="{DynamicResource AuraTextPrimary}"
+                     Background="{DynamicResource AuraSurfaceLight}"
+                     BorderBrush="{DynamicResource AuraBorder}"
                      Padding="10,6" VerticalAlignment="Center" />
         </Grid>
 
@@ -201,7 +201,7 @@
                                 <ControlTemplate TargetType="ListViewItem">
                                     <Border x:Name="Bd" Background="Transparent"
                                             Padding="{TemplateBinding Padding}"
-                                            BorderBrush="{StaticResource AuraBorderSubtle}"
+                                            BorderBrush="{DynamicResource AuraBorderSubtle}"
                                             BorderThickness="0,0,0,1">
                                         <ContentPresenter />
                                     </Border>
@@ -228,18 +228,18 @@
                             <!-- Timestamp -->
                             <TextBlock Grid.Column="0" Text="{Binding TimestampDisplay}"
                                        FontSize="12" Width="140"
-                                       Foreground="{StaticResource AuraTextSecondary}"
+                                       Foreground="{DynamicResource AuraTextSecondary}"
                                        VerticalAlignment="Center" />
 
                             <!-- Summary -->
                             <StackPanel Grid.Column="1" Margin="12,0">
                                 <TextBlock Text="{Binding Summary}"
                                            FontSize="13"
-                                           Foreground="{StaticResource AuraTextBright}"
+                                           Foreground="{DynamicResource AuraTextBright}"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding Details}"
                                            FontSize="11"
-                                           Foreground="{StaticResource AuraTextSecondary}"
+                                           Foreground="{DynamicResource AuraTextSecondary}"
                                            TextTrimming="CharacterEllipsis"
                                            Margin="0,2,0,0" />
                             </StackPanel>
@@ -275,20 +275,21 @@
             <materialDesign:PackIcon Kind="ClipboardTextClockOutline"
                                      Width="48" Height="48"
                                      HorizontalAlignment="Center"
-                                     Foreground="{StaticResource AuraTextMuted}" />
+                                     Foreground="{DynamicResource AuraTextMuted}" />
             <TextBlock Text="No cleanup history yet"
                        FontSize="15" Margin="0,10,0,4"
                        HorizontalAlignment="Center"
-                       Foreground="{StaticResource AuraTextSecondary}" />
+                       Foreground="{DynamicResource AuraTextSecondary}" />
             <TextBlock Text="Operations will appear here after you perform cleanups"
                        FontSize="12" HorizontalAlignment="Center"
-                       Foreground="{StaticResource AuraTextMuted}" />
+                       Foreground="{DynamicResource AuraTextMuted}" />
         </StackPanel>
 
         <!-- Status -->
         <TextBlock Grid.Row="4"
                    Text="{Binding StatusMessage}"
-                   Foreground="{StaticResource AuraTextSecondary}"
+                   AutomationProperties.LiveSetting="Polite"
+                   Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="12" Margin="0,8,0,0" />
     </Grid>
 </UserControl>

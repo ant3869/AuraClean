@@ -1,0 +1,335 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--                                                             -->
+    <!--   AURACLEAN DESIGN TOKENS                                   -->
+    <!--   Centralized primitives for the entire design system.      -->
+    <!--                                                             -->
+    <!--   STRUCTURE                                                 -->
+    <!--   1. Color Primitives  — raw color values                   -->
+    <!--   2. Semantic Brushes  — purpose-named SolidColorBrushes    -->
+    <!--   3. Gradient Brushes  — brand & functional gradients       -->
+    <!--   4. Overlay Brushes   — semi-transparent layers            -->
+    <!--   5. Badge Brushes     — accent-tinted subtle backgrounds   -->
+    <!--   6. Severity Brushes  — status-level backgrounds           -->
+    <!--   7. Font Families     — primary + monospace font stacks    -->
+    <!--   8. Typography Scale  — named font sizes                   -->
+    <!--   9. Spacing Scale     — margin/padding values              -->
+    <!--  10. Radius Scale      — corner radius values               -->
+    <!--  11. Layout Constants  — fixed dimensions                   -->
+    <!--                                                             -->
+    <!--   NAMING CONVENTION                                         -->
+    <!--   Colors:   Aura{Role}Color        (Color resources)        -->
+    <!--   Brushes:  Aura{Role}             (SolidColorBrush)        -->
+    <!--   Type:     AuraFontSize{Scale}    (sys:Double)             -->
+    <!--   Space:    AuraSpace{Scale}       (Thickness)              -->
+    <!--   Radius:   AuraRadius{Scale}      (CornerRadius)           -->
+    <!--                                                             -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  1. COLOR PRIMITIVES                            -->
+    <!--  Raw named colors. Never use directly in views. -->
+    <!--  Always consume via Semantic Brushes below.      -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <!-- Backgrounds & surfaces — Plum Noir -->
+    <Color x:Key="AuraBgColor">#0B0A10</Color>
+    <Color x:Key="AuraSurfaceColor">#12111A</Color>
+    <Color x:Key="AuraSurfaceLightColor">#1A1824</Color>
+    <Color x:Key="AuraSurfaceElevatedColor">#22202E</Color>
+
+    <!-- Accent palette — Signature Violet / Sage -->
+    <Color x:Key="AuraVioletColor">#8B7AE8</Color>
+    <Color x:Key="AuraVioletDarkColor">#7362CC</Color>
+    <Color x:Key="AuraCyanColor">#5CA88A</Color>
+    <Color x:Key="AuraCoralColor">#D4606E</Color>
+    <Color x:Key="AuraMintColor">#5AB88C</Color>
+    <Color x:Key="AuraAmberColor">#D4A24E</Color>
+
+    <!-- Functional palette -->
+    <Color x:Key="AuraCriticalColor">#D4443C</Color>
+    <Color x:Key="AuraBlueColor">#8B7AE8</Color>
+
+    <!-- Text hierarchy — violet-neutral -->
+    <Color x:Key="AuraTextBrightColor">#EDE9F4</Color>
+    <Color x:Key="AuraTextColor">#B2AEC0</Color>
+    <Color x:Key="AuraTextDimColor">#6E6980</Color>
+    <Color x:Key="AuraTextMutedColor">#3A3548</Color>
+
+    <!-- Borders — violet-tinted -->
+    <Color x:Key="AuraBorderColor">#231F38</Color>
+    <Color x:Key="AuraBorderSubtleColor">#1A182A</Color>
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  2. SEMANTIC BRUSHES                            -->
+    <!--  Purpose-named. Use these in views.             -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="AuraBackground" Color="{StaticResource AuraBgColor}" />
+    <SolidColorBrush x:Key="AuraSurface" Color="{StaticResource AuraSurfaceColor}" />
+    <SolidColorBrush x:Key="AuraSurfaceLight" Color="{StaticResource AuraSurfaceLightColor}" />
+    <SolidColorBrush x:Key="AuraSurfaceElevated" Color="{StaticResource AuraSurfaceElevatedColor}" />
+
+    <!-- Accents -->
+    <SolidColorBrush x:Key="AuraAccentPurple" Color="{StaticResource AuraVioletColor}" />
+    <SolidColorBrush x:Key="AuraAccentTeal" Color="{StaticResource AuraCyanColor}" />
+
+    <!-- Semantic status -->
+    <SolidColorBrush x:Key="AuraWarning" Color="{StaticResource AuraCoralColor}" />
+    <SolidColorBrush x:Key="AuraSuccess" Color="{StaticResource AuraMintColor}" />
+    <SolidColorBrush x:Key="AuraAmber" Color="{StaticResource AuraAmberColor}" />
+    <SolidColorBrush x:Key="AuraCritical" Color="{StaticResource AuraCriticalColor}" />
+    <SolidColorBrush x:Key="AuraInfo" Color="{StaticResource AuraBlueColor}" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="AuraTextBright" Color="{StaticResource AuraTextBrightColor}" />
+    <SolidColorBrush x:Key="AuraTextPrimary" Color="{StaticResource AuraTextColor}" />
+    <SolidColorBrush x:Key="AuraTextSecondary" Color="{StaticResource AuraTextDimColor}" />
+    <SolidColorBrush x:Key="AuraTextMuted" Color="{StaticResource AuraTextMutedColor}" />
+
+    <!-- Borders -->
+    <SolidColorBrush x:Key="AuraBorder" Color="{StaticResource AuraBorderColor}" />
+    <SolidColorBrush x:Key="AuraBorderSubtle" Color="{StaticResource AuraBorderSubtleColor}" />
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  3. GRADIENT BRUSHES                            -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <LinearGradientBrush x:Key="AuraGradientAccent" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AuraVioletDarkColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AuraGradientVertical" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AuraVioletDarkColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AuraGradientHorizontal" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AuraVioletDarkColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AuraGradientWarm" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="{StaticResource AuraCoralColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AuraAmberColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AuraSidebarGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Color="#0E0C16" Offset="0" />
+        <GradientStop Color="#08070E" Offset="1" />
+    </LinearGradientBrush>
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  4. OVERLAY BRUSHES                             -->
+    <!--  Semi-transparent layers for hover, disabled,   -->
+    <!--  backdrop, and interactive states.              -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <SolidColorBrush x:Key="AuraAccentPurpleSemi" Color="#1A8B7AE8" />
+    <SolidColorBrush x:Key="AuraAccentTealSemi" Color="#1A5CA88A" />
+    <SolidColorBrush x:Key="AuraAmberSemi" Color="#1AD4A24E" />
+    <SolidColorBrush x:Key="AuraCoralSemi" Color="#1AD4606E" />
+    <SolidColorBrush x:Key="AuraOverlayLight" Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="AuraOverlaySubtle" Color="#0AFFFFFF" />
+    <SolidColorBrush x:Key="AuraOverlayFaint" Color="#06FFFFFF" />
+    <SolidColorBrush x:Key="AuraTrackBg" Color="#12FFFFFF" />
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  5. BADGE BRUSHES                               -->
+    <!--  Low-alpha accent tints for badge backgrounds.  -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <SolidColorBrush x:Key="AuraAccentPurpleBadge" Color="#228B7AE8" />
+    <SolidColorBrush x:Key="AuraAccentTealBadge" Color="#225CA88A" />
+    <SolidColorBrush x:Key="AuraAmberBadge" Color="#22D4A24E" />
+    <SolidColorBrush x:Key="AuraBlueBadge" Color="#228B7AE8" />
+    <SolidColorBrush x:Key="AuraSuccessTint" Color="#1A5AB88C" />
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  6. SEVERITY BRUSHES                            -->
+    <!--  Higher-alpha backgrounds for status indicators -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <SolidColorBrush x:Key="AuraCriticalSeverity" Color="#33D4443C" />
+    <SolidColorBrush x:Key="AuraCoralSeverity" Color="#33D4606E" />
+    <SolidColorBrush x:Key="AuraAmberSeverity" Color="#33D4A24E" />
+    <SolidColorBrush x:Key="AuraSuccessSeverity" Color="#335AB88C" />
+
+    <!-- Score card background gradient (SystemInfoView) -->
+    <LinearGradientBrush x:Key="AuraGradientScoreCard" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#0E0C16" Offset="0" />
+        <GradientStop Color="#16142A" Offset="0.5" />
+        <GradientStop Color="#0E0C16" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Logo text gradient -->
+    <LinearGradientBrush x:Key="AuraGradientLogo" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="{StaticResource AuraTextBrightColor}" Offset="0" />
+        <GradientStop Color="#A090D8" Offset="1" />
+    </LinearGradientBrush>
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  7. FONT FAMILIES                               -->
+    <!--  Primary: DM Sans — clean geometric sans-serif  -->
+    <!--  Mono: Fira Code — metrics, scores, file sizes  -->
+    <!--                                                 -->
+    <!--  Falls back to Segoe UI / Consolas if not       -->
+    <!--  installed. For production, embed as resources.  -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <FontFamily x:Key="AuraFontFamily">DM Sans, Segoe UI, sans-serif</FontFamily>
+    <FontFamily x:Key="AuraFontFamilyMono">Fira Code, Cascadia Code, Consolas</FontFamily>
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  8. TYPOGRAPHY SCALE                            -->
+    <!--  1.25 modular ratio, 10 intentional steps.      -->
+    <!--                                                 -->
+    <!--  Usage:                                         -->
+    <!--    FontSize="{StaticResource AuraFontSizeBody}" -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <!-- Micro: badges, metadata, category labels -->
+    <sys:Double x:Key="AuraFontSizeXS">10</sys:Double>
+
+    <!-- Caption: status text, helper text, timestamps -->
+    <sys:Double x:Key="AuraFontSizeCaption">11</sys:Double>
+
+    <!-- Label: form labels, secondary info, nav items -->
+    <sys:Double x:Key="AuraFontSizeLabel">12</sys:Double>
+
+    <!-- Body: primary content text, descriptions -->
+    <sys:Double x:Key="AuraFontSizeBody">13</sys:Double>
+
+    <!-- Emphasis: sub-headings, emphasized body, button text -->
+    <sys:Double x:Key="AuraFontSizeMD">14</sys:Double>
+
+    <!-- Section: section headings within a page -->
+    <sys:Double x:Key="AuraFontSizeLG">16</sys:Double>
+
+    <!-- Sub-title: secondary page title, large stats -->
+    <sys:Double x:Key="AuraFontSizeXL">20</sys:Double>
+
+    <!-- Title: page titles, brand text -->
+    <sys:Double x:Key="AuraFontSizeTitle">28</sys:Double>
+
+    <!-- Display: page headings (e.g., "System Cleaner") -->
+    <sys:Double x:Key="AuraFontSizeDisplay">36</sys:Double>
+
+    <!-- Hero: large stat numbers (e.g., health score) — use AuraFontFamilyMono -->
+    <sys:Double x:Key="AuraFontSizeHero">72</sys:Double>
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  9. SPACING SCALE                               -->
+    <!--  Named Thickness values for margins & padding.  -->
+    <!--  Use uniform values for equal-all-sides.        -->
+    <!--                                                 -->
+    <!--  Usage:                                         -->
+    <!--    Margin="{StaticResource AuraSpaceM}"         -->
+    <!--    Padding="{StaticResource AuraSpaceS}"        -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <!-- 4px — micro gap: icon-to-label, inline spacing -->
+    <Thickness x:Key="AuraSpaceXS">4</Thickness>
+
+    <!-- 8px — small gap: between related items -->
+    <Thickness x:Key="AuraSpaceS">8</Thickness>
+
+    <!-- 12px — medium gap: between grouped elements -->
+    <Thickness x:Key="AuraSpaceM">12</Thickness>
+
+    <!-- 16px — standard gap: card padding, section gaps -->
+    <Thickness x:Key="AuraSpaceL">16</Thickness>
+
+    <!-- 20px — comfortable gap: between sections -->
+    <Thickness x:Key="AuraSpaceXL">20</Thickness>
+
+    <!-- 24px — generous gap: major section separations -->
+    <Thickness x:Key="AuraSpace2XL">24</Thickness>
+
+    <!-- 32px — page margin: outer content padding -->
+    <Thickness x:Key="AuraSpace3XL">32</Thickness>
+
+    <!-- Bottom-only spacing variants (most common margin pattern) -->
+    <Thickness x:Key="AuraSpaceBottomXS">0,0,0,4</Thickness>
+    <Thickness x:Key="AuraSpaceBottomS">0,0,0,8</Thickness>
+    <Thickness x:Key="AuraSpaceBottomM">0,0,0,12</Thickness>
+    <Thickness x:Key="AuraSpaceBottomL">0,0,0,16</Thickness>
+    <Thickness x:Key="AuraSpaceBottomXL">0,0,0,20</Thickness>
+    <Thickness x:Key="AuraSpaceBottom2XL">0,0,0,24</Thickness>
+
+    <!-- Top-only spacing variants -->
+    <Thickness x:Key="AuraSpaceTopXS">0,4,0,0</Thickness>
+    <Thickness x:Key="AuraSpaceTopS">0,8,0,0</Thickness>
+    <Thickness x:Key="AuraSpaceTopM">0,12,0,0</Thickness>
+
+    <!-- Right-only spacing variants -->
+    <Thickness x:Key="AuraSpaceRightM">0,0,12,0</Thickness>
+    <Thickness x:Key="AuraSpaceRightL">0,0,16,0</Thickness>
+
+    <!-- Page margin: default outer content margin -->
+    <Thickness x:Key="AuraPageMargin">32,24,32,16</Thickness>
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  10. RADIUS SCALE                                -->
+    <!--  Named CornerRadius values.                     -->
+    <!--                                                 -->
+    <!--  Usage:                                         -->
+    <!--    CornerRadius="{StaticResource AuraRadiusM}"   -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <!-- 4px — micro: tiny badges, status dots -->
+    <CornerRadius x:Key="AuraRadiusXS">4</CornerRadius>
+
+    <!-- 6px — small: chips, compact badges -->
+    <CornerRadius x:Key="AuraRadiusSM">6</CornerRadius>
+
+    <!-- 8px — base: search inputs, compact cards -->
+    <CornerRadius x:Key="AuraRadiusBase">8</CornerRadius>
+
+    <!-- 10px — medium: buttons, icon badges, nav items -->
+    <CornerRadius x:Key="AuraRadiusM">10</CornerRadius>
+
+    <!-- 12px — large: standard cards, containers -->
+    <CornerRadius x:Key="AuraRadiusL">12</CornerRadius>
+
+    <!-- 14px — XL: emphasized cards, stat panels -->
+    <CornerRadius x:Key="AuraRadiusXL">14</CornerRadius>
+
+    <!-- 16px — 2XL: large feature cards -->
+    <CornerRadius x:Key="AuraRadius2XL">16</CornerRadius>
+
+    <!-- Full round for pills and circles -->
+    <CornerRadius x:Key="AuraRadiusFull">999</CornerRadius>
+
+
+    <!-- ─────────────────────────────────────────────── -->
+    <!--  11. LAYOUT CONSTANTS                           -->
+    <!--  Fixed dimensions used across components.       -->
+    <!-- ─────────────────────────────────────────────── -->
+
+    <!-- Sidebar width -->
+    <sys:Double x:Key="AuraSidebarWidth">260</sys:Double>
+
+    <!-- Icon badge dimensions -->
+    <sys:Double x:Key="AuraIconBadgeSize">44</sys:Double>
+    <sys:Double x:Key="AuraIconBadgeIconSize">22</sys:Double>
+
+    <!-- Nav button height -->
+    <sys:Double x:Key="AuraNavButtonHeight">42</sys:Double>
+
+</ResourceDictionary>

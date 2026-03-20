@@ -7,7 +7,7 @@
     <UserControl.Resources>
         <!-- Toggle style matching Aura theme -->
         <Style x:Key="AuraToggle" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource AuraTextPrimary}" />
+            <Setter Property="Foreground" Value="{DynamicResource AuraTextPrimary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Margin" Value="0,4" />
             <Setter Property="Cursor" Value="Hand" />
@@ -17,13 +17,13 @@
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="15" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource AuraTextBright}" />
+            <Setter Property="Foreground" Value="{DynamicResource AuraTextBright}" />
             <Setter Property="Margin" Value="0,16,0,8" />
         </Style>
 
         <Style x:Key="SectionDesc" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{StaticResource AuraTextSecondary}" />
+            <Setter Property="Foreground" Value="{DynamicResource AuraTextSecondary}" />
             <Setter Property="Margin" Value="0,0,0,10" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
@@ -40,11 +40,11 @@
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
                 <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{StaticResource AuraTextBright}">
+                           Foreground="{DynamicResource AuraTextBright}">
                     <Run Text="App " /><Run Text="Settings" FontWeight="SemiBold" />
                 </TextBlock>
                 <TextBlock Text="Configure AuraClean preferences and defaults"
-                           Foreground="{StaticResource AuraTextSecondary}"
+                           Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13" Margin="0,4,0,0" />
             </StackPanel>
 
@@ -148,7 +148,7 @@
                                       IsChecked="{Binding CleanWindowsLogs}" Content="Windows Logs" />
                         </WrapPanel>
 
-                        <Rectangle Height="1" Fill="{StaticResource AuraBorderSubtle}" Margin="0,12" />
+                        <Rectangle Height="1" Fill="{DynamicResource AuraBorderSubtle}" Margin="0,12" />
 
                         <CheckBox Style="{StaticResource AuraToggle}"
                                   IsChecked="{Binding RunHeuristicScan}"
@@ -157,18 +157,18 @@
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <TextBlock Text="Abandoned file threshold:"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBox Width="60" Margin="8,0"
                                      Text="{Binding AbandonedFileDaysThreshold, UpdateSourceTrigger=PropertyChanged}"
                                      materialDesign:HintAssist.Hint="Days"
                                      FontSize="13" VerticalAlignment="Center"
-                                     Foreground="{StaticResource AuraTextPrimary}"
-                                     Background="{StaticResource AuraSurfaceLight}"
-                                     BorderBrush="{StaticResource AuraBorder}"
+                                     Foreground="{DynamicResource AuraTextPrimary}"
+                                     Background="{DynamicResource AuraSurfaceLight}"
+                                     BorderBrush="{DynamicResource AuraBorder}"
                                      Padding="6,4" />
                             <TextBlock Text="days"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -194,33 +194,33 @@
 
                             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                                 <TextBlock Text="Shred Algorithm" FontSize="12"
-                                           Foreground="{StaticResource AuraTextSecondary}" Margin="0,0,0,4" />
+                                           Foreground="{DynamicResource AuraTextSecondary}" Margin="0,0,0,4" />
                                 <ComboBox ItemsSource="{Binding ShredAlgorithms}"
                                           SelectedItem="{Binding DefaultShredAlgorithm}"
                                           FontSize="13"
-                                          Foreground="{StaticResource AuraTextPrimary}"
-                                          Background="{StaticResource AuraSurfaceLight}" />
+                                          Foreground="{DynamicResource AuraTextPrimary}"
+                                          Background="{DynamicResource AuraSurfaceLight}" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Margin="0,0,12,0">
                                 <TextBlock Text="Large File Threshold (MB)" FontSize="12"
-                                           Foreground="{StaticResource AuraTextSecondary}" Margin="0,0,0,4" />
+                                           Foreground="{DynamicResource AuraTextSecondary}" Margin="0,0,0,4" />
                                 <ComboBox ItemsSource="{Binding LargeFileSizePresets}"
                                           SelectedItem="{Binding DefaultLargeFileSizeMb}"
                                           FontSize="13"
-                                          Foreground="{StaticResource AuraTextPrimary}"
-                                          Background="{StaticResource AuraSurfaceLight}" />
+                                          Foreground="{DynamicResource AuraTextPrimary}"
+                                          Background="{DynamicResource AuraSurfaceLight}" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Min Duplicate Size (MB)" FontSize="12"
-                                           Foreground="{StaticResource AuraTextSecondary}" Margin="0,0,0,4" />
+                                           Foreground="{DynamicResource AuraTextSecondary}" Margin="0,0,0,4" />
                                 <TextBox Text="{Binding DefaultMinDuplicateSizeMb, UpdateSourceTrigger=PropertyChanged}"
                                          FontSize="13"
                                          MaxLength="6"
-                                         Foreground="{StaticResource AuraTextPrimary}"
-                                         Background="{StaticResource AuraSurfaceLight}"
-                                         BorderBrush="{StaticResource AuraBorder}"
+                                         Foreground="{DynamicResource AuraTextPrimary}"
+                                         Background="{DynamicResource AuraSurfaceLight}"
+                                         BorderBrush="{DynamicResource AuraBorder}"
                                          Padding="6,4" />
                             </StackPanel>
                         </Grid>
@@ -242,16 +242,16 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock Text="Retention period:"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                             <ComboBox ItemsSource="{Binding RetentionDayPresets}"
                                       SelectedItem="{Binding QuarantineRetentionDays}"
                                       Width="80" Margin="8,0"
                                       FontSize="13"
-                                      Foreground="{StaticResource AuraTextPrimary}"
-                                      Background="{StaticResource AuraSurfaceLight}" />
+                                      Foreground="{DynamicResource AuraTextPrimary}"
+                                      Background="{DynamicResource AuraSurfaceLight}" />
                             <TextBlock Text="days"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                         </StackPanel>
 
                         <CheckBox Style="{StaticResource AuraToggle}"
@@ -279,13 +279,13 @@
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <TextBlock Text="Max history entries:"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                             <ComboBox ItemsSource="{Binding HistoryLimitPresets}"
                                       SelectedItem="{Binding MaxHistoryEntries}"
                                       Width="80" Margin="8,0"
                                       FontSize="13"
-                                      Foreground="{StaticResource AuraTextPrimary}"
-                                      Background="{StaticResource AuraSurfaceLight}" />
+                                      Foreground="{DynamicResource AuraTextPrimary}"
+                                      Background="{DynamicResource AuraSurfaceLight}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -312,42 +312,42 @@
                                     IsEnabled="{Binding ScheduledCleanupEnabled}">
                             <TextBlock Text="Frequency:"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                             <ComboBox ItemsSource="{Binding ScheduleFrequencies}"
                                       SelectedItem="{Binding ScheduledCleanupFrequency}"
                                       Width="100" Margin="8,0"
                                       FontSize="13"
-                                      Foreground="{StaticResource AuraTextPrimary}"
-                                      Background="{StaticResource AuraSurfaceLight}" />
+                                      Foreground="{DynamicResource AuraTextPrimary}"
+                                      Background="{DynamicResource AuraSurfaceLight}" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
                                     IsEnabled="{Binding ScheduledCleanupEnabled}">
                             <TextBlock Text="Time:"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBox Text="{Binding ScheduledCleanupTime, UpdateSourceTrigger=PropertyChanged}"
                                      Width="70" Margin="8,0"
                                      MaxLength="5"
                                      FontSize="13"
-                                     Foreground="{StaticResource AuraTextPrimary}"
-                                     Background="{StaticResource AuraSurfaceLight}" />
+                                     Foreground="{DynamicResource AuraTextPrimary}"
+                                     Background="{DynamicResource AuraSurfaceLight}" />
                             <TextBlock Text="(24h format, e.g. 03:00)"
                                        FontSize="11" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextMuted}" Margin="4,0,0,0" />
+                                       Foreground="{DynamicResource AuraTextMuted}" Margin="4,0,0,0" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
                                     IsEnabled="{Binding ScheduledCleanupEnabled}">
                             <TextBlock Text="Day (for weekly):"
                                        FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AuraTextSecondary}" />
+                                       Foreground="{DynamicResource AuraTextSecondary}" />
                             <ComboBox ItemsSource="{Binding DayOfWeekNames}"
                                       SelectedIndex="{Binding ScheduledCleanupDayOfWeek}"
                                       Width="120" Margin="8,0"
                                       FontSize="13"
-                                      Foreground="{StaticResource AuraTextPrimary}"
-                                      Background="{StaticResource AuraSurfaceLight}" />
+                                      Foreground="{DynamicResource AuraTextPrimary}"
+                                      Background="{DynamicResource AuraSurfaceLight}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -358,10 +358,10 @@
                         Background="{StaticResource AuraOverlaySubtle}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="FolderOutline" Width="16" Height="16"
-                                                 Foreground="{StaticResource AuraTextSecondary}"
+                                                 Foreground="{DynamicResource AuraTextSecondary}"
                                                  VerticalAlignment="Center" />
                         <TextBlock FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding SettingsPath, Mode=OneWay}">
                             <Run Text="Settings stored at: " />
@@ -375,7 +375,8 @@
         <!-- Status Bar -->
         <TextBlock Grid.Row="2"
                    Text="{Binding StatusMessage}"
-                   Foreground="{StaticResource AuraTextSecondary}"
+                   AutomationProperties.LiveSetting="Polite"
+                   Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="12" Margin="0,8,0,0" />
     </Grid>
 </UserControl>

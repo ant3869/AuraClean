@@ -572,7 +572,10 @@ public static class ThreatScannerService
                             });
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("ThreatScanner", "Failed to inspect process", ex);
+                    }
                     finally
                     {
                         try { proc.Dispose(); } catch { }

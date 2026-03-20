@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:converters="clr-namespace:AuraClean.Converters">
+             xmlns:converters="clr-namespace:AuraClean.Converters"
+             xmlns:helpers="clr-namespace:AuraClean.Helpers">
 
     <UserControl.Resources>
         <!-- Score bar style -->
@@ -19,12 +20,12 @@
 
         <!-- Category card style -->
         <Style x:Key="CategoryCard" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource AuraSurface}" />
+            <Setter Property="Background" Value="{DynamicResource AuraSurface}" />
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Padding" Value="20,16" />
             <Setter Property="Margin" Value="0,0,0,10" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="{StaticResource AuraBorderSubtle}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AuraBorderSubtle}" />
         </Style>
 
         <!-- Score badge style -->
@@ -46,14 +47,16 @@
         <!-- ═══════════════════════════════════════════ -->
         <!--                 HEADER                      -->
         <!-- ═══════════════════════════════════════════ -->
-        <Grid Grid.Row="0" Margin="0,0,0,20">
+        <Grid Grid.Row="0" Margin="0,0,0,20"
+              helpers:AnimationHelper.AnimateOnVisible="True"
+              helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel>
                 <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{StaticResource AuraTextBright}">
+                           Foreground="{DynamicResource AuraTextBright}">
                     <Run Text="System " /><Run Text="Information" FontWeight="SemiBold" />
                 </TextBlock>
-                <TextBlock Text="Hardware inventory, performance analysis &amp; scoring"
-                           Foreground="{StaticResource AuraTextSecondary}"
+                <TextBlock Text="Your hardware at a glance — specs, performance scores, and system details"
+                           Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13" Margin="0,4,0,0" />
             </StackPanel>
 
@@ -90,7 +93,8 @@
                          IsIndeterminate="True" Width="48" Height="48"
                          Foreground="{StaticResource AuraAccentPurple}" />
             <TextBlock Text="{Binding StatusMessage}"
-                       Foreground="{StaticResource AuraTextSecondary}" FontSize="13"
+                       AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource AuraTextSecondary}" FontSize="13"
                        HorizontalAlignment="Center" Margin="0,12,0,0" />
         </StackPanel>
 
@@ -107,13 +111,9 @@
                 <!--          OVERALL SCORE HERO CARD            -->
                 <!-- ═══════════════════════════════════════════ -->
                 <Border CornerRadius="16" Padding="28,24" Margin="0,0,0,20"
-                        BorderThickness="1" BorderBrush="{StaticResource AuraBorderSubtle}">
+                        BorderThickness="1" BorderBrush="{DynamicResource AuraBorderSubtle}">
                     <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#0D0D1A" Offset="0" />
-                            <GradientStop Color="#12122A" Offset="0.5" />
-                            <GradientStop Color="#0D0D1A" Offset="1" />
-                        </LinearGradientBrush>
+                        <StaticResource ResourceKey="AuraGradientScoreCard" />
                     </Border.Background>
 
                     <Grid>
@@ -150,13 +150,13 @@
                         <!-- Score Details -->
                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
                             <TextBlock FontSize="20" FontWeight="SemiBold"
-                                       Foreground="{StaticResource AuraTextBright}">
+                                       Foreground="{DynamicResource AuraTextBright}">
                                 <Run Text="Overall Performance: " />
                                 <Run Text="{Binding OverallGradeLabel, Mode=OneWay}"
                                      Foreground="{Binding OverallColor, Converter={StaticResource HexToBrush}}" />
                             </TextBlock>
 
-                            <TextBlock Foreground="{StaticResource AuraTextSecondary}"
+                            <TextBlock Foreground="{DynamicResource AuraTextSecondary}"
                                        FontSize="12" Margin="0,6,0,14" TextWrapping="Wrap">
                                 Weighted score based on CPU (30%), Memory (25%), GPU (20%), Storage (20%), and System (5%).
                             </TextBlock>
@@ -174,32 +174,32 @@
 
                                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,8">
                                     <TextBlock Text="Processor" FontSize="10" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextMuted}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
                                     <TextBlock Text="{Binding CpuName}" FontSize="12" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               Foreground="{DynamicResource AuraTextPrimary}"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
                                     <TextBlock Text="Graphics" FontSize="10" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextMuted}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
                                     <TextBlock Text="{Binding GpuName}" FontSize="12" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               Foreground="{DynamicResource AuraTextPrimary}"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,0">
                                     <TextBlock Text="Memory" FontSize="10" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextMuted}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
                                     <TextBlock Text="{Binding RamSummary}" FontSize="12" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextPrimary}" />
+                                               Foreground="{DynamicResource AuraTextPrimary}" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Grid.Column="1">
                                     <TextBlock Text="Operating System" FontSize="10" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextMuted}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
                                     <TextBlock Text="{Binding OsSummary}" FontSize="12" FontWeight="Medium"
-                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               Foreground="{DynamicResource AuraTextPrimary}"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Grid>
@@ -210,7 +210,9 @@
                 <!-- ═══════════════════════════════════════════ -->
                 <!--         CATEGORY SCORE CARDS (2-col)        -->
                 <!-- ═══════════════════════════════════════════ -->
-                <UniformGrid Columns="2" Margin="0,0,0,8">
+                <UniformGrid Columns="2" Margin="0,0,0,8"
+                             helpers:AnimationHelper.AnimateOnVisible="True"
+                             helpers:AnimationHelper.StaggerIndex="2">
 
                     <!-- ── CPU Card ── -->
                     <Border Style="{StaticResource CategoryCard}" Margin="0,0,5,10">
@@ -226,14 +228,14 @@
                                     <Border CornerRadius="10" Width="36" Height="36"
                                             Background="{StaticResource AuraAccentPurpleBadge}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Cpu64Bit" Width="20" Height="20"
-                                                                 Foreground="#7C5CFC"
+                                                                 Foreground="{StaticResource AuraAccentPurple}"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Processor" FontSize="15" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource AuraTextBright}" />
+                                                   Foreground="{DynamicResource AuraTextBright}" />
                                         <TextBlock Text="{Binding CpuSummary}" FontSize="11"
-                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   Foreground="{DynamicResource AuraTextSecondary}"
                                                    TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </StackPanel>
@@ -255,14 +257,14 @@
                             </Grid>
 
                             <Grid Grid.Row="2">
-                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextMuted}">
                                     <Run Text="Score: " />
                                     <Run Text="{Binding CpuScore, Mode=OneWay}" FontWeight="SemiBold"
                                          Foreground="{Binding CpuColor, Converter={StaticResource HexToBrush}}" />
                                     <Run Text=" / 100" />
                                 </TextBlock>
                                 <TextBlock Text="30% weight" FontSize="10"
-                                           Foreground="{StaticResource AuraTextMuted}"
+                                           Foreground="{DynamicResource AuraTextMuted}"
                                            HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </Grid>
                         </Grid>
@@ -282,14 +284,14 @@
                                     <Border CornerRadius="10" Width="36" Height="36"
                                             Background="{StaticResource AuraAccentTealBadge}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Memory" Width="20" Height="20"
-                                                                 Foreground="#00E5C3"
+                                                                 Foreground="{StaticResource AuraAccentTeal}"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Memory" FontSize="15" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource AuraTextBright}" />
+                                                   Foreground="{DynamicResource AuraTextBright}" />
                                         <TextBlock Text="{Binding MemorySummary}" FontSize="11"
-                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   Foreground="{DynamicResource AuraTextSecondary}"
                                                    TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </StackPanel>
@@ -311,14 +313,14 @@
                             </Grid>
 
                             <Grid Grid.Row="2">
-                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextMuted}">
                                     <Run Text="Score: " />
                                     <Run Text="{Binding MemoryScore, Mode=OneWay}" FontWeight="SemiBold"
                                          Foreground="{Binding MemoryColor, Converter={StaticResource HexToBrush}}" />
                                     <Run Text=" / 100" />
                                 </TextBlock>
                                 <TextBlock Text="25% weight" FontSize="10"
-                                           Foreground="{StaticResource AuraTextMuted}"
+                                           Foreground="{DynamicResource AuraTextMuted}"
                                            HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </Grid>
                         </Grid>
@@ -338,14 +340,14 @@
                                     <Border CornerRadius="10" Width="36" Height="36"
                                             Background="{StaticResource AuraCoralSemi}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Gpu" Width="20" Height="20"
-                                                                 Foreground="#FF6B8A"
+                                                                 Foreground="{StaticResource AuraWarning}"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Graphics" FontSize="15" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource AuraTextBright}" />
+                                                   Foreground="{DynamicResource AuraTextBright}" />
                                         <TextBlock Text="{Binding GpuSummary}" FontSize="11"
-                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   Foreground="{DynamicResource AuraTextSecondary}"
                                                    TextTrimming="CharacterEllipsis" MaxWidth="240" />
                                     </StackPanel>
                                 </StackPanel>
@@ -367,14 +369,14 @@
                             </Grid>
 
                             <Grid Grid.Row="2">
-                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextMuted}">
                                     <Run Text="Score: " />
                                     <Run Text="{Binding GpuScore, Mode=OneWay}" FontWeight="SemiBold"
                                          Foreground="{Binding GpuColor, Converter={StaticResource HexToBrush}}" />
                                     <Run Text=" / 100" />
                                 </TextBlock>
                                 <TextBlock Text="20% weight" FontSize="10"
-                                           Foreground="{StaticResource AuraTextMuted}"
+                                           Foreground="{DynamicResource AuraTextMuted}"
                                            HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </Grid>
                         </Grid>
@@ -394,14 +396,14 @@
                                     <Border CornerRadius="10" Width="36" Height="36"
                                             Background="{StaticResource AuraAmberBadge}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Harddisk" Width="20" Height="20"
-                                                                 Foreground="#FFB74D"
+                                                                 Foreground="{StaticResource AuraAmber}"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Storage" FontSize="15" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource AuraTextBright}" />
+                                                   Foreground="{DynamicResource AuraTextBright}" />
                                         <TextBlock Text="{Binding StorageSummary}" FontSize="11"
-                                                   Foreground="{StaticResource AuraTextSecondary}"
+                                                   Foreground="{DynamicResource AuraTextSecondary}"
                                                    TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </StackPanel>
@@ -423,14 +425,14 @@
                             </Grid>
 
                             <Grid Grid.Row="2">
-                                <TextBlock FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                                <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextMuted}">
                                     <Run Text="Score: " />
                                     <Run Text="{Binding StorageScore, Mode=OneWay}" FontWeight="SemiBold"
                                          Foreground="{Binding StorageColor, Converter={StaticResource HexToBrush}}" />
                                     <Run Text=" / 100" />
                                 </TextBlock>
                                 <TextBlock Text="20% weight" FontSize="10"
-                                           Foreground="{StaticResource AuraTextMuted}"
+                                           Foreground="{DynamicResource AuraTextMuted}"
                                            HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </Grid>
                         </Grid>
@@ -450,20 +452,20 @@
                         <Border CornerRadius="10" Width="36" Height="36"
                                 Background="{StaticResource AuraBlueBadge}">
                             <materialDesign:PackIcon Kind="MicrosoftWindows" Width="20" Height="20"
-                                                     Foreground="#64B5F6"
+                                                     Foreground="{StaticResource AuraInfo}"
                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
 
                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
                             <TextBlock Text="System &amp; OS" FontSize="15" FontWeight="SemiBold"
-                                       Foreground="{StaticResource AuraTextBright}" />
+                                       Foreground="{DynamicResource AuraTextBright}" />
                             <TextBlock Text="{Binding SystemSummary}" FontSize="11"
-                                       Foreground="{StaticResource AuraTextSecondary}"
+                                       Foreground="{DynamicResource AuraTextSecondary}"
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
-                            <TextBlock HorizontalAlignment="Right" FontSize="11" Foreground="{StaticResource AuraTextMuted}">
+                            <TextBlock HorizontalAlignment="Right" FontSize="11" Foreground="{DynamicResource AuraTextMuted}">
                                 <Run Text="{Binding SystemScore, Mode=OneWay}" FontWeight="Bold"
                                      Foreground="{Binding SystemColor, Converter={StaticResource HexToBrush}}" />
                                 <Run Text="/100" />
@@ -485,7 +487,7 @@
                 <!--        DETAILED SPECS (Filter + List)       -->
                 <!-- ═══════════════════════════════════════════ -->
                 <TextBlock Text="Detailed Specifications" FontSize="16" FontWeight="SemiBold"
-                           Foreground="{StaticResource AuraTextBright}" Margin="0,4,0,12" />
+                           Foreground="{DynamicResource AuraTextBright}" Margin="0,4,0,12" />
 
                 <!-- Filter Bar -->
                 <Grid Margin="0,0,0,12">
@@ -511,11 +513,11 @@
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="Bd" CornerRadius="8" Padding="10,5"
                                                     Background="Transparent"
-                                                    BorderBrush="{StaticResource AuraBorderSubtle}"
+                                                    BorderBrush="{DynamicResource AuraBorderSubtle}"
                                                     BorderThickness="1">
                                                 <TextBlock x:Name="Txt" Text="{Binding}"
                                                            FontSize="12"
-                                                           Foreground="{StaticResource AuraTextSecondary}" />
+                                                           Foreground="{DynamicResource AuraTextSecondary}" />
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -533,8 +535,8 @@
                     <TextBox Grid.Column="2"
                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                              materialDesign:HintAssist.Hint="Search properties..."
-                             Background="{StaticResource AuraSurfaceLight}"
-                             Foreground="{StaticResource AuraTextPrimary}"
+                             Background="{DynamicResource AuraSurfaceLight}"
+                             Foreground="{DynamicResource AuraTextPrimary}"
                              FontSize="12" Padding="10,6" />
                 </Grid>
 
@@ -552,7 +554,7 @@
                                     <DataTemplate>
                                         <Border Padding="16,14,16,8"
                                                 BorderThickness="0,0,0,1"
-                                                BorderBrush="{StaticResource AuraBorderSubtle}">
+                                                BorderBrush="{DynamicResource AuraBorderSubtle}">
                                             <StackPanel Orientation="Horizontal">
                                                 <materialDesign:PackIcon Width="18" Height="18"
                                                                          VerticalAlignment="Center"
@@ -578,16 +580,16 @@
                                     </Grid.ColumnDefinitions>
 
                                     <materialDesign:PackIcon Kind="{Binding Icon}" Width="16" Height="16"
-                                                             Foreground="{StaticResource AuraTextMuted}"
+                                                             Foreground="{DynamicResource AuraTextMuted}"
                                                              VerticalAlignment="Center"
                                                              Margin="0,0,10,0" />
 
                                     <TextBlock Grid.Column="1" Text="{Binding Label}"
-                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               Foreground="{DynamicResource AuraTextSecondary}"
                                                FontSize="12.5" VerticalAlignment="Center" />
 
                                     <TextBlock Grid.Column="2" Text="{Binding Value}"
-                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               Foreground="{DynamicResource AuraTextPrimary}"
                                                FontSize="12.5" FontWeight="SemiBold"
                                                VerticalAlignment="Center"
                                                TextWrapping="Wrap" />
@@ -602,7 +604,8 @@
 
         <!-- Status Bar -->
         <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
-                   Foreground="{StaticResource AuraTextSecondary}"
+                   AutomationProperties.LiveSetting="Polite"
+                   Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="12" Margin="0,8,0,0" />
     </Grid>
 </UserControl>

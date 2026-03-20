@@ -290,7 +290,10 @@ public static class DiskOptimizerService
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("DiskOptimizer", "Failed to query logical disk mapping", ex);
+                }
             }
         }
         catch (Exception ex)

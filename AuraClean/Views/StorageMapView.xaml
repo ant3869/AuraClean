@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
-             xmlns:views="clr-namespace:AuraClean.Views">
+             xmlns:views="clr-namespace:AuraClean.Views"
+             xmlns:helpers="clr-namespace:AuraClean.Helpers">
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
@@ -14,20 +15,22 @@
         </Grid.RowDefinitions>
 
         <!-- Title -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+        <StackPanel Grid.Row="0" Margin="0,0,0,16"
+                    helpers:AnimationHelper.AnimateOnVisible="True"
+                    helpers:AnimationHelper.StaggerIndex="0">
             <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{StaticResource AuraTextBright}">
+                       Foreground="{DynamicResource AuraTextBright}">
                 <Run Text="Storage " /><Run Text="Map" FontWeight="SemiBold" />
             </TextBlock>
-            <TextBlock Text="Visual disk analyzer — identify large files and forgotten backups"
-                       Foreground="{StaticResource AuraTextSecondary}"
+            <TextBlock Text="See exactly what's using your disk space and where it's hiding"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
                        Margin="0,4,0,0" />
         </StackPanel>
 
         <!-- Controls -->
         <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
-                CornerRadius="12" Padding="16" Margin="0,0,0,12">
+                Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -42,14 +45,14 @@
                           DisplayMemberPath="DisplayLabel"
                           materialDesign:HintAssist.Hint="Drive"
                           Width="280"
-                          Foreground="{StaticResource AuraTextPrimary}"
+                          Foreground="{DynamicResource AuraTextPrimary}"
                           Margin="0,0,12,0" />
 
                 <!-- Custom Path -->
                 <TextBox Grid.Column="1"
                          materialDesign:HintAssist.Hint="Or enter a custom path..."
                          Text="{Binding SelectedPath, UpdateSourceTrigger=PropertyChanged}"
-                         Foreground="{StaticResource AuraTextPrimary}"
+                         Foreground="{DynamicResource AuraTextPrimary}"
                          Margin="0,0,12,0" />
 
                 <!-- Buttons -->
@@ -84,10 +87,10 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Harddisk" Foreground="{StaticResource AuraAccentPurple}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Foreground="{StaticResource AuraTextSecondary}" VerticalAlignment="Center">
+                        <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Total: " />
                             <Run Text="{Binding FormattedTotalSize, Mode=OneWay}" FontWeight="SemiBold"
-                                 Foreground="{StaticResource AuraTextPrimary}" />
+                                 Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -96,10 +99,10 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="File" Foreground="{StaticResource AuraAccentTeal}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Foreground="{StaticResource AuraTextSecondary}" VerticalAlignment="Center">
+                        <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Files: " />
                             <Run Text="{Binding TotalFileCount, StringFormat={}{0:N0}, Mode=OneWay}" FontWeight="SemiBold"
-                                 Foreground="{StaticResource AuraTextPrimary}" />
+                                 Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -108,10 +111,10 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Folder" Foreground="{StaticResource AuraAccentPurple}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Foreground="{StaticResource AuraTextSecondary}" VerticalAlignment="Center">
+                        <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Dirs: " />
                             <Run Text="{Binding TotalDirCount, StringFormat={}{0:N0}, Mode=OneWay}" FontWeight="SemiBold"
-                                 Foreground="{StaticResource AuraTextPrimary}" />
+                                 Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -120,10 +123,10 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Timer" Foreground="{StaticResource AuraAccentTeal}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Foreground="{StaticResource AuraTextSecondary}" VerticalAlignment="Center">
+                        <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Scan: " />
                             <Run Text="{Binding ScanDuration, Mode=OneWay}" FontWeight="SemiBold"
-                                 Foreground="{StaticResource AuraTextPrimary}" />
+                                 Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -135,6 +138,7 @@
                         Style="{StaticResource MaterialDesignIconButton}"
                         Foreground="{StaticResource AuraAccentTeal}"
                         Command="{Binding NavigateUpCommand}"
+                        AutomationProperties.Name="Navigate Up"
                         Width="32" Height="32" Padding="0" />
                 <ItemsControl ItemsSource="{Binding Breadcrumbs}">
                     <ItemsControl.ItemsPanel>
@@ -145,7 +149,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text=" › " Foreground="{StaticResource AuraTextSecondary}"
+                                <TextBlock Text=" › " Foreground="{DynamicResource AuraTextSecondary}"
                                            VerticalAlignment="Center" />
                                 <Button Content="{Binding Name}"
                                         Style="{StaticResource AuraGhostButton}"
@@ -167,8 +171,8 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Treemap (nested rectangles via ItemsControl) -->
-                <Border Grid.Column="0" Background="{StaticResource AuraSurface}"
-                        CornerRadius="12" Padding="4" Margin="0,0,12,0">
+                <Border Grid.Column="0" Background="{DynamicResource AuraSurface}"
+                        CornerRadius="{StaticResource AuraRadiusL}" Padding="4" Margin="0,0,12,0">
                     <ItemsControl ItemsSource="{Binding TreemapData}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -191,7 +195,7 @@
                                                     <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
                                                                Foreground="White" TextTrimming="CharacterEllipsis"
                                                                MaxWidth="200" />
-                                                    <TextBlock FontSize="11" Foreground="#CCCCCC">
+                                                    <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextPrimary}">
                                                         <Run Text="{Binding FormattedSize, Mode=OneWay}" />
                                                         <Run Text=" (" /><Run Text="{Binding PercentLabel, Mode=OneWay}" /><Run Text=")" />
                                                     </TextBlock>
@@ -213,7 +217,7 @@
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Style="{StaticResource AuraGlassCard}"
-                            CornerRadius="12" Padding="12" Margin="0,0,0,8">
+                            Padding="12" Margin="0,0,0,8">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -232,7 +236,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                                       FontSize="12" Foreground="{StaticResource AuraTextPrimary}"
+                                                       FontSize="12" Foreground="{DynamicResource AuraTextPrimary}"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding FullPath}" />
                                             <TextBlock Grid.Column="1" Text="{Binding FormattedSize}"
@@ -246,7 +250,7 @@
                     </Border>
 
                     <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
-                            CornerRadius="12" Padding="12">
+                            Padding="12">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -265,7 +269,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                                       FontSize="12" Foreground="{StaticResource AuraTextPrimary}"
+                                                       FontSize="12" Foreground="{DynamicResource AuraTextPrimary}"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding FullPath}" />
                                             <TextBlock Grid.Column="1" Text="{Binding FormattedSize}"
@@ -288,14 +292,16 @@
                          IsIndeterminate="True" Width="64" Height="64"
                          Foreground="{StaticResource AuraAccentPurple}" />
             <TextBlock Text="{Binding StatusMessage}" FontSize="14"
-                       Foreground="{StaticResource AuraTextSecondary}"
+                       AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        HorizontalAlignment="Center" Margin="0,12,0,0"
                        TextWrapping="Wrap" MaxWidth="400" TextAlignment="Center" />
         </StackPanel>
 
         <!-- Status -->
         <TextBlock Grid.Row="3" Text="{Binding StatusMessage}"
-                   Foreground="{StaticResource AuraTextSecondary}"
+                   AutomationProperties.LiveSetting="Polite"
+                   Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap" />
     </Grid>
 </UserControl>

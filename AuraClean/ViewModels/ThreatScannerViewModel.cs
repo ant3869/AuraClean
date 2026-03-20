@@ -5,6 +5,7 @@ using AuraClean.Models;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Windows;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Win32;
 
@@ -95,7 +96,7 @@ public partial class ThreatScannerViewModel : ObservableObject
                 case ScanMode.Custom:
                     if (string.IsNullOrWhiteSpace(CustomScanPath) || !Directory.Exists(CustomScanPath))
                     {
-                        StatusMessage = "Please select a valid directory to scan.";
+                        StatusMessage = "Please select a valid folder to scan.";
                         IsScanning = false;
                         return;
                     }
@@ -123,7 +124,7 @@ public partial class ThreatScannerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Scan failed: {ex.Message}";
+            StatusMessage = "Something went wrong during the scan. Please try again.";
             DiagnosticLogger.Error("ThreatScannerVM", "Scan failed", ex);
         }
         finally
@@ -160,7 +161,7 @@ public partial class ThreatScannerViewModel : ObservableObject
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Select Directory to Scan"
+            Title = "Select Folder to Scan"
         };
 
         if (dialog.ShowDialog() == true)
@@ -240,7 +241,7 @@ public partial class ThreatScannerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ActionStatusMessage = $"Quarantine error: {ex.Message}";
+            ActionStatusMessage = "Couldn't quarantine selected threats. Some files may be in use.";
             DiagnosticLogger.Error("ThreatScannerVM", "Quarantine failed", ex);
         }
         finally
@@ -280,14 +281,15 @@ public partial class ThreatScannerViewModel : ObservableObject
             }
 
             var progress = new Progress<string>(msg => ActionStatusMessage = msg);
+            var toDelete = new HashSet<ThreatItem>(selectedThreats);
             var (deleted, failed, errors) = await ThreatScannerService.DeleteThreatsAsync(
                 selectedThreats, progress, CancellationToken.None);
 
-            // Remove deleted items from UI
+            // Remove successfully targeted items from UI
             foreach (var cat in Categories.ToList())
             {
-                var deletedItems = cat.Items.Where(t => t.IsQuarantined).ToList();
-                foreach (var item in deletedItems)
+                var removable = cat.Items.Where(t => toDelete.Contains(t)).ToList();
+                foreach (var item in removable)
                     cat.Items.Remove(item);
 
                 if (cat.Items.Count == 0)
@@ -323,7 +325,7 @@ public partial class ThreatScannerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ActionStatusMessage = $"Delete error: {ex.Message}";
+            ActionStatusMessage = "Couldn't delete selected threats. Some files may be in use.";
             DiagnosticLogger.Error("ThreatScannerVM", "Delete failed", ex);
         }
         finally
@@ -427,29 +429,38 @@ public partial class ThreatScannerViewModel : ObservableObject
 
         if (result.IsClean)
         {
-            StatusMessage = "No threats detected — your system is clean!";
+            StatusMessage = "No threats detected.";
             TotalThreats = 0;
             CriticalCount = HighCount = MediumCount = LowCount = 0;
             return;
         }
 
-        // Group threats by category
+        // Group threats by category — marshal to UI thread for ObservableCollection safety
         var grouped = result.Threats
             .GroupBy(t => t.CategoryDisplay)
             .OrderByDescending(g => g.Max(t => (int)t.ThreatLevel))
-            .ThenByDescending(g => g.Count());
+            .ThenByDescending(g => g.Count())
+            .ToList();
 
-        Categories.Clear();
-        foreach (var group in grouped)
+        void ApplyToCollection()
         {
-            var cat = new ThreatCategory
+            Categories.Clear();
+            foreach (var group in grouped)
             {
-                Name = group.Key,
-                Items = new ObservableCollection<ThreatItem>(
-                    group.OrderByDescending(t => t.ThreatLevel))
-            };
-            Categories.Add(cat);
+                var cat = new ThreatCategory
+                {
+                    Name = group.Key,
+                    Items = new ObservableCollection<ThreatItem>(
+                        group.OrderByDescending(t => t.ThreatLevel))
+                };
+                Categories.Add(cat);
+            }
         }
+
+        if (Application.Current?.Dispatcher.CheckAccess() == true)
+            ApplyToCollection();
+        else
+            Application.Current?.Dispatcher.Invoke(ApplyToCollection);
 
         UpdateThreatCounts();
 

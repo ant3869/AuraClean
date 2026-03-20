@@ -9,26 +9,26 @@
         <Style x:Key="OnboardHeadline" TargetType="TextBlock">
             <Setter Property="FontSize" Value="38" />
             <Setter Property="FontWeight" Value="Light" />
-            <Setter Property="Foreground" Value="{StaticResource AuraTextBright}" />
+            <Setter Property="Foreground" Value="{DynamicResource AuraTextBright}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="OnboardBody" TargetType="TextBlock">
             <Setter Property="FontSize" Value="15" />
-            <Setter Property="Foreground" Value="{StaticResource AuraTextSecondary}" />
+            <Setter Property="Foreground" Value="{DynamicResource AuraTextSecondary}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="LineHeight" Value="24" />
         </Style>
         <Style x:Key="OnboardLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10" />
             <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="{StaticResource AuraTextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource AuraTextMuted}" />
         </Style>
 
         <!-- Step dot style -->
         <Style x:Key="StepDot" TargetType="Ellipse">
             <Setter Property="Width" Value="8" />
             <Setter Property="Height" Value="8" />
-            <Setter Property="Fill" Value="{StaticResource AuraBorder}" />
+            <Setter Property="Fill" Value="{DynamicResource AuraBorder}" />
             <Setter Property="Margin" Value="4,0" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
@@ -50,7 +50,7 @@
 
     <!-- Full overlay -->
     <Grid>
-        <Border Background="{StaticResource AuraBackground}" />
+        <Border Background="{DynamicResource AuraBackground}" />
 
         <!-- Content wrapper -->
         <Grid Margin="0">
@@ -79,14 +79,14 @@
 
                         <TextBlock Style="{StaticResource OnboardBody}" Margin="0,16,0,0">
                             <Run Text="AuraClean keeps" />
-                            <Run Text="{Binding MachineName, Mode=OneWay}" FontWeight="Medium" Foreground="{StaticResource AuraTextPrimary}" />
+                            <Run Text="{Binding MachineName, Mode=OneWay}" FontWeight="Medium" Foreground="{DynamicResource AuraTextPrimary}" />
                             <Run Text="running clean, fast, and secure. It takes about 60 seconds to see your first results." />
                         </TextBlock>
 
                         <!-- What we'll cover -->
                         <Border Margin="0,40,0,0" Padding="0"
                                 Background="Transparent"
-                                BorderBrush="{StaticResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
+                                BorderBrush="{DynamicResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
                             <StackPanel Margin="0,24,0,0">
                                 <TextBlock Style="{StaticResource OnboardLabel}"
                                            Text="WHAT YOU'LL LEARN" Margin="0,0,0,16" />
@@ -96,7 +96,7 @@
                                                Foreground="{StaticResource AuraAccentPurple}"
                                                Width="32" />
                                     <TextBlock Text="Three workflows to manage your system"
-                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               Foreground="{DynamicResource AuraTextPrimary}"
                                                FontSize="14" VerticalAlignment="Center" />
                                 </StackPanel>
 
@@ -105,7 +105,7 @@
                                                Foreground="{StaticResource AuraAccentPurple}"
                                                Width="32" />
                                     <TextBlock Text="Safety features that protect your data"
-                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               Foreground="{DynamicResource AuraTextPrimary}"
                                                FontSize="14" VerticalAlignment="Center" />
                                 </StackPanel>
 
@@ -114,7 +114,7 @@
                                                Foreground="{StaticResource AuraAccentPurple}"
                                                Width="32" />
                                     <TextBlock Text="How to run your first health check"
-                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               Foreground="{DynamicResource AuraTextPrimary}"
                                                FontSize="14" VerticalAlignment="Center" />
                                 </StackPanel>
                             </StackPanel>
@@ -157,20 +157,20 @@
                             </Border>
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Clean" FontSize="16" FontWeight="SemiBold"
-                                           Foreground="{StaticResource AuraTextBright}" />
+                                           Foreground="{DynamicResource AuraTextBright}" />
                                 <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
                                     Remove temp files, browser caches, crash dumps, and leftover registry entries.
                                     The System Cleaner and Browser Privacy tools work together to reclaim disk space.
                                 </TextBlock>
                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                     <TextBlock Text="System Cleaner" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
-                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{DynamicResource AuraBorder}" />
                                     <TextBlock Text="Privacy Clean" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
-                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{DynamicResource AuraBorder}" />
                                     <TextBlock Text="Uninstaller" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
@@ -189,20 +189,20 @@
                             </Border>
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Protect" FontSize="16" FontWeight="SemiBold"
-                                           Foreground="{StaticResource AuraTextBright}" />
+                                           Foreground="{DynamicResource AuraTextBright}" />
                                 <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
                                     Scan for threats, quarantine suspicious files, and shred sensitive data
                                     so it can never be recovered. Every destructive action creates a restore point first.
                                 </TextBlock>
                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                     <TextBlock Text="Threat Scanner" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
-                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{DynamicResource AuraBorder}" />
                                     <TextBlock Text="Quarantine" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
-                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{DynamicResource AuraBorder}" />
                                     <TextBlock Text="File Shredder" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
@@ -221,20 +221,20 @@
                             </Border>
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Optimize" FontSize="16" FontWeight="SemiBold"
-                                           Foreground="{StaticResource AuraTextBright}" />
+                                           Foreground="{DynamicResource AuraTextBright}" />
                                 <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
                                     Free RAM, manage startup programs, find duplicate files, and visualize
                                     exactly where your disk space is going with the interactive Storage Map.
                                 </TextBlock>
                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                     <TextBlock Text="RAM Booster" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
-                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{DynamicResource AuraBorder}" />
                                     <TextBlock Text="Startup Manager" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
-                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{DynamicResource AuraBorder}" />
                                     <TextBlock Text="Storage Map" FontSize="11"
-                                               Foreground="{StaticResource AuraTextMuted}" />
+                                               Foreground="{DynamicResource AuraTextMuted}" />
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
@@ -273,7 +273,7 @@
                                        VerticalAlignment="Top" Margin="0,2,0,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Restore Points" FontSize="15" FontWeight="Medium"
-                                           Foreground="{StaticResource AuraTextBright}" />
+                                           Foreground="{DynamicResource AuraTextBright}" />
                                 <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
                                     Before any cleanup, AuraClean creates a Windows System Restore point.
                                     If anything goes wrong, you can roll back with one click.
@@ -292,7 +292,7 @@
                                                      VerticalAlignment="Top" Margin="0,2,0,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Quarantine" FontSize="15" FontWeight="Medium"
-                                           Foreground="{StaticResource AuraTextBright}" />
+                                           Foreground="{DynamicResource AuraTextBright}" />
                                 <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
                                     Suspicious files are quarantined, not deleted. They're stored safely
                                     for 30 days so you can restore them if needed.
@@ -311,7 +311,7 @@
                                                      VerticalAlignment="Top" Margin="0,2,0,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Dry Run Mode" FontSize="15" FontWeight="Medium"
-                                           Foreground="{StaticResource AuraTextBright}" />
+                                           Foreground="{DynamicResource AuraTextBright}" />
                                 <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
                                     Turn on Dry Run in Settings to preview what would be cleaned
                                     without actually deleting anything. Useful for your first few runs.
@@ -352,7 +352,7 @@
                         <!-- Keyboard shortcut hint -->
                         <Border Margin="0,36,0,0" Padding="0"
                                 Background="Transparent"
-                                BorderBrush="{StaticResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
+                                BorderBrush="{DynamicResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
                             <StackPanel Margin="0,20,0,0">
                                 <TextBlock Style="{StaticResource OnboardLabel}"
                                            Text="KEYBOARD SHORTCUTS" Margin="0,0,0,14" />
@@ -370,36 +370,36 @@
                                     </Grid.RowDefinitions>
 
                                     <Border Grid.Row="0" Grid.Column="0"
-                                            Background="{StaticResource AuraSurface}"
+                                            Background="{DynamicResource AuraSurface}"
                                             CornerRadius="4" Padding="8,3"
                                             HorizontalAlignment="Left">
                                         <TextBlock Text="Ctrl + 1" FontSize="12" FontFamily="Consolas"
-                                                   Foreground="{StaticResource AuraTextPrimary}" />
+                                                   Foreground="{DynamicResource AuraTextPrimary}" />
                                     </Border>
                                     <TextBlock Grid.Row="0" Grid.Column="1" Text="Dashboard"
-                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               Foreground="{DynamicResource AuraTextSecondary}"
                                                FontSize="13" VerticalAlignment="Center" Margin="14,0,0,0" />
 
                                     <Border Grid.Row="2" Grid.Column="0"
-                                            Background="{StaticResource AuraSurface}"
+                                            Background="{DynamicResource AuraSurface}"
                                             CornerRadius="4" Padding="8,3"
                                             HorizontalAlignment="Left">
                                         <TextBlock Text="Ctrl + 4" FontSize="12" FontFamily="Consolas"
-                                                   Foreground="{StaticResource AuraTextPrimary}" />
+                                                   Foreground="{DynamicResource AuraTextPrimary}" />
                                     </Border>
                                     <TextBlock Grid.Row="2" Grid.Column="1" Text="System Cleaner"
-                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               Foreground="{DynamicResource AuraTextSecondary}"
                                                FontSize="13" VerticalAlignment="Center" Margin="14,0,0,0" />
 
                                     <Border Grid.Row="4" Grid.Column="0"
-                                            Background="{StaticResource AuraSurface}"
+                                            Background="{DynamicResource AuraSurface}"
                                             CornerRadius="4" Padding="8,3"
                                             HorizontalAlignment="Left">
                                         <TextBlock Text="Ctrl + 0" FontSize="12" FontFamily="Consolas"
-                                                   Foreground="{StaticResource AuraTextPrimary}" />
+                                                   Foreground="{DynamicResource AuraTextPrimary}" />
                                     </Border>
                                     <TextBlock Grid.Row="4" Grid.Column="1" Text="Settings"
-                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               Foreground="{DynamicResource AuraTextSecondary}"
                                                FontSize="13" VerticalAlignment="Center" Margin="14,0,0,0" />
                                 </Grid>
                             </StackPanel>

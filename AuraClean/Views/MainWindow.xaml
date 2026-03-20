@@ -16,7 +16,7 @@
         TextElement.FontSize="14"
         TextOptions.TextFormattingMode="Ideal"
         TextOptions.TextRenderingMode="Auto"
-        FontFamily="{materialDesign:MaterialDesignFont}">
+        FontFamily="{StaticResource AuraFontFamily}">
 
     <Window.DataContext>
         <vm:MainViewModel />
@@ -62,19 +62,16 @@
                                RenderOptions.BitmapScalingMode="HighQuality"
                                VerticalAlignment="Center" />
                         <StackPanel Margin="12,0,0,0">
-                            <TextBlock FontSize="22" FontWeight="Bold">
+                            <TextBlock FontSize="24" FontWeight="Bold">
                                 <TextBlock.Foreground>
-                                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                        <GradientStop Color="#F0F0FF" Offset="0" />
-                                        <GradientStop Color="#A090FF" Offset="1" />
-                                    </LinearGradientBrush>
+                                    <StaticResource ResourceKey="AuraGradientLogo" />
                                 </TextBlock.Foreground>
                                 <Run Text="Aura" /><Run Text="Clean" FontWeight="Light" />
                             </TextBlock>
                             <TextBlock Text="System Utility"
                                        FontSize="10"
-                                       Foreground="{StaticResource AuraTextMuted}"
-                                       Margin="0,-2,0,0" />
+                                       Foreground="{DynamicResource AuraTextMuted}"
+                                       Margin="0,-1,0,0" />
                         </StackPanel>
                     </StackPanel>
 
@@ -94,226 +91,289 @@
                               HorizontalScrollBarVisibility="Disabled"
                               Margin="0,4,0,0">
                     <StackPanel Margin="4,0">
-                        <!-- Dashboard -->
+                        <!-- ─── Top-level: always visible ─── -->
                         <RadioButton x:Name="NavDashboard"
                                      Style="{StaticResource AuraNavButton}"
                                      IsChecked="True"
                                      Command="{Binding NavigateToCommand}"
                                      CommandParameter="Dashboard">
                             <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ViewDashboard" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Dashboard" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                                    <materialDesign:PackIcon Kind="ViewDashboard" Width="20" Height="20" VerticalAlignment="Center"
+                                                             Foreground="{StaticResource AuraAccentPurple}" />
+                                    <TextBlock Text="Dashboard" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
                             </StackPanel>
                         </RadioButton>
 
-                        <!-- Threat Scanner -->
                         <RadioButton x:Name="NavThreatScanner"
                                      Style="{StaticResource AuraNavButton}"
                                      Command="{Binding NavigateToCommand}"
                                      CommandParameter="ThreatScanner">
                             <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ShieldSearch" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Threat Scanner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                                    <materialDesign:PackIcon Kind="ShieldSearch" Width="20" Height="20" VerticalAlignment="Center"
+                                                             Foreground="{StaticResource AuraWarning}" />
+                                    <TextBlock Text="Threat Scanner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
                             </StackPanel>
                         </RadioButton>
 
-                        <!-- Section: CLEANUP -->
-                        <TextBlock Text="CLEANUP" FontSize="10" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AuraTextMuted}"
-                                   Margin="28,18,0,6" />
+                        <!-- ─── CLEANUP section (collapsible) ─── -->
+                        <Button Command="{Binding ToggleCleanupCommand}"
+                                AutomationProperties.Name="Toggle Cleanup section"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                HorizontalContentAlignment="Stretch"
+                                Margin="10,14,10,2" Padding="18,6">
+                            <Grid>
+                                <TextBlock Text="C L E A N U P"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AuraAccentTeal}"
+                                           Opacity="0.6"
+                                           VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraAccentTeal}"
+                                                         Opacity="0.6"
+                                                         HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                         RenderTransformOrigin="0.5,0.5">
+                                    <materialDesign:PackIcon.RenderTransform>
+                                        <RotateTransform x:Name="CleanupChevronRotate" Angle="0" />
+                                    </materialDesign:PackIcon.RenderTransform>
+                                </materialDesign:PackIcon>
+                            </Grid>
+                        </Button>
 
-                        <RadioButton x:Name="NavUninstaller"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Uninstaller">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="DeleteForever" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Uninstaller" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
+                        <StackPanel Visibility="{Binding IsCleanupExpanded, Converter={StaticResource BoolToVis}}">
+                            <RadioButton x:Name="NavCleaner"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Cleaner">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Broom" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="System Cleaner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
 
-                        <RadioButton x:Name="NavCleaner"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Cleaner">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Broom" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="System Cleaner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
+                            <RadioButton x:Name="NavBrowser"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Browser">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Web" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Privacy Clean" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
 
-                        <RadioButton x:Name="NavMemory"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Memory">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Memory" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="RAM Booster" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavBrowser"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Browser">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Web" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Privacy Clean" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <!-- Section: ANALYZE -->
-                        <TextBlock Text="ANALYZE" FontSize="10" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AuraTextMuted}"
-                                   Margin="28,18,0,6" />
-
-                        <RadioButton x:Name="NavStorage"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="StorageMap">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ChartDonut" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Storage Map" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavMonitor"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Monitor">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="CameraOutline" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Install Monitor" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavStartup"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Startup">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="RocketLaunch" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Startup Manager" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavDuplicates"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Duplicates">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ContentDuplicate" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Duplicate Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavLargeFiles"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="LargeFiles">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="FileFind" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Large File Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <!-- Section: TOOLS -->
-                        <TextBlock Text="TOOLS" FontSize="10" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AuraTextMuted}"
-                                   Margin="28,18,0,6" />
-
-                        <RadioButton x:Name="NavShredder"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Shredder">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ShieldLock" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="File Shredder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavSystemInfo"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="SystemInfo">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="InformationOutline" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="System Info" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavQuarantine"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Quarantine">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ShieldOff" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Quarantine" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="NavSoftwareUpdater"
-                                     Style="{StaticResource AuraNavButton}"
-                                     Command="{Binding NavigateToCommand}"
-                                     CommandParameter="SoftwareUpdater">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Update" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Software Updater" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                            </StackPanel>
-                        </RadioButton>
-
-                    <RadioButton x:Name="NavDiskOptimizer"
-                                 Style="{StaticResource AuraNavButton}"
-                                 Command="{Binding NavigateToCommand}"
-                                 CommandParameter="DiskOptimizer">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Harddisk" Width="20" Height="20" VerticalAlignment="Center" />
-                            <TextBlock Text="Disk Optimizer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                            <RadioButton x:Name="NavUninstaller"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Uninstaller">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="DeleteForever" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Uninstaller" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
                         </StackPanel>
-                    </RadioButton>
 
-                    <RadioButton x:Name="NavFileRecovery"
-                                 Style="{StaticResource AuraNavButton}"
-                                 Command="{Binding NavigateToCommand}"
-                                 CommandParameter="FileRecovery">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="FileRestore" Width="20" Height="20" VerticalAlignment="Center" />
-                            <TextBlock Text="File Recovery" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                        <!-- ─── ANALYZE section (collapsible) ─── -->
+                        <Button Command="{Binding ToggleAnalyzeCommand}"
+                                AutomationProperties.Name="Toggle Analyze section"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                HorizontalContentAlignment="Stretch"
+                                Margin="10,14,10,2" Padding="18,6">
+                            <Grid>
+                                <TextBlock Text="A N A L Y Z E"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AuraAmber}"
+                                           Opacity="0.6"
+                                           VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraAmber}"
+                                                         Opacity="0.6"
+                                                         HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                         RenderTransformOrigin="0.5,0.5">
+                                    <materialDesign:PackIcon.RenderTransform>
+                                        <RotateTransform x:Name="AnalyzeChevronRotate" Angle="0" />
+                                    </materialDesign:PackIcon.RenderTransform>
+                                </materialDesign:PackIcon>
+                            </Grid>
+                        </Button>
+
+                        <StackPanel Visibility="{Binding IsAnalyzeExpanded, Converter={StaticResource BoolToVis}}">
+                            <RadioButton x:Name="NavStorage"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="StorageMap">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ChartDonut" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Storage Map" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavStartup"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Startup">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="RocketLaunch" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Startup Manager" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavDuplicates"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Duplicates">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentDuplicate" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Duplicate Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
                         </StackPanel>
-                    </RadioButton>
 
-                    <RadioButton x:Name="NavEmptyFolders"
-                                 Style="{StaticResource AuraNavButton}"
-                                 Command="{Binding NavigateToCommand}"
-                                 CommandParameter="EmptyFolders">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="FolderRemove" Width="20" Height="20" VerticalAlignment="Center" />
-                            <TextBlock Text="Empty Folders" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                        <!-- ─── TOOLS section (collapsible, collapsed by default) ─── -->
+                        <Button Command="{Binding ToggleToolsCommand}"
+                                AutomationProperties.Name="Toggle Tools section"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                HorizontalContentAlignment="Stretch"
+                                Margin="10,14,10,2" Padding="18,6">
+                            <Grid>
+                                <TextBlock Text="T O O L S"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AuraAccentPurple}"
+                                           Opacity="0.5"
+                                           VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraAccentPurple}"
+                                                         Opacity="0.5"
+                                                         HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                         RenderTransformOrigin="0.5,0.5">
+                                    <materialDesign:PackIcon.RenderTransform>
+                                        <RotateTransform x:Name="ToolsChevronRotate" Angle="0" />
+                                    </materialDesign:PackIcon.RenderTransform>
+                                </materialDesign:PackIcon>
+                            </Grid>
+                        </Button>
+
+                        <StackPanel Visibility="{Binding IsToolsExpanded, Converter={StaticResource BoolToVis}}">
+                            <RadioButton x:Name="NavMemory"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Memory">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Memory" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="RAM Booster" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavLargeFiles"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="LargeFiles">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FileFind" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Large File Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavShredder"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Shredder">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ShieldLock" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="File Shredder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavSystemInfo"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="SystemInfo">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="InformationOutline" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="System Info" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavQuarantine"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Quarantine">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ShieldOff" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Quarantine" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavSoftwareUpdater"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="SoftwareUpdater">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Update" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Software Updater" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavDiskOptimizer"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="DiskOptimizer">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Harddisk" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Disk Optimizer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavFileRecovery"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="FileRecovery">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FileRestore" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="File Recovery" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavEmptyFolders"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="EmptyFolders">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FolderRemove" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Empty Folders" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavAppInstaller"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="AppInstaller">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="PackageDown" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="App Installer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton x:Name="NavMonitor"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Monitor">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="CameraOutline" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <TextBlock Text="Install Monitor" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </RadioButton>
                         </StackPanel>
-                    </RadioButton>
 
-                    <RadioButton x:Name="NavAppInstaller"
-                                 Style="{StaticResource AuraNavButton}"
-                                 Command="{Binding NavigateToCommand}"
-                                 CommandParameter="AppInstaller">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="PackageDown" Width="20" Height="20" VerticalAlignment="Center" />
-                            <TextBlock Text="App Installer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
-                        </StackPanel>
-                    </RadioButton>
+                        <!-- ─── Bottom-pinned: Settings & History ─── -->
+                        <Rectangle Height="1" Margin="14,16,14,8" Opacity="0.3"
+                                   Fill="{DynamicResource AuraBorder}" />
 
-                    <!-- Section: SETTINGS -->
-                    <TextBlock Text="SETTINGS" FontSize="10" FontWeight="SemiBold"
-                               Foreground="{StaticResource AuraTextMuted}"
-                               Margin="28,18,0,6" />
-
-                    <RadioButton x:Name="NavHistory"
-                                 Style="{StaticResource AuraNavButton}"
-                                 Command="{Binding NavigateToCommand}"
-                                 CommandParameter="History">
+                        <RadioButton x:Name="NavHistory"
+                                     Style="{StaticResource AuraNavButton}"
+                                     Command="{Binding NavigateToCommand}"
+                                     CommandParameter="History">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ClipboardTextClock" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Cleanup History" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                                <TextBlock Text="Cleanup History" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
                             </StackPanel>
                         </RadioButton>
 
@@ -323,7 +383,7 @@
                                      CommandParameter="Settings">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="CogOutline" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Settings" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13.5" />
+                                <TextBlock Text="Settings" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
                             </StackPanel>
                         </RadioButton>
                     </StackPanel>
@@ -350,8 +410,8 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <TextBlock Text="v1.3.1"
-                               Foreground="{StaticResource AuraTextMuted}"
+                    <TextBlock Text="{Binding AppVersion}"
+                               Foreground="{DynamicResource AuraTextMuted}"
                                FontSize="10"
                                Margin="0,4,0,0" />
                 </StackPanel>
@@ -479,6 +539,7 @@
                     BorderBrush="{DynamicResource AuraBorder}" BorderThickness="0,1,0,0"
                     Padding="20,7">
                 <TextBlock Text="{Binding StatusBarText}"
+                           AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="11.5" />
             </Border>

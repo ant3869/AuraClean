@@ -15,18 +15,18 @@
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,24">
             <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{StaticResource AuraTextBright}">
+                       Foreground="{DynamicResource AuraTextBright}">
                 <Run Text="Install " /><Run Text="Monitor" FontWeight="SemiBold" />
             </TextBlock>
-            <TextBlock Text="Shadow snapshot — track what programs install for surgical removal later"
-                       Foreground="{StaticResource AuraTextSecondary}"
+            <TextBlock Text="Record what a program adds to your system so you can fully remove it later"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
                        Margin="0,4,0,0" />
         </StackPanel>
 
         <!-- Monitor Controls -->
         <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
-                CornerRadius="12" Margin="0,0,0,16">
+                Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -39,14 +39,15 @@
                              materialDesign:HintAssist.IsFloating="True"
                              Text="{Binding ProgramLabel, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding IsMonitoring, Converter={StaticResource InverseBoolConverter}}"
-                             Foreground="{StaticResource AuraTextPrimary}"
+                             Foreground="{DynamicResource AuraTextPrimary}"
                              FontSize="14" Margin="0,0,16,12" />
 
                     <!-- Dry Run Toggle -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
                         <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                      AutomationProperties.Name="Dry Run"
                                       IsChecked="{Binding IsDryRun}" Margin="0,0,8,0" />
-                        <TextBlock Text="Dry Run" Foreground="{StaticResource AuraTextSecondary}"
+                        <TextBlock Text="Dry Run" Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" FontSize="13" />
                     </StackPanel>
                 </StackPanel>
@@ -85,7 +86,7 @@
         <Grid Grid.Row="2">
             <!-- Active Monitoring Indicator -->
             <Border Style="{StaticResource AuraGlassCard}"
-                    CornerRadius="12" Padding="24"
+                    Padding="24"
                     Visibility="{Binding IsMonitoring, Converter={StaticResource BoolToVis}}"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel HorizontalAlignment="Center">
@@ -97,7 +98,7 @@
                                Foreground="{StaticResource AuraAccentPurple}"
                                HorizontalAlignment="Center" Margin="0,16,0,4" />
                     <TextBlock Text="Install your software now, then click 'Stop &amp; Compare'"
-                               Foreground="{StaticResource AuraTextSecondary}"
+                               Foreground="{DynamicResource AuraTextSecondary}"
                                HorizontalAlignment="Center" />
                 </StackPanel>
             </Border>
@@ -105,57 +106,76 @@
             <!-- Delta Results -->
             <StackPanel Visibility="{Binding HasDelta, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="Last Capture Results" FontSize="16" FontWeight="SemiBold"
-                           Foreground="{StaticResource AuraTextPrimary}" Margin="0,0,0,12" />
+                           Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,0,12" />
 
-                <WrapPanel>
-                    <Border Style="{StaticResource AuraGlassCardCompact}"
-                            CornerRadius="12" Padding="16" Margin="0,0,12,12" Width="180">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Hero stat: Registry Keys -->
+                    <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                            Margin="0,0,0,12">
                         <StackPanel>
-                            <TextBlock Text="Registry Keys" FontSize="12" Foreground="{StaticResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding NewRegistryKeysCount}" FontSize="28" FontWeight="Bold"
-                                       Foreground="{StaticResource AuraAccentPurple}" />
+                            <TextBlock Text="Registry Keys" FontSize="12" Foreground="{DynamicResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding NewRegistryKeysCount}" FontSize="32" FontWeight="Bold"
+                                       FontFamily="{DynamicResource AuraFontFamilyMono}"
+                                       Foreground="{StaticResource AuraAccentPurple}" Margin="0,4,0,2" />
+                            <TextBlock Text="new entries detected" FontSize="11" Foreground="{DynamicResource AuraTextMuted}" />
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource AuraGlassCardCompact}"
-                            CornerRadius="12" Padding="16" Margin="0,0,12,12" Width="180">
+                    <!-- Compact: New Files -->
+                    <Border Grid.Column="2" Style="{StaticResource AuraGlassCardCompact}"
+                            Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
-                            <TextBlock Text="New Files" FontSize="12" Foreground="{StaticResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding NewFilesCount}" FontSize="28" FontWeight="Bold"
-                                       Foreground="{StaticResource AuraAccentTeal}" />
+                            <TextBlock Text="New Files" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding NewFilesCount}" FontSize="22" FontWeight="Bold"
+                                       FontFamily="{DynamicResource AuraFontFamilyMono}"
+                                       Foreground="{StaticResource AuraAccentTeal}" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource AuraGlassCardCompact}"
-                            CornerRadius="12" Padding="16" Margin="0,0,12,12" Width="180">
+                    <!-- Compact: Total Size -->
+                    <Border Grid.Column="4" Style="{StaticResource AuraGlassCardCompact}"
+                            Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
-                            <TextBlock Text="Total Size" FontSize="12" Foreground="{StaticResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding FormattedNewFileSize}" FontSize="28" FontWeight="Bold"
-                                       Foreground="{StaticResource AuraWarning}" />
+                            <TextBlock Text="Total Size" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding FormattedNewFileSize}" FontSize="22" FontWeight="Bold"
+                                       FontFamily="{DynamicResource AuraFontFamilyMono}"
+                                       Foreground="{StaticResource AuraWarning}" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource AuraGlassCardCompact}"
-                            CornerRadius="12" Padding="16" Margin="0,0,12,12" Width="180">
+                    <!-- Compact: Directories -->
+                    <Border Grid.Column="6" Style="{StaticResource AuraGlassCardCompact}"
+                            Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
-                            <TextBlock Text="Directories" FontSize="12" Foreground="{StaticResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding NewDirectoriesCount}" FontSize="28" FontWeight="Bold"
-                                       Foreground="{StaticResource AuraAccentPurple}" />
+                            <TextBlock Text="Directories" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding NewDirectoriesCount}" FontSize="22" FontWeight="Bold"
+                                       FontFamily="{DynamicResource AuraFontFamilyMono}"
+                                       Foreground="{StaticResource AuraAccentPurple}" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
-                </WrapPanel>
+                </Grid>
 
                 <!-- Saved Snapshots -->
                 <TextBlock Text="Saved Snapshots" FontSize="16" FontWeight="SemiBold"
-                           Foreground="{StaticResource AuraTextPrimary}" Margin="0,16,0,8" />
+                           Foreground="{DynamicResource AuraTextPrimary}" Margin="0,16,0,8" />
 
                 <DataGrid ItemsSource="{Binding SavedSnapshots}"
                           SelectedItem="{Binding SelectedSnapshot}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           Background="Transparent"
-                          Foreground="{StaticResource AuraTextPrimary}"
-                          RowBackground="{StaticResource AuraSurface}"
-                          AlternatingRowBackground="{StaticResource AuraSurfaceLight}"
+                          Foreground="{DynamicResource AuraTextPrimary}"
+                          RowBackground="{DynamicResource AuraSurface}"
+                          AlternatingRowBackground="{DynamicResource AuraSurfaceLight}"
                           BorderThickness="0" MaxHeight="200">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Label" Binding="{Binding Label}" Width="*" />
@@ -176,7 +196,8 @@
 
         <!-- Status -->
         <TextBlock Grid.Row="3" Text="{Binding StatusMessage}"
-                   Foreground="{StaticResource AuraTextSecondary}"
+                   AutomationProperties.LiveSetting="Polite"
+                   Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,12,0,0" TextWrapping="Wrap" />
     </Grid>
 </UserControl>

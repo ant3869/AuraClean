@@ -19,7 +19,7 @@ public partial class UninstallerViewModel : ObservableObject
     [ObservableProperty] private InstalledProgram? _selectedProgram;
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Ready";
+    [ObservableProperty] private string _statusMessage = "Ready to manage installed programs.";
     [ObservableProperty] private bool _isScanning;
     [ObservableProperty] private ObservableCollection<JunkItem> _postUninstallJunk = [];
     [ObservableProperty] private bool _hasPostUninstallResults;
@@ -115,7 +115,8 @@ public partial class UninstallerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading programs: {ex.Message}";
+            StatusMessage = "Couldn't load installed programs. Please try again.";
+            DiagnosticLogger.Error("UninstallerVM", "LoadProgramsAsync failed", ex);
             HasScanned = true;
         }
         finally
@@ -147,7 +148,8 @@ public partial class UninstallerViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Uninstall error: {ex.Message}";
+                StatusMessage = $"Couldn't uninstall {program.DisplayName}. It may require manual removal.";
+                DiagnosticLogger.Error("UninstallerVM", $"Uninstall failed for {program.DisplayName}", ex);
             }
         }
 
@@ -176,11 +178,12 @@ public partial class UninstallerViewModel : ObservableObject
             HasPostUninstallResults = PostUninstallJunk.Count > 0;
             StatusMessage = junk.Count > 0
                 ? $"Found {junk.Count} leftover items."
-                : "No leftovers found — clean uninstall!";
+                : "No leftover files found.";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Scan error: {ex.Message}";
+            StatusMessage = "Something went wrong during the scan. Please try again.";
+            DiagnosticLogger.Error("UninstallerVM", "DeepScanAsync failed", ex);
         }
         finally
         {
@@ -235,7 +238,8 @@ public partial class UninstallerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Cleanup error: {ex.Message}";
+            StatusMessage = "Something went wrong during cleanup. Some items may not have been removed.";
+            DiagnosticLogger.Error("UninstallerVM", "CleanLeftoversAsync failed", ex);
         }
         finally
         {
@@ -254,7 +258,7 @@ public partial class UninstallerViewModel : ObservableObject
 
         IsBusy = true;
         StatusMessage = IsDryRun
-            ? $"[DRY RUN] Analyzing force uninstall for {SelectedProgram.DisplayName}..."
+            ? $"[Preview] Analyzing force uninstall for {SelectedProgram.DisplayName}..."
             : $"Force uninstalling {SelectedProgram.DisplayName}...";
 
         try
@@ -285,7 +289,8 @@ public partial class UninstallerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Force uninstall error: {ex.Message}";
+            StatusMessage = "Force uninstall failed. The program may require manual removal.";
+            DiagnosticLogger.Error("UninstallerVM", "ForceUninstallAsync failed", ex);
         }
         finally
         {

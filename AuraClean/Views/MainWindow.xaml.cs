@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using AuraClean.Helpers;
 using AuraClean.Services;
 using AuraClean.ViewModels;
 
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private Dictionary<string, FrameworkElement>? _viewMap;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private bool _forceClose;
+    private string? _currentViewKey;
 
     public MainWindow()
     {
@@ -155,6 +157,8 @@ public partial class MainWindow : Window
             _trayIcon.Dispose();
             _trayIcon = null;
         }
+
+        _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
     }
 
     private static bool IsTrayEnabled() => SettingsService.Load().MinimizeToTray;
@@ -181,12 +185,25 @@ public partial class MainWindow : Window
     {
         if (_viewMap == null) return;
 
-        // Hide all views, then show only the selected one
-        foreach (var element in _viewMap.Values)
-            element.Visibility = Visibility.Collapsed;
+        // Determine outgoing view (if any)
+        FrameworkElement? outgoing = null;
+        if (_currentViewKey != null && _viewMap.TryGetValue(_currentViewKey, out var prev) && prev.Visibility == Visibility.Visible)
+            outgoing = prev;
 
-        if (_viewMap.TryGetValue(viewName, out var target))
-            target.Visibility = Visibility.Visible;
+        _currentViewKey = viewName;
+
+        if (!_viewMap.TryGetValue(viewName, out var target))
+            return;
+
+        // Collapse all views except the outgoing (which will animate out)
+        foreach (var kvp in _viewMap)
+        {
+            if (kvp.Value != outgoing && kvp.Value != target)
+                kvp.Value.Visibility = Visibility.Collapsed;
+        }
+
+        // Animate the transition
+        AnimationHelper.TransitionViews(outgoing, target);
 
         // Auto-refresh quarantine list when navigating to it
         if (viewName == "Quarantine")

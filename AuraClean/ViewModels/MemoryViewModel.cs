@@ -11,7 +11,7 @@ namespace AuraClean.ViewModels;
 public partial class MemoryViewModel : ObservableObject
 {
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Click Boost to optimize memory.";
+    [ObservableProperty] private string _statusMessage = "Ready to optimize memory usage.";
     [ObservableProperty] private bool _isDryRun;
 
     // Memory stats
@@ -58,7 +58,7 @@ public partial class MemoryViewModel : ObservableObject
     private async Task BoostMemoryAsync()
     {
         IsBusy = true;
-        StatusMessage = IsDryRun ? "[DRY RUN] Analyzing memory..." : "Boosting memory...";
+        StatusMessage = IsDryRun ? "[Preview] Analyzing memory..." : "Boosting memory...";
         HasBoostResult = false;
 
         try
@@ -77,15 +77,16 @@ public partial class MemoryViewModel : ObservableObject
             await RefreshStatsAsync();
 
             StatusMessage = IsDryRun
-                ? $"[DRY RUN] Estimated {FormatHelper.FormatBytes(result.MemoryFreedBytes)} reclaimable from {result.ProcessesTrimmed} processes."
+                ? $"[Preview] Estimated {FormatHelper.FormatBytes(result.MemoryFreedBytes)} reclaimable from {result.ProcessesTrimmed} processes."
                 : $"Freed {FormatHelper.FormatBytes(result.MemoryFreedBytes)}! Trimmed {result.ProcessesTrimmed} processes" +
-                  (result.StandbyListPurged ? ", purged standby list." : ".");
+                  (result.StandbyListPurged ? ", cleared cached memory." : ".");
 
             OnPropertyChanged(nameof(FormattedFreed));
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during memory optimization. Please try again.";
+            DiagnosticLogger.Error("MemoryVM", "BoostMemoryAsync failed", ex);
         }
         finally
         {

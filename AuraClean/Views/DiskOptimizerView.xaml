@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:converters="clr-namespace:AuraClean.Converters">
+             xmlns:converters="clr-namespace:AuraClean.Converters"
+             xmlns:helpers="clr-namespace:AuraClean.Helpers">
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
@@ -13,13 +14,15 @@
         </Grid.RowDefinitions>
 
         <!-- Title -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+        <StackPanel Grid.Row="0" Margin="0,0,0,20"
+                    helpers:AnimationHelper.AnimateOnVisible="True"
+                    helpers:AnimationHelper.StaggerIndex="0">
             <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{StaticResource AuraTextBright}">
+                       Foreground="{DynamicResource AuraTextBright}">
                 <Run Text="Disk " /><Run Text="Optimizer" FontWeight="SemiBold" />
             </TextBlock>
-            <TextBlock Text="Defragment HDDs and TRIM SSDs to maintain peak drive performance"
-                       Foreground="{StaticResource AuraTextSecondary}"
+            <TextBlock Text="Speed up your drives — optimize hard disks and solid-state drives"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -106,10 +109,10 @@
                   CanUserAddRows="False"
                   SelectionMode="Single"
                   Background="Transparent"
-                  Foreground="{StaticResource AuraTextPrimary}"
+                  Foreground="{DynamicResource AuraTextPrimary}"
                   BorderThickness="0"
                   GridLinesVisibility="Horizontal"
-                  HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
+                  HorizontalGridLinesBrush="{DynamicResource AuraBorderSubtle}"
                   RowBackground="Transparent"
                   AlternatingRowBackground="{StaticResource AuraOverlayFaint}"
                   HeadersVisibility="Column">
@@ -120,6 +123,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      AutomationProperties.Name="Select Drive"
                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -128,7 +132,7 @@
                 <!-- Drive -->
                 <DataGridTextColumn Header="Drive" Binding="{Binding DisplayName}" Width="*"
                                     IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextPrimary}" />
+                                    Foreground="{DynamicResource AuraTextPrimary}" />
 
                 <!-- Type -->
                 <DataGridTextColumn Header="Type" Binding="{Binding MediaTypeLabel}" Width="80"
@@ -138,17 +142,17 @@
                 <!-- File System -->
                 <DataGridTextColumn Header="Format" Binding="{Binding FileSystem}" Width="80"
                                     IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextSecondary}" />
+                                    Foreground="{DynamicResource AuraTextSecondary}" />
 
                 <!-- Total Size -->
                 <DataGridTextColumn Header="Total" Binding="{Binding FormattedTotal}" Width="100"
                                     IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextSecondary}" />
+                                    Foreground="{DynamicResource AuraTextSecondary}" />
 
                 <!-- Free Space -->
                 <DataGridTextColumn Header="Free" Binding="{Binding FormattedFree}" Width="100"
                                     IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextSecondary}" />
+                                    Foreground="{DynamicResource AuraTextSecondary}" />
 
                 <!-- Fragmentation -->
                 <DataGridTemplateColumn Header="Fragmentation" Width="120">
@@ -175,7 +179,7 @@
                 <!-- Status -->
                 <DataGridTextColumn Header="Status" Binding="{Binding StatusMessage}" Width="200"
                                     IsReadOnly="True"
-                                    Foreground="{StaticResource AuraTextSecondary}" />
+                                    Foreground="{DynamicResource AuraTextSecondary}" />
             </DataGrid.Columns>
         </DataGrid>
 
@@ -198,20 +202,20 @@
                 <materialDesign:PackIcon Kind="HarddiskRemove"
                                          Width="48" Height="48"
                                          HorizontalAlignment="Center"
-                                         Foreground="{StaticResource AuraTextMuted}" />
+                                         Foreground="{DynamicResource AuraTextMuted}" />
                 <TextBlock Text="No drives detected"
                            FontSize="15" Margin="0,10,0,4"
                            HorizontalAlignment="Center"
-                           Foreground="{StaticResource AuraTextSecondary}" />
+                           Foreground="{DynamicResource AuraTextSecondary}" />
                 <TextBlock Text="Click Refresh to reload available drives"
                            FontSize="12" HorizontalAlignment="Center"
-                           Foreground="{StaticResource AuraTextMuted}" />
+                           Foreground="{DynamicResource AuraTextMuted}" />
             </StackPanel>
         </Grid>
 
         <!-- Status Bar -->
         <Border Grid.Row="3" Margin="0,12,0,0" Padding="8,8"
-                Background="{StaticResource AuraSurfaceLight}" CornerRadius="8">
+                Background="{DynamicResource AuraSurfaceLight}" CornerRadius="8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -219,10 +223,12 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            Text="{Binding StatusMessage}"
-                           Foreground="{StaticResource AuraTextSecondary}"
+                           AutomationProperties.LiveSetting="Polite"
+                           Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="12" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding CurrentOperation}"
+                           AutomationProperties.LiveSetting="Polite"
                            Foreground="{StaticResource AuraAccentTeal}"
                            FontSize="12" VerticalAlignment="Center"
                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />

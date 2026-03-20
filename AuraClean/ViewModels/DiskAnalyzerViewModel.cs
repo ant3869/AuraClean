@@ -14,7 +14,7 @@ namespace AuraClean.ViewModels;
 public partial class DiskAnalyzerViewModel : ObservableObject
 {
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Select a drive or directory to analyze.";
+    [ObservableProperty] private string _statusMessage = "Select a drive or folder to analyze.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private double _progressPercent;
     [ObservableProperty] private string _selectedPath = string.Empty;
@@ -151,7 +151,8 @@ public partial class DiskAnalyzerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during analysis. Please try again.";
+            DiagnosticLogger.Error("DiskAnalyzerVM", "Analysis failed", ex);
         }
         finally
         {

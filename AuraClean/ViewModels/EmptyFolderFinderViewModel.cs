@@ -11,7 +11,7 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<EmptyFolderItem> _emptyFolders = [];
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isScanning;
-    [ObservableProperty] private string _statusMessage = "Select folders to scan for empty directories.";
+    [ObservableProperty] private string _statusMessage = "Select folders to scan for empty subfolders.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private int _totalFound;
     [ObservableProperty] private string _selectedPath = string.Empty;
@@ -56,7 +56,7 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
     {
         using var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
-            Description = "Select folder to scan for empty directories",
+            Description = "Select folder to scan for empty subfolders",
             UseDescriptionForTitle = true,
             ShowNewFolderButton = false
         };
@@ -100,7 +100,7 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
 
             StatusMessage = results.Count > 0
                 ? $"Found {results.Count} empty folder(s) ready to clean."
-                : "No empty folders found — your system is tidy!";
+                : "No empty folders found.";
         }
         catch (OperationCanceledException)
         {
@@ -108,7 +108,7 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Scan error: {ex.Message}";
+            StatusMessage = "Something went wrong during the scan. Please try again.";
             DiagnosticLogger.Error("EmptyFolderFinder", "Scan failed", ex);
         }
         finally
@@ -160,7 +160,7 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Delete error: {ex.Message}";
+            StatusMessage = "Some folders couldn't be deleted. They may be in use or protected.";
             DiagnosticLogger.Error("EmptyFolderFinder", "Delete failed", ex);
         }
         finally

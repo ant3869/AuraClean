@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
+             xmlns:helpers="clr-namespace:AuraClean.Helpers"
              xmlns:models="clr-namespace:AuraClean.Models">
 
     <Grid Margin="32">
@@ -17,11 +18,11 @@
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{StaticResource AuraTextBright}">
+                       Foreground="{DynamicResource AuraTextBright}">
                 <Run Text="App Bundle " /><Run Text="Installer" FontWeight="SemiBold" />
             </TextBlock>
             <TextBlock Text="Select and install popular free &amp; open-source applications in one click"
-                       Foreground="{StaticResource AuraTextSecondary}"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -37,7 +38,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Search box -->
-                <Border Grid.Column="0" Background="{StaticResource AuraSurfaceLight}"
+                <Border Grid.Column="0" Background="{DynamicResource AuraSurfaceLight}"
                         CornerRadius="8" Padding="10,0" Margin="0,0,12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -45,12 +46,12 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18"
-                                                 Foreground="{StaticResource AuraTextMuted}"
+                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                  VerticalAlignment="Center" />
                         <TextBox Grid.Column="1"
                                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent" BorderThickness="0"
-                                 Foreground="{StaticResource AuraTextPrimary}"
+                                 Foreground="{DynamicResource AuraTextPrimary}"
                                  FontSize="13" VerticalAlignment="Center"
                                  Margin="8,0,0,0" Padding="0,6"
                                  materialDesign:HintAssist.Hint="Search applications..."
@@ -100,13 +101,14 @@
                                              Foreground="{StaticResource AuraAccentTeal}"
                                              VerticalAlignment="Center" Margin="0,0,8,0" />
                     <TextBlock Text="{Binding StatusMessage}" FontSize="12"
-                               Foreground="{StaticResource AuraTextSecondary}"
+                               AutomationProperties.LiveSetting="Polite"
+                               Foreground="{DynamicResource AuraTextSecondary}"
                                VerticalAlignment="Center" />
                 </StackPanel>
 
                 <!-- Selected count badge -->
-                <Border Grid.Column="1" Background="{StaticResource AuraSurfaceElevated}"
-                        CornerRadius="12" Padding="12,4" Margin="0,0,12,0"
+                <Border Grid.Column="1" Background="{DynamicResource AuraSurfaceElevated}"
+                        CornerRadius="{StaticResource AuraRadiusL}" Padding="12,4" Margin="0,0,12,0"
                         VerticalAlignment="Center">
                     <TextBlock FontSize="12" Foreground="{StaticResource AuraAccentPurple}">
                         <Run Text="{Binding SelectedCount, Mode=OneWay}" FontWeight="SemiBold" />
@@ -148,14 +150,24 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type models:BundleApp}">
                         <Border x:Name="CardBorder" Width="270" Margin="0,0,12,12"
-                                CornerRadius="12" Padding="16"
+                                CornerRadius="{StaticResource AuraRadiusL}" Padding="16"
                                 BorderThickness="1.5" Cursor="Hand"
-                                Background="{StaticResource AuraSurface}"
-                                BorderBrush="{StaticResource AuraBorderSubtle}">
+                                Background="{DynamicResource AuraSurface}"
+                                BorderBrush="{DynamicResource AuraBorderSubtle}"
+                                Focusable="True"
+                                KeyboardNavigation.IsTabStop="True"
+                                FocusVisualStyle="{StaticResource AuraFocusVisual}"
+                                AutomationProperties.Name="{Binding Name}">
                             <Border.InputBindings>
                                 <MouseBinding MouseAction="LeftClick"
                                               Command="{Binding DataContext.ToggleAppCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                               CommandParameter="{Binding}" />
+                                <KeyBinding Key="Enter"
+                                            Command="{Binding DataContext.ToggleAppCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
+                                <KeyBinding Key="Space"
+                                            Command="{Binding DataContext.ToggleAppCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
                             </Border.InputBindings>
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -175,7 +187,7 @@
 
                                     <Border Grid.Column="0" Width="36" Height="36"
                                             CornerRadius="8" Margin="0,0,10,0"
-                                            Background="{StaticResource AuraSurfaceElevated}">
+                                            Background="{DynamicResource AuraSurfaceElevated}">
                                         <materialDesign:PackIcon Kind="{Binding IconKind}"
                                                                  Width="20" Height="20"
                                                                  Foreground="{StaticResource AuraAccentTeal}"
@@ -185,14 +197,15 @@
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource AuraTextBright}"
+                                                   Foreground="{DynamicResource AuraTextBright}"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding Category}" FontSize="10"
-                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
                                     </StackPanel>
 
                                     <CheckBox Grid.Column="2"
                                               IsChecked="{Binding IsSelected}"
+                                              AutomationProperties.Name="Select Application"
                                               VerticalAlignment="Center"
                                               IsHitTestVisible="False" />
                                 </Grid>
@@ -200,18 +213,18 @@
                                 <!-- Description -->
                                 <TextBlock Grid.Row="1" Text="{Binding Description}"
                                            FontSize="11.5" TextWrapping="Wrap"
-                                           Foreground="{StaticResource AuraTextSecondary}"
+                                           Foreground="{DynamicResource AuraTextSecondary}"
                                            MaxHeight="36" TextTrimming="CharacterEllipsis"
                                            Margin="0,0,0,8" />
 
                                 <!-- License badge -->
                                 <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,4">
-                                    <Border Background="{StaticResource AuraSurfaceElevated}"
+                                    <Border Background="{DynamicResource AuraSurfaceElevated}"
                                             CornerRadius="4" Padding="6,2">
                                         <TextBlock Text="{Binding License}" FontSize="9.5"
-                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
                                     </Border>
-                                    <Border Background="{StaticResource AuraSurfaceElevated}"
+                                    <Border Background="{DynamicResource AuraSurfaceElevated}"
                                             CornerRadius="4" Padding="6,2" Margin="4,0,0,0"
                                             Visibility="{Binding IsPortable, Converter={StaticResource BoolToVis}}">
                                         <TextBlock Text="Portable" FontSize="9.5"
@@ -267,7 +280,7 @@
                                                FontSize="10" TextTrimming="CharacterEllipsis">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{StaticResource AuraTextMuted}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource AuraTextMuted}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding Status}" Value="{x:Static models:InstallStatus.Completed}">
                                                         <Setter Property="Foreground" Value="{StaticResource AuraSuccess}" />
@@ -305,10 +318,10 @@
         <StackPanel Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{Binding Apps.Count, Converter={StaticResource IntToVisibilityConverter}, ConverterParameter=inverse}">
             <materialDesign:PackIcon Kind="ApplicationBraces" Width="64" Height="64"
-                                     Foreground="{StaticResource AuraTextMuted}"
+                                     Foreground="{DynamicResource AuraTextMuted}"
                                      HorizontalAlignment="Center" Opacity="0.3" />
             <TextBlock Text="No applications match your search" FontSize="14"
-                       Foreground="{StaticResource AuraTextMuted}"
+                       Foreground="{DynamicResource AuraTextMuted}"
                        HorizontalAlignment="Center" Margin="0,12,0,0" />
         </StackPanel>
 
@@ -326,11 +339,11 @@
                 <materialDesign:PackIcon Kind="DownloadCircle" Width="18" Height="18"
                                          Foreground="{StaticResource AuraAccentTeal}"
                                          VerticalAlignment="Center" Margin="0,0,6,0" />
-                <TextBlock FontSize="12" Foreground="{StaticResource AuraTextSecondary}"
+                <TextBlock FontSize="12" Foreground="{DynamicResource AuraTextSecondary}"
                            VerticalAlignment="Center">
                     <Run Text="Installing: " />
                     <Run Text="{Binding CurrentAppName, Mode=OneWay}" FontWeight="SemiBold"
-                         Foreground="{StaticResource AuraTextPrimary}" />
+                         Foreground="{DynamicResource AuraTextPrimary}" />
                 </TextBlock>
             </StackPanel>
 

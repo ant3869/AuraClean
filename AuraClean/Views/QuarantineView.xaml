@@ -16,11 +16,11 @@
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
                 <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{StaticResource AuraTextBright}">
+                           Foreground="{DynamicResource AuraTextBright}">
                     <Run Text="Quarantine " /><Run Text="Manager" FontWeight="SemiBold" />
                 </TextBlock>
                 <TextBlock Text="Safely isolate suspicious files — restore or permanently delete them later"
-                           Foreground="{StaticResource AuraTextSecondary}"
+                           Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13" Margin="0,4,0,0" />
             </StackPanel>
 
@@ -64,14 +64,14 @@
                         <materialDesign:PackIcon Kind="ShieldOff" Width="18" Height="18"
                                                  Foreground="{StaticResource AuraAccentPurple}" />
                         <TextBlock Text="Quarantined" FontSize="11" Margin="6,0,0,0"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource AuraTextBright}">
+                               Foreground="{DynamicResource AuraTextBright}">
                         <Run Text="{Binding TotalItems, Mode=OneWay}" />
                         <Run Text=" files" FontSize="13" FontWeight="Normal"
-                             Foreground="{StaticResource AuraTextSecondary}" />
+                             Foreground="{DynamicResource AuraTextSecondary}" />
                     </TextBlock>
                 </StackPanel>
             </Border>
@@ -83,11 +83,11 @@
                         <materialDesign:PackIcon Kind="DatabaseClock" Width="18" Height="18"
                                                  Foreground="{StaticResource AuraAccentTeal}" />
                         <TextBlock Text="Storage Used" FontSize="11" Margin="6,0,0,0"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding TotalSizeDisplay}" FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource AuraTextBright}" />
+                               Foreground="{DynamicResource AuraTextBright}" />
                 </StackPanel>
             </Border>
 
@@ -98,14 +98,14 @@
                         <materialDesign:PackIcon Kind="TimerSandComplete" Width="18" Height="18"
                                                  Foreground="{StaticResource AuraWarning}" />
                         <TextBlock Text="Expired" FontSize="11" Margin="6,0,0,0"
-                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource AuraTextBright}">
+                               Foreground="{DynamicResource AuraTextBright}">
                         <Run Text="{Binding ExpiredCount, Mode=OneWay}" />
                         <Run Text=" items" FontSize="13" FontWeight="Normal"
-                             Foreground="{StaticResource AuraTextSecondary}" />
+                             Foreground="{DynamicResource AuraTextSecondary}" />
                     </TextBlock>
                 </StackPanel>
             </Border>
@@ -155,7 +155,7 @@
                     </StackPanel>
                 </Button>
 
-                <Rectangle Width="1" Fill="{StaticResource AuraBorder}" Margin="8,2" />
+                <Rectangle Width="1" Fill="{DynamicResource AuraBorder}" Margin="8,2" />
 
                 <Button Style="{StaticResource AuraGhostButton}"
                         Command="{Binding SelectAllCommand}"
@@ -186,7 +186,7 @@
                                     <ControlTemplate TargetType="ListViewItem">
                                         <Border x:Name="Bd" Background="Transparent"
                                                 Padding="{TemplateBinding Padding}"
-                                                BorderBrush="{StaticResource AuraBorderSubtle}"
+                                                BorderBrush="{DynamicResource AuraBorderSubtle}"
                                                 BorderThickness="0,0,0,1">
                                             <ContentPresenter />
                                         </Border>
@@ -221,26 +221,26 @@
                                 <StackPanel Grid.Column="1" Margin="0,0,12,0">
                                     <TextBlock Text="{Binding FileName}"
                                                FontSize="13" FontWeight="SemiBold"
-                                               Foreground="{StaticResource AuraTextBright}"
+                                               Foreground="{DynamicResource AuraTextBright}"
                                                TextTrimming="CharacterEllipsis" />
-                                    <TextBlock FontSize="11" Foreground="{StaticResource AuraTextSecondary}"
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextSecondary}"
                                                TextTrimming="CharacterEllipsis" Margin="0,2,0,0">
                                         <Run Text="{Binding OriginalPath, Mode=OneWay}" />
                                     </TextBlock>
                                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                         <TextBlock Text="{Binding Reason}" FontSize="10"
-                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
                                         <TextBlock Text=" · " FontSize="10"
-                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
                                         <TextBlock Text="{Binding QuarantinedAtDisplay}" FontSize="10"
-                                                   Foreground="{StaticResource AuraTextMuted}" />
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
                                     </StackPanel>
                                 </StackPanel>
 
                                 <!-- Size -->
                                 <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
                                            FontSize="12" VerticalAlignment="Center"
-                                           Foreground="{StaticResource AuraTextSecondary}"
+                                           Foreground="{DynamicResource AuraTextSecondary}"
                                            Margin="0,0,12,0" />
 
                                 <!-- Expiry badge -->
@@ -282,24 +282,25 @@
                 <materialDesign:PackIcon Kind="ShieldCheckOutline"
                                          Width="48" Height="48"
                                          HorizontalAlignment="Center"
-                                         Foreground="{StaticResource AuraTextMuted}" />
+                                         Foreground="{DynamicResource AuraTextMuted}" />
                 <TextBlock Text="Quarantine is empty"
                            FontSize="15" Margin="0,10,0,4"
                            HorizontalAlignment="Center"
-                           Foreground="{StaticResource AuraTextSecondary}" />
+                           Foreground="{DynamicResource AuraTextSecondary}" />
                 <TextBlock Text="Files moved to quarantine will appear here for safe review"
                            FontSize="12" HorizontalAlignment="Center"
-                           Foreground="{StaticResource AuraTextMuted}" />
+                           Foreground="{DynamicResource AuraTextMuted}" />
             </StackPanel>
         </Grid>
 
         <!-- Status -->
         <Grid Grid.Row="3" Margin="0,8,0,0">
             <TextBlock Text="{Binding StatusMessage}"
-                       Foreground="{StaticResource AuraTextSecondary}"
+                       AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="12" VerticalAlignment="Center" />
             <TextBlock HorizontalAlignment="Right" FontSize="11"
-                       Foreground="{StaticResource AuraTextMuted}" VerticalAlignment="Center">
+                       Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center">
                 <Run Text="Quarantine: " />
                 <Run Text="{Binding QuarantinePath, Mode=OneWay}" />
             </TextBlock>

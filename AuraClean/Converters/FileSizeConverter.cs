@@ -149,9 +149,10 @@ public class ScoreToWidthConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        double score = System.Convert.ToDouble(value);
+        if (value is not IConvertible || !double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double score))
+            score = 0;
         double maxWidth = 200;
-        if (parameter is string s && double.TryParse(s, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out double mw))
+        if (parameter is string s && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double mw))
             maxWidth = mw;
         return Math.Max(4, score / 100.0 * maxWidth);
     }
@@ -165,16 +166,23 @@ public class ScoreToWidthConverter : IValueConverter
 /// </summary>
 public class HexToBrushConverter : IValueConverter
 {
+    private static readonly System.Windows.Media.SolidColorBrush FallbackBrush =
+        new(System.Windows.Media.Color.FromRgb(0x7C, 0x5C, 0xFC));
+
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is string hex && hex.StartsWith('#') && hex.Length == 7)
         {
-            byte r = System.Convert.ToByte(hex.Substring(1, 2), 16);
-            byte g = System.Convert.ToByte(hex.Substring(3, 2), 16);
-            byte b = System.Convert.ToByte(hex.Substring(5, 2), 16);
-            return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+            try
+            {
+                byte r = System.Convert.ToByte(hex.Substring(1, 2), 16);
+                byte g = System.Convert.ToByte(hex.Substring(3, 2), 16);
+                byte b = System.Convert.ToByte(hex.Substring(5, 2), 16);
+                return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+            }
+            catch (FormatException) { }
         }
-        return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x7C, 0x5C, 0xFC));
+        return FallbackBrush;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -188,7 +196,8 @@ public class ScoreToAngleConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        double score = System.Convert.ToDouble(value);
+        if (value is not IConvertible || !double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double score))
+            score = 0;
         return score / 100.0 * 360.0;
     }
 

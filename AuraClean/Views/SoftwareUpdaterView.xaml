@@ -15,11 +15,11 @@
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{StaticResource AuraTextBright}">
+                       Foreground="{DynamicResource AuraTextBright}">
                 <Run Text="Software " /><Run Text="Updater" FontWeight="SemiBold" />
             </TextBlock>
-            <TextBlock Text="Keep installed software up-to-date via Windows Package Manager (winget)"
-                       Foreground="{StaticResource AuraTextSecondary}"
+            <TextBlock Text="Check for newer versions of your installed programs and update them"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -58,7 +58,7 @@
         </Border>
 
         <!-- Results List -->
-        <Border Grid.Row="2" Background="{StaticResource AuraSurface}"
+        <Border Grid.Row="2" Background="{DynamicResource AuraSurface}"
                 CornerRadius="14" Padding="4">
             <Grid>
                 <DataGrid ItemsSource="{Binding Programs}"
@@ -66,10 +66,10 @@
                       CanUserAddRows="False" CanUserDeleteRows="False"
                       IsReadOnly="False"
                       Background="Transparent"
-                      Foreground="{StaticResource AuraTextPrimary}"
+                      Foreground="{DynamicResource AuraTextPrimary}"
                       BorderThickness="0"
                       GridLinesVisibility="Horizontal"
-                      HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
+                      HorizontalGridLinesBrush="{DynamicResource AuraBorderSubtle}"
                       RowBackground="Transparent"
                       AlternatingRowBackground="{StaticResource AuraOverlaySubtle}"
                       HeadersVisibility="Column"
@@ -109,14 +109,14 @@
                     <materialDesign:PackIcon Kind="PackageVariantPlus"
                                              Width="48" Height="48"
                                              HorizontalAlignment="Center"
-                                             Foreground="{StaticResource AuraTextMuted}" />
+                                             Foreground="{DynamicResource AuraTextMuted}" />
                     <TextBlock Text="Check for software updates"
                                FontSize="15" Margin="0,10,0,4"
                                HorizontalAlignment="Center"
-                               Foreground="{StaticResource AuraTextSecondary}" />
+                               Foreground="{DynamicResource AuraTextSecondary}" />
                     <TextBlock Text="Click 'Check for Updates' to scan for outdated software"
                                FontSize="12" HorizontalAlignment="Center"
-                               Foreground="{StaticResource AuraTextMuted}" />
+                               Foreground="{DynamicResource AuraTextMuted}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -124,11 +124,12 @@
         <!-- Status Bar -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
             <TextBlock Text="{Binding StatusMessage}"
-                       Foreground="{StaticResource AuraTextSecondary}"
+                       AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="12" VerticalAlignment="Center" />
             <TextBlock Margin="16,0,0,0" VerticalAlignment="Center"
                        FontSize="12"
-                       Foreground="{StaticResource AuraTextMuted}">
+                       Foreground="{DynamicResource AuraTextMuted}">
                 <Run Text="Outdated: " />
                 <Run Text="{Binding OutdatedCount, Mode=OneWay}" FontWeight="SemiBold" />
             </TextBlock>

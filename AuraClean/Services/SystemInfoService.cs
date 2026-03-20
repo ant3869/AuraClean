@@ -451,7 +451,10 @@ public static class SystemInfoService
                         var date = ManagementDateTimeConverter.ToDateTime(dateStr);
                         entries.Add(new InfoEntry(cat, "BIOS Date", date.ToString("yyyy-MM-dd"), "Calendar"));
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("SystemInfo", "Failed to parse BIOS date", ex);
+                    }
                 }
                 break;
             }

@@ -4,6 +4,8 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Data;
 
 namespace AuraClean.ViewModels;
 
@@ -12,13 +14,25 @@ namespace AuraClean.ViewModels;
 /// </summary>
 public partial class BrowserCleanerViewModel : ObservableObject
 {
+    private readonly object _browserResultsLock = new();
+
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Click Scan to detect browsers and analyze caches.";
+    [ObservableProperty] private string _statusMessage = "Ready to scan browsers and cached data.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private bool _isDryRun;
 
     [ObservableProperty]
     private ObservableCollection<BrowserResultEntry> _browserResults = [];
+
+    public BrowserCleanerViewModel()
+    {
+        BindingOperations.EnableCollectionSynchronization(BrowserResults, _browserResultsLock);
+    }
+
+    partial void OnBrowserResultsChanged(ObservableCollection<BrowserResultEntry> value)
+    {
+        BindingOperations.EnableCollectionSynchronization(value, _browserResultsLock);
+    }
 
     [ObservableProperty] private long _totalSizeBytes;
     [ObservableProperty] private long _totalSavingsBytes;
@@ -46,7 +60,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
             var browsers = BrowserCleanerService.DetectBrowsers();
             if (browsers.Count == 0)
             {
-                StatusMessage = "No supported browsers detected.";
+                StatusMessage = "No supported browsers found. Chromium and Firefox-based browsers are supported.";
                 IsBusy = false;
                 return;
             }
@@ -73,6 +87,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
                 };
 
                 BrowserResults.Add(entry);
+
                 totalSize += result.TotalSizeBytes;
                 totalSavings += result.PotentialSavingsBytes;
                 totalItems += result.CacheItems.Count + result.TrackingItems.Count;
@@ -90,7 +105,8 @@ public partial class BrowserCleanerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during the browser scan. Please try again.";
+            DiagnosticLogger.Error("BrowserCleanerVM", "Browser scan failed", ex);
         }
         finally
         {
@@ -142,7 +158,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
         }
 
         StatusMessage = IsDryRun
-            ? $"[DRY RUN] Would free {FormatHelper.FormatBytes(totalFreed)} across {selectedBrowsers.Count} browser(s)."
+            ? $"[Preview] Would free {FormatHelper.FormatBytes(totalFreed)} across {selectedBrowsers.Count} browser(s)."
             : $"Cleaned {totalDeleted} items, freed {FormatHelper.FormatBytes(totalFreed)} across {selectedBrowsers.Count} browser(s)." +
               (allErrors.Count > 0 ? $" {allErrors.Count} error(s)." : "");
 
@@ -152,7 +168,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
             StatusMessage += " Flushing DNS cache...";
             var (dnsOk, dnsMsg) = await BrowserCleanerService.FlushDnsCacheAsync();
             StatusMessage = StatusMessage.Replace(" Flushing DNS cache...", "") +
-                            (dnsOk ? " DNS cache flushed." : $" DNS: {dnsMsg}");
+                            (dnsOk ? " Network cache cleared." : $" DNS: {dnsMsg}");
         }
 
         if (!IsDryRun && totalFreed > 0)

@@ -177,7 +177,8 @@ public partial class FileShredderViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Error reading folder: {ex.Message}";
+                StatusMessage = "Couldn't read the folder contents. Check permissions and try again.";
+                DiagnosticLogger.Error("FileShredderVM", "Error reading folder", ex);
             }
         }
     }
@@ -256,7 +257,8 @@ public partial class FileShredderViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during shredding. Please try again.";
+            DiagnosticLogger.Error("FileShredderVM", "ShredAllAsync failed", ex);
         }
         finally
         {

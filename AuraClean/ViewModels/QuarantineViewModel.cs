@@ -24,7 +24,7 @@ public partial class QuarantineViewModel : ObservableObject
 {
     [ObservableProperty] private ObservableCollection<QuarantineEntryItem> _entries = [];
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Quarantine ready.";
+    [ObservableProperty] private string _statusMessage = "No quarantined items.";
     [ObservableProperty] private int _totalItems;
     [ObservableProperty] private string _totalSizeDisplay = "0 B";
     [ObservableProperty] private int _expiredCount;
@@ -64,7 +64,8 @@ public partial class QuarantineViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading quarantine: {ex.Message}";
+            StatusMessage = "Couldn't load quarantine data. Please try again.";
+            DiagnosticLogger.Error("QuarantineVM", "LoadEntries failed", ex);
         }
     }
 
@@ -110,7 +111,8 @@ public partial class QuarantineViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Quarantine failed: {ex.Message}";
+            StatusMessage = "Couldn't quarantine the selected files. They may be in use.";
+            DiagnosticLogger.Error("QuarantineVM", "AddFilesToQuarantineAsync failed", ex);
         }
         finally
         {
@@ -225,7 +227,8 @@ public partial class QuarantineViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Failed to open folder: {ex.Message}";
+            StatusMessage = "Couldn't open the quarantine folder.";
+            DiagnosticLogger.Error("QuarantineVM", "OpenQuarantineFolder failed", ex);
         }
     }
 }

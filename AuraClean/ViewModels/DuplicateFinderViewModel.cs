@@ -13,7 +13,7 @@ namespace AuraClean.ViewModels;
 public partial class DuplicateFinderViewModel : ObservableObject
 {
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Select a directory and click Scan to find duplicate files.";
+    [ObservableProperty] private string _statusMessage = "Select a folder and scan for duplicate files.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private string _selectedPath = string.Empty;
     [ObservableProperty] private double _progressPercent;
@@ -59,7 +59,7 @@ public partial class DuplicateFinderViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(SelectedPath) || !Directory.Exists(SelectedPath))
         {
-            StatusMessage = "Please select a valid directory.";
+            StatusMessage = "Please select a valid folder.";
             return;
         }
 
@@ -115,7 +115,8 @@ public partial class DuplicateFinderViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Something went wrong during the scan. Please try again.";
+            DiagnosticLogger.Error("DuplicateFinderVM", "Scan failed", ex);
         }
         finally
         {
@@ -174,7 +175,8 @@ public partial class DuplicateFinderViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = "Some duplicates couldn't be deleted. They may be in use.";
+            DiagnosticLogger.Error("DuplicateFinderVM", "Delete duplicates failed", ex);
         }
         finally
         {
