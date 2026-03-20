@@ -5,11 +5,6 @@
              xmlns:converters="clr-namespace:AuraClean.Converters"
              xmlns:views="clr-namespace:AuraClean.Views">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:TreemapColorConverter x:Key="TreemapColorConverter" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -31,8 +26,8 @@
         </StackPanel>
 
         <!-- Controls -->
-        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+                CornerRadius="12" Padding="16" Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -72,7 +67,7 @@
                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
                 </StackPanel>
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Main Content Area -->
         <Grid Grid.Row="2" Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
@@ -85,8 +80,7 @@
 
             <!-- Summary Stats -->
             <WrapPanel Grid.Row="0" Margin="0,0,0,12">
-                <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                     UniformCornerRadius="10" Padding="12,8" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Harddisk" Foreground="{StaticResource AuraAccentPurple}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -96,10 +90,9 @@
                                  Foreground="{StaticResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
-                </materialDesign:Card>
+                </Border>
 
-                <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                     UniformCornerRadius="10" Padding="12,8" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="File" Foreground="{StaticResource AuraAccentTeal}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -109,10 +102,9 @@
                                  Foreground="{StaticResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
-                </materialDesign:Card>
+                </Border>
 
-                <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                     UniformCornerRadius="10" Padding="12,8" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Folder" Foreground="{StaticResource AuraAccentPurple}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -122,10 +114,9 @@
                                  Foreground="{StaticResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
-                </materialDesign:Card>
+                </Border>
 
-                <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                     UniformCornerRadius="10" Padding="12,8">
+                <Border Style="{StaticResource AuraGlassCardCompact}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Timer" Foreground="{StaticResource AuraAccentTeal}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -135,7 +126,7 @@
                                  Foreground="{StaticResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
-                </materialDesign:Card>
+                </Border>
             </WrapPanel>
 
             <!-- Breadcrumb Navigation -->
@@ -221,8 +212,8 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <materialDesign:Card Grid.Row="0" Background="{StaticResource AuraSurface}"
-                                         UniformCornerRadius="12" Padding="12" Margin="0,0,0,8">
+                    <Border Grid.Row="0" Style="{StaticResource AuraGlassCard}"
+                            CornerRadius="12" Padding="12" Margin="0,0,0,8">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -252,10 +243,10 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                         </Grid>
-                    </materialDesign:Card>
+                    </Border>
 
-                    <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                                         UniformCornerRadius="12" Padding="12">
+                    <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+                            CornerRadius="12" Padding="12">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -285,7 +276,7 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                         </Grid>
-                    </materialDesign:Card>
+                    </Border>
                 </Grid>
             </Grid>
         </Grid>

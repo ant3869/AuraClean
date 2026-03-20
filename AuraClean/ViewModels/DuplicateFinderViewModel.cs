@@ -215,6 +215,9 @@ public partial class DuplicateFinderViewModel : ObservableObject
             else if (Directory.Exists(path))
                 System.Diagnostics.Process.Start("explorer.exe", path);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("DuplicateFinderVM", "Failed to open in Explorer", ex);
+        }
     }
 }

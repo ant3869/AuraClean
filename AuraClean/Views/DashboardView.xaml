@@ -4,10 +4,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:HealthScoreColorConverter x:Key="HealthColorConverter" />
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-    </UserControl.Resources>
+    <!-- HealthColorConverter and BoolToVis are defined globally in App.xaml -->
 
     <Grid Margin="32,24,32,16">
         <Grid.RowDefinitions>
@@ -20,7 +17,7 @@
 
         <!-- ═══ HEADER ═══ -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock FontSize="28" FontWeight="Light"
+            <TextBlock FontSize="26" FontWeight="Light"
                        Foreground="{StaticResource AuraTextBright}">
                 <Run Text="System " /><Run Text="Health" FontWeight="SemiBold" />
             </TextBlock>
@@ -66,15 +63,14 @@
                          Fill="Transparent" />
 
                 <!-- Progress arc -->
-                <materialDesign:Card UniformCornerRadius="0" Background="Transparent"
-                                     Width="250" Height="250">
+                <Border Background="Transparent" Width="250" Height="250">
                     <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                                  Width="220" Height="220"
                                  Value="{Binding SystemHealthScore}"
                                  Minimum="0" Maximum="100"
                                  Foreground="{Binding SystemHealthScore, Converter={StaticResource HealthColorConverter}}"
                                  IsIndeterminate="False" />
-                </materialDesign:Card>
+                </Border>
 
                 <!-- Inner decorative ring -->
                 <Ellipse Width="190" Height="190"
@@ -113,7 +109,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Background="#0E7C5CFC" CornerRadius="10"
+                        <Border Background="{StaticResource AuraAccentPurpleSemi}" CornerRadius="10"
                                 Width="44" Height="44"
                                 VerticalAlignment="Center" Margin="0,0,16,0">
                             <materialDesign:PackIcon Kind="DeleteSweep"
@@ -141,7 +137,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Background="#0E00E5C3" CornerRadius="10"
+                        <Border Background="{StaticResource AuraAccentTealSemi}" CornerRadius="10"
                                 Width="44" Height="44"
                                 VerticalAlignment="Center" Margin="0,0,16,0">
                             <materialDesign:PackIcon Kind="Apps"
@@ -168,7 +164,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Background="#0EFFB74D" CornerRadius="10"
+                        <Border Background="{StaticResource AuraAmberSemi}" CornerRadius="10"
                                 Width="44" Height="44"
                                 VerticalAlignment="Center" Margin="0,0,16,0">
                             <materialDesign:PackIcon Kind="ClockOutline"
@@ -245,7 +241,8 @@
                             </StackPanel>
                             <TextBlock Text="{Binding TotalRam}"
                                        Foreground="{StaticResource AuraTextBright}"
-                                       FontSize="13" FontWeight="SemiBold" />
+                                       FontSize="13" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
 
                         <!-- Uptime -->
@@ -259,7 +256,8 @@
                             </StackPanel>
                             <TextBlock Text="{Binding SystemUptime}"
                                        Foreground="{StaticResource AuraTextBright}"
-                                       FontSize="13" FontWeight="SemiBold" />
+                                       FontSize="13" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </UniformGrid>
                 </Grid>

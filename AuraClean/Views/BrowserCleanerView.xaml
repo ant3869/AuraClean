@@ -4,10 +4,6 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -29,8 +25,8 @@
         </StackPanel>
 
         <!-- Options Row -->
-        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="12" Padding="16" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+                CornerRadius="12" Padding="16" Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -66,50 +62,50 @@
                             IsEnabled="{Binding HasResults}" />
                 </StackPanel>
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Browser Results -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
                 <!-- Summary Cards -->
                 <WrapPanel Margin="0,0,0,16">
-                    <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                         UniformCornerRadius="12" Padding="16" Margin="0,0,12,0" Width="200">
+                    <Border Style="{StaticResource AuraGlassCardCompact}"
+                            CornerRadius="12" Padding="16" Margin="0,0,12,0" Width="200">
                         <StackPanel>
                             <TextBlock Text="Total Data Found" FontSize="12"
                                        Foreground="{StaticResource AuraTextSecondary}" />
                             <TextBlock Text="{Binding FormattedTotalSize}" FontSize="24" FontWeight="Bold"
                                        Foreground="{StaticResource AuraAccentPurple}" />
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
 
-                    <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                         UniformCornerRadius="12" Padding="16" Margin="0,0,12,0" Width="200">
+                    <Border Style="{StaticResource AuraGlassCardCompact}"
+                            CornerRadius="12" Padding="16" Margin="0,0,12,0" Width="200">
                         <StackPanel>
                             <TextBlock Text="Reclaimable Space" FontSize="12"
                                        Foreground="{StaticResource AuraTextSecondary}" />
                             <TextBlock Text="{Binding FormattedTotalSavings}" FontSize="24" FontWeight="Bold"
                                        Foreground="{StaticResource AuraSuccess}" />
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
 
-                    <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                         UniformCornerRadius="12" Padding="16" Width="200">
+                    <Border Style="{StaticResource AuraGlassCardCompact}"
+                            CornerRadius="12" Padding="16" Width="200">
                         <StackPanel>
                             <TextBlock Text="Clean Targets" FontSize="12"
                                        Foreground="{StaticResource AuraTextSecondary}" />
                             <TextBlock Text="{Binding TotalItemCount}" FontSize="24" FontWeight="Bold"
                                        Foreground="{StaticResource AuraAccentTeal}" />
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
                 </WrapPanel>
 
                 <!-- Browser List -->
                 <ItemsControl ItemsSource="{Binding BrowserResults}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <materialDesign:Card Background="{StaticResource AuraSurface}"
-                                                 UniformCornerRadius="12" Padding="16" Margin="0,0,0,8">
+                            <Border Style="{StaticResource AuraGlassCard}"
+                                    CornerRadius="12" Padding="16" Margin="0,0,0,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -140,7 +136,7 @@
                                                Foreground="{StaticResource AuraAccentPurple}"
                                                VerticalAlignment="Center" />
                                 </Grid>
-                            </materialDesign:Card>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

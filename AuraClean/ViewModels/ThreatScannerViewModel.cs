@@ -233,7 +233,10 @@ public partial class ThreatScannerViewModel : ObservableObject
                     });
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("ThreatScannerVM", "Failed to log quarantine to history", ex);
+            }
         }
         catch (Exception ex)
         {
@@ -313,7 +316,10 @@ public partial class ThreatScannerViewModel : ObservableObject
                     });
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("ThreatScannerVM", "Failed to log delete to history", ex);
+            }
         }
         catch (Exception ex)
         {
@@ -495,7 +501,10 @@ public partial class ThreatScannerViewModel : ObservableObject
                 LastScanDate = File.ReadAllText(path).Trim();
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ThreatScannerVM", "Failed to load last scan date", ex);
+        }
     }
 
     private void SaveLastScanDate()
@@ -510,7 +519,10 @@ public partial class ThreatScannerViewModel : ObservableObject
             File.WriteAllText(Path.Combine(dir, "last_threat_scan.txt"), now);
             LastScanDate = now;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ThreatScannerVM", "Failed to save last scan date", ex);
+        }
     }
 }
 

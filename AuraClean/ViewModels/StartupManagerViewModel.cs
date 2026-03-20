@@ -30,6 +30,7 @@ public partial class StartupManagerViewModel : ObservableObject
     // Selection
     [ObservableProperty] private int _selectedCount;
     [ObservableProperty] private bool _isAllSelected;
+    [ObservableProperty] private bool _hasScanned;
     public bool HasCheckedItems => SelectedCount > 0;
 
     public StartupManagerViewModel()
@@ -91,7 +92,6 @@ public partial class StartupManagerViewModel : ObservableObject
             filtered = filtered.Where(e => !e.IsEnabled);
 
         FilteredEntries = new ObservableCollection<StartupManagerService.StartupEntry>(filtered);
-        HookSelectionEvents(FilteredEntries);
         UpdateSelectionCount();
     }
 
@@ -115,14 +115,17 @@ public partial class StartupManagerViewModel : ObservableObject
             var entries = await StartupManagerService.GetStartupEntriesAsync(progress);
 
             Entries = new ObservableCollection<StartupManagerService.StartupEntry>(entries);
+            HookSelectionEvents(Entries);
             ApplyFilter();
             UpdateStats();
 
             StatusMessage = $"Found {Entries.Count} startup entries ({EnabledCount} enabled, {DisabledCount} disabled).";
+            HasScanned = true;
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error: {ex.Message}";
+            HasScanned = true;
         }
         finally
         {
@@ -236,6 +239,9 @@ public partial class StartupManagerViewModel : ObservableObject
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{SelectedEntry.FilePath}\"");
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("StartupManagerVM", "Failed to open file location", ex);
+        }
     }
 }

@@ -54,6 +54,14 @@ public partial class MainWindow : Window
             // Show dashboard by default
             ShowView("Dashboard");
 
+            // Check if onboarding should show
+            if (_viewModel.Onboarding.ShouldShowOnboarding())
+            {
+                _viewModel.Onboarding.OnboardingCompleted += OnOnboardingCompleted;
+                _viewModel.Onboarding.Show();
+                OnboardingOverlay.Visibility = Visibility.Visible;
+            }
+
             // Auto-load installed programs when the app starts
             _ = _viewModel.Uninstaller.LoadProgramsCommand.ExecuteAsync(null);
 
@@ -150,6 +158,15 @@ public partial class MainWindow : Window
     }
 
     private static bool IsTrayEnabled() => SettingsService.Load().MinimizeToTray;
+
+    private void OnOnboardingCompleted()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            OnboardingOverlay.Visibility = Visibility.Collapsed;
+        });
+        _viewModel.Onboarding.OnboardingCompleted -= OnOnboardingCompleted;
+    }
 
     private void OnViewModelPropertyChanged(object? sender,
         System.ComponentModel.PropertyChangedEventArgs e)

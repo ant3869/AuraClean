@@ -4,11 +4,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-    </UserControl.Resources>
-
-    <Grid Margin="24">
+    <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -29,8 +25,8 @@
         </StackPanel>
 
         <!-- Controls -->
-        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+                CornerRadius="12" Padding="16" Margin="0,0,0,12">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -103,7 +99,7 @@
                              Foreground="{StaticResource AuraTextPrimary}" />
                 </StackPanel>
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Results Area -->
         <Grid Grid.Row="2">
@@ -129,8 +125,7 @@
 
                 <!-- Summary Cards -->
                 <WrapPanel Grid.Row="0" Margin="0,0,0,12">
-                    <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                         UniformCornerRadius="10" Padding="14,8" Margin="0,0,10,0">
+                    <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ContentDuplicate" Foreground="{StaticResource AuraAccentPurple}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -140,10 +135,9 @@
                                      Foreground="{StaticResource AuraTextPrimary}" />
                             </TextBlock>
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
 
-                    <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                         UniformCornerRadius="10" Padding="14,8" Margin="0,0,10,0">
+                    <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FileMultiple" Foreground="{StaticResource AuraWarning}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -153,10 +147,9 @@
                                      Foreground="{StaticResource AuraWarning}" />
                             </TextBlock>
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
 
-                    <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                         UniformCornerRadius="10" Padding="14,8" Margin="0,0,10,0">
+                    <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Harddisk" Foreground="{StaticResource AuraAccentTeal}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -166,10 +159,9 @@
                                      Foreground="{StaticResource AuraAccentTeal}" />
                             </TextBlock>
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
 
-                    <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                         UniformCornerRadius="10" Padding="14,8">
+                    <Border Style="{StaticResource AuraGlassCardCompact}">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Timer" Foreground="{StaticResource AuraAccentPurple}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -179,7 +171,7 @@
                                      Foreground="{StaticResource AuraTextPrimary}" />
                             </TextBlock>
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
                 </WrapPanel>
 
                 <!-- Action buttons -->
@@ -206,20 +198,27 @@
                 </StackPanel>
 
                 <!-- Duplicate Groups List -->
-                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding DuplicateGroups}"
-                                  VirtualizingStackPanel.IsVirtualizing="True"
-                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <VirtualizingStackPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
+                <ItemsControl Grid.Row="2" ItemsSource="{Binding DuplicateGroups}"
+                              VirtualizingStackPanel.IsVirtualizing="True"
+                              VirtualizingStackPanel.VirtualizationMode="Recycling"
+                              ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.Template>
+                        <ControlTemplate TargetType="ItemsControl">
+                            <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto"
+                                          Padding="{TemplateBinding Padding}">
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </ItemsControl.Template>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <materialDesign:Card Background="{StaticResource AuraSurface}"
-                                                     UniformCornerRadius="8"
-                                                     Margin="0,0,0,8" Padding="0">
+                                <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
+                                        Margin="0,0,0,8">
                                     <Expander IsExpanded="True" Foreground="{StaticResource AuraTextPrimary}">
                                         <Expander.Header>
                                             <Grid>
@@ -250,7 +249,8 @@
 
                                                 <TextBlock Grid.Column="3" Text="{Binding Hash}"
                                                            Foreground="{StaticResource AuraTextMuted}" FontSize="11" FontFamily="Consolas"
-                                                           VerticalAlignment="Center" />
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Hash}" MaxWidth="200" />
                                             </Grid>
                                         </Expander.Header>
 
@@ -284,7 +284,8 @@
                                                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding FileName}"
                                                                            Foreground="{StaticResource AuraTextPrimary}"
-                                                                           FontSize="13" />
+                                                                           FontSize="13" TextTrimming="CharacterEllipsis"
+                                                                           ToolTip="{Binding FileName}" />
                                                                 <TextBlock Text="{Binding Directory}"
                                                                            Foreground="{StaticResource AuraTextSecondary}"
                                                                            FontSize="11" TextTrimming="CharacterEllipsis" />
@@ -307,23 +308,19 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                     </Expander>
-                                </materialDesign:Card>
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
             </Grid>
         </Grid>
 
         <!-- Status Bar -->
-        <materialDesign:Card Grid.Row="3"
-                             Background="{StaticResource AuraSurfaceLight}"
-                             UniformCornerRadius="6"
-                             Padding="16,8"
-                             Margin="0,8,0,0">
+        <Border Grid.Row="3" Style="{StaticResource AuraGlassCardCompact}"
+                CornerRadius="6" Margin="0,8,0,0">
             <TextBlock Text="{Binding StatusMessage}"
                        Foreground="{StaticResource AuraTextSecondary}"
                        FontSize="12" TextWrapping="Wrap" />
-        </materialDesign:Card>
+        </Border>
     </Grid>
 </UserControl>

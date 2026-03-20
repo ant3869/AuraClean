@@ -648,17 +648,26 @@ public static class ThreatScannerService
                     try { files = Directory.EnumerateFiles(currentDir); }
                     catch { continue; }
 
-                    foreach (var filePath in files)
-                    {
-                        ct.ThrowIfCancellationRequested();
+                    // Filter to scannable files, then process in parallel
+                    var candidateFiles = files
+                        .Where(f =>
+                        {
+                            var ext = Path.GetExtension(f);
+                            return ThreatSignatureDatabase.ExecutableExtensions.Contains(ext) ||
+                                   ext.Equals(".sys", StringComparison.OrdinalIgnoreCase);
+                        })
+                        .ToList();
 
+                    var parallelOptions = new ParallelOptions
+                    {
+                        MaxDegreeOfParallelism = 4,
+                        CancellationToken = ct
+                    };
+
+                    await Parallel.ForEachAsync(candidateFiles, parallelOptions, async (filePath, token) =>
+                    {
                         try
                         {
-                            var ext = Path.GetExtension(filePath);
-                            if (!ThreatSignatureDatabase.ExecutableExtensions.Contains(ext) &&
-                                !ext.Equals(".sys", StringComparison.OrdinalIgnoreCase))
-                                continue;
-
                             Interlocked.Increment(ref totalScanned);
 
                             if (totalScanned % 200 == 0)
@@ -667,13 +676,13 @@ public static class ThreatScannerService
                             // Quick size check — skip very large files for speed
                             var fileInfo = new FileInfo(filePath);
                             if (fileInfo.Length > 200_000_000) // >200MB, skip heuristic
-                                continue;
+                                return;
 
                             // Heuristic analysis
-                            var heurResult = await AnalyzeFileHeuristicsAsync(filePath, ct);
+                            var heurResult = await AnalyzeFileHeuristicsAsync(filePath, token);
                             if (heurResult.isSuspicious)
                             {
-                                var hash = await ComputeSha256Async(filePath, ct);
+                                var hash = await ComputeSha256Async(filePath, token);
                                 lock (_resultsLock)
                                 {
                                     threats.Add(new ThreatItem
@@ -688,13 +697,13 @@ public static class ThreatScannerService
                                         Sha256Hash = hash,
                                     });
                                 }
-                                continue;
+                                return;
                             }
 
                             // Signature hash check for executables
                             if (fileInfo.Length < 50_000_000) // Only hash files < 50MB
                             {
-                                var hash = await ComputeSha256Async(filePath, ct);
+                                var hash = await ComputeSha256Async(filePath, token);
                                 if (!string.IsNullOrEmpty(hash) && CheckSignatureMatch(hash))
                                 {
                                     lock (_resultsLock)
@@ -715,7 +724,7 @@ public static class ThreatScannerService
                             }
                         }
                         catch { }
-                    }
+                    });
                 }
             }
         }, ct);

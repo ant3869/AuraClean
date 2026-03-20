@@ -159,12 +159,12 @@ public partial class InstallMonitorViewModel : ObservableObject
                     HasDelta = s.HasDelta
                 }));
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("InstallMonitorVM", "Failed to load snapshots", ex);
+        }
     }
 
-    /// <summary>
-    /// Deletes a saved snapshot.
-    /// </summary>
     [RelayCommand]
     private async Task DeleteSnapshotAsync()
     {

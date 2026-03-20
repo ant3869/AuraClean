@@ -4,10 +4,6 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -29,8 +25,7 @@
         </StackPanel>
 
         <!-- Action Bar -->
-        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="14" Padding="20" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -56,16 +51,10 @@
 
                 <!-- Restore Button -->
                 <Button Grid.Column="1" Margin="8,0,0,0"
+                        Style="{StaticResource AuraSecondaryButton}"
                         Command="{Binding RestoreSelectedCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
                         Padding="20,10">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatMidBgButton}">
-                            <Setter Property="Background" Value="{StaticResource AuraAccentTeal}" />
-                            <Setter Property="Foreground" Value="White" />
-                            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
-                        </Style>
-                    </Button.Style>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="FileRestore" Width="18" Height="18"
                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -94,7 +83,7 @@
                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
                         Content="Cancel" Padding="14,8" Margin="8,0,0,0" />
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Filter Bar -->
         <Grid Grid.Row="2" Margin="0,0,0,12"
@@ -136,8 +125,8 @@
         </Grid>
 
         <!-- File DataGrid -->
-        <DataGrid Grid.Row="3"
-                  ItemsSource="{Binding FilteredFiles}"
+        <Grid Grid.Row="3">
+            <DataGrid ItemsSource="{Binding FilteredFiles}"
                   SelectedItem="{Binding SelectedFile}"
                   AutoGenerateColumns="False"
                   CanUserSortColumns="True"
@@ -149,7 +138,7 @@
                   GridLinesVisibility="Horizontal"
                   HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
                   RowBackground="Transparent"
-                  AlternatingRowBackground="#06FFFFFF"
+                  AlternatingRowBackground="{StaticResource AuraOverlayFaint}"
                   HeadersVisibility="Column">
 
             <DataGrid.Columns>
@@ -191,6 +180,36 @@
                                     Foreground="{StaticResource AuraTextMuted}" />
             </DataGrid.Columns>
         </DataGrid>
+
+            <!-- Empty state -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasResults}" Value="False" />
+                                    <Condition Binding="{Binding IsBusy}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <materialDesign:PackIcon Kind="DeleteRestore"
+                                         Width="48" Height="48"
+                                         HorizontalAlignment="Center"
+                                         Foreground="{StaticResource AuraTextMuted}" />
+                <TextBlock Text="No recoverable files"
+                           FontSize="15" Margin="0,10,0,4"
+                           HorizontalAlignment="Center"
+                           Foreground="{StaticResource AuraTextSecondary}" />
+                <TextBlock Text="Scan the Recycle Bin to find files that can be restored"
+                           FontSize="12" HorizontalAlignment="Center"
+                           Foreground="{StaticResource AuraTextMuted}" />
+            </StackPanel>
+        </Grid>
 
         <!-- Status Bar -->
         <Border Grid.Row="4" Margin="0,12,0,0" Padding="8,8"

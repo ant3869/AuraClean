@@ -118,7 +118,6 @@ public partial class LargeFileFinderViewModel : ObservableObject
         }
 
         FilteredFiles = new ObservableCollection<LargeFileFinderService.LargeFileEntry>(filtered);
-        HookSelectionEvents(FilteredFiles);
         UpdateSelectionCount();
     }
 
@@ -203,6 +202,7 @@ public partial class LargeFileFinderViewModel : ObservableObject
                 ScanPath, minBytes, 500, false, progress, _cts.Token);
 
             Files = new ObservableCollection<LargeFileFinderService.LargeFileEntry>(result.Files);
+            HookSelectionEvents(Files);
             TotalFilesScanned = result.TotalFilesScanned;
             ResultCount = result.Files.Count;
             TotalSizeFound = result.TotalSizeFound;
@@ -250,7 +250,10 @@ public partial class LargeFileFinderViewModel : ObservableObject
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{SelectedFile.FullPath}\"");
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("LargeFileFinderVM", "Failed to open file location", ex);
+        }
     }
 
     [RelayCommand]
@@ -266,15 +269,28 @@ public partial class LargeFileFinderViewModel : ObservableObject
 
         int deleted = 0;
         long freedBytes = 0;
+        var failedFiles = new List<string>();
 
         foreach (var file in checkedFiles)
         {
-            var (success, _) = LargeFileFinderService.DeleteFile(file.FullPath);
-            if (success)
+            try
             {
-                freedBytes += file.SizeBytes;
-                Files.Remove(file);
-                deleted++;
+                var (success, error) = LargeFileFinderService.DeleteFile(file.FullPath);
+                if (success)
+                {
+                    freedBytes += file.SizeBytes;
+                    Files.Remove(file);
+                    deleted++;
+                }
+                else
+                {
+                    failedFiles.Add(file.FileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                failedFiles.Add(file.FileName);
+                DiagnosticLogger.Warn("LargeFileFinderVM", $"Failed to delete: {file.FullPath}", ex);
             }
         }
 
@@ -283,7 +299,8 @@ public partial class LargeFileFinderViewModel : ObservableObject
         ResultCount = Files.Count;
         ApplyFilter();
         SelectedFile = null;
-        StatusMessage = $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}.";
+        StatusMessage = $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}." +
+            (failedFiles.Count > 0 ? $" {failedFiles.Count} failed." : "");
     }
 
     /// <summary>

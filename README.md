@@ -5,7 +5,7 @@
   <p>
     <img src="https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue?style=flat-square&logo=windows" alt="Platform" />
     <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet" alt=".NET 8" />
-    <img src="https://img.shields.io/badge/Version-1.3.1-7C5CFC?style=flat-square" alt="v1.3.1" />
+    <img src="https://img.shields.io/badge/Version-1.4.0-7C5CFC?style=flat-square" alt="v1.4.0" />
     <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="MIT License" />
   </p>
 

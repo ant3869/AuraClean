@@ -19,87 +19,64 @@ public static class FileCleanerService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        var results = new List<JunkItem>();
+        var results = new System.Collections.Concurrent.ConcurrentBag<JunkItem>();
 
-        await Task.Run(() =>
+        // Resolve user-specific paths on the calling thread
+        var userCrashDumps = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CrashDumps");
+        var thumbDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            @"Microsoft\Windows\Explorer");
+        var userWer = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            @"Microsoft\Windows\WER");
+        var tempPath = Path.GetTempPath();
+
+        // Build scan descriptors — all independent, safe to parallelize
+        var scanJobs = new List<(string Path, JunkType Type, string Desc, string? Pattern)>
         {
-            // 1. Windows Temp
-            progress?.Report("Scanning Windows Temp folder...");
-            ScanDirectory(@"C:\Windows\Temp", JunkType.TempFile, "Windows Temp", results, ct);
+            (@"C:\Windows\Temp", JunkType.TempFile, "Windows Temp", null),
+            (tempPath, JunkType.TempFile, "User Temp", null),
+            (@"C:\Windows\Prefetch", JunkType.Prefetch, "Prefetch File", "*.pf"),
+            (userCrashDumps, JunkType.CrashDump, "User Crash Dump", null),
+            (@"C:\Windows\Minidump", JunkType.CrashDump, "System Minidump", null),
+            (@"C:\Windows\SoftwareDistribution\Download", JunkType.WindowsUpdateCache, "Windows Update Cache", null),
+            (@"C:\Windows\BranchCache", JunkType.BranchCache, "BranchCache", null),
+            (thumbDir, JunkType.ThumbnailCache, "Thumbnail Cache", "thumbcache_*.db"),
+            (@"C:\Windows\SoftwareDistribution\DeliveryOptimization", JunkType.DeliveryOptimization, "Delivery Optimization", null),
+            (@"C:\ProgramData\Microsoft\Windows\WER\ReportArchive", JunkType.WindowsErrorReporting, "WER Archive", null),
+            (@"C:\ProgramData\Microsoft\Windows\WER\ReportQueue", JunkType.WindowsErrorReporting, "WER Queue", null),
+            (userWer, JunkType.WindowsErrorReporting, "User WER", null),
+            (@"C:\Windows\ServiceProfiles\LocalService\AppData\Local\FontCache", JunkType.FontCache, "Font Cache", null),
+            (@"C:\Windows\Logs", JunkType.LogFile, "Windows Log", null),
+            (@"C:\Windows\Panther", JunkType.LogFile, "Setup Log", null),
+        };
 
-            // 2. User Temp
-            progress?.Report("Scanning User Temp folder...");
-            ScanDirectory(Path.GetTempPath(), JunkType.TempFile, "User Temp", results, ct);
+        // Add Recycle Bin per fixed drive
+        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
+        {
+            var recyclePath = Path.Combine(drive.RootDirectory.FullName, "$Recycle.Bin");
+            scanJobs.Add((recyclePath, JunkType.RecycleBin, $"Recycle Bin ({drive.Name})", null));
+        }
 
-            // 3. Prefetch
-            progress?.Report("Scanning Prefetch data...");
-            ScanDirectory(@"C:\Windows\Prefetch", JunkType.Prefetch, "Prefetch File", results, ct, "*.pf");
-
-            // 4. Crash Dumps — User
-            progress?.Report("Scanning crash dumps...");
-            var userCrashDumps = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "CrashDumps");
-            ScanDirectory(userCrashDumps, JunkType.CrashDump, "User Crash Dump", results, ct);
-
-            // 5. Crash Dumps — System
-            ScanDirectory(@"C:\Windows\Minidump", JunkType.CrashDump, "System Minidump", results, ct);
-
-            // 6. Windows Update Cache (SoftwareDistribution\Download)
-            progress?.Report("Scanning Windows Update cache...");
-            ScanDirectory(@"C:\Windows\SoftwareDistribution\Download",
-                JunkType.WindowsUpdateCache, "Windows Update Cache", results, ct);
-
-            // 7. BranchCache
-            progress?.Report("Scanning BranchCache...");
-            ScanDirectory(@"C:\Windows\BranchCache",
-                JunkType.BranchCache, "BranchCache", results, ct);
-
-            // 8. Thumbnail cache
-            progress?.Report("Scanning thumbnail cache...");
-            var thumbDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Microsoft\Windows\Explorer");
-            ScanDirectory(thumbDir, JunkType.ThumbnailCache, "Thumbnail Cache", results, ct,
-                "thumbcache_*.db");
-
-            // 9. Recycle Bin (per-drive hidden $Recycle.Bin)
-            progress?.Report("Scanning Recycle Bin...");
-            foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
+        // Run all scans in parallel with bounded concurrency to avoid disk thrashing
+        progress?.Report("Scanning system for junk files...");
+        await Parallel.ForEachAsync(
+            scanJobs,
+            new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+            (job, token) =>
             {
-                var recyclePath = Path.Combine(drive.RootDirectory.FullName, "$Recycle.Bin");
-                ScanDirectory(recyclePath, JunkType.RecycleBin, $"Recycle Bin ({drive.Name})", results, ct);
-            }
+                var localResults = new List<JunkItem>();
+                ScanDirectory(job.Path, job.Type, job.Desc, localResults, token, job.Pattern);
+                foreach (var item in localResults)
+                    results.Add(item);
+                return ValueTask.CompletedTask;
+            });
 
-            // 10. Delivery Optimization cache
-            progress?.Report("Scanning Delivery Optimization cache...");
-            ScanDirectory(@"C:\Windows\SoftwareDistribution\DeliveryOptimization",
-                JunkType.DeliveryOptimization, "Delivery Optimization", results, ct);
-
-            // 11. Windows Error Reporting
-            progress?.Report("Scanning Windows Error Reports...");
-            ScanDirectory(@"C:\ProgramData\Microsoft\Windows\WER\ReportArchive",
-                JunkType.WindowsErrorReporting, "WER Archive", results, ct);
-            ScanDirectory(@"C:\ProgramData\Microsoft\Windows\WER\ReportQueue",
-                JunkType.WindowsErrorReporting, "WER Queue", results, ct);
-            var userWer = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Microsoft\Windows\WER");
-            ScanDirectory(userWer, JunkType.WindowsErrorReporting, "User WER", results, ct);
-
-            // 12. Font Cache
-            progress?.Report("Scanning Font Cache...");
-            ScanDirectory(@"C:\Windows\ServiceProfiles\LocalService\AppData\Local\FontCache",
-                JunkType.FontCache, "Font Cache", results, ct);
-
-            // 13. Windows Log files
-            progress?.Report("Scanning Windows logs...");
-            ScanDirectory(@"C:\Windows\Logs", JunkType.LogFile, "Windows Log", results, ct);
-            ScanDirectory(@"C:\Windows\Panther", JunkType.LogFile, "Setup Log", results, ct);
-
-            // 14. Windows.old (if present)
-            progress?.Report("Checking for Windows.old...");
-            if (Directory.Exists(@"C:\Windows.old"))
+        // 14. Windows.old (if present)
+        progress?.Report("Checking for Windows.old...");
+        if (Directory.Exists(@"C:\Windows.old"))
             {
                 long oldSize = 0;
                 try
@@ -123,8 +100,6 @@ public static class FileCleanerService
                     });
                 }
             }
-
-        }, ct);
 
         // 15. WinSxS Component Store (safe cleanup via DISM)
         // Runs outside Task.Run because it needs async process execution
@@ -154,7 +129,7 @@ public static class FileCleanerService
             DiagnosticLogger.Warn("FileCleanerService", "Failed to analyze WinSxS", ex);
         }
 
-        return results;
+        return results.ToList();
     }
 
     /// <summary>

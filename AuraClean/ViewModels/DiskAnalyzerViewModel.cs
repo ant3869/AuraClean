@@ -221,10 +221,11 @@ public partial class DiskAnalyzerViewModel : ObservableObject
             System.Diagnostics.Process.Start("explorer.exe",
                 Directory.Exists(path) ? path : $"/select,\"{path}\"");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("DiskAnalyzerVM", "Failed to open in Explorer", ex);
+        }
     }
-
-    #region Private Helpers
 
     private void BuildTreemapData(DiskAnalyzerService.DiskNode node)
     {
@@ -294,8 +295,6 @@ public partial class DiskAnalyzerViewModel : ObservableObject
 
         Breadcrumbs = new ObservableCollection<BreadcrumbItem>(parts);
     }
-
-    #endregion
 }
 
 /// <summary>Represents a disk drive for display.</summary>

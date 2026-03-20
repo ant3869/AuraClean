@@ -4,12 +4,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:FileSizeConverter x:Key="FileSizeConverter" />
-    </UserControl.Resources>
-
-    <Grid Margin="24">
+    <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -85,11 +80,8 @@
         </Grid>
 
         <!-- Program List -->
-        <materialDesign:Card Grid.Row="2"
-                             Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="8"
-                             Padding="0"
-                             Margin="0,0,0,12">
+        <Border Grid.Row="2" Style="{StaticResource AuraGlassCardFlush}"
+                CornerRadius="8" Margin="0,0,0,12">
             <Grid>
                 <!-- Loading overlay -->
                 <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
@@ -122,21 +114,78 @@
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
-                            <GridViewColumn Header="Name" Width="280"
-                                            DisplayMemberBinding="{Binding DisplayName}" />
-                            <GridViewColumn Header="Publisher" Width="180"
-                                            DisplayMemberBinding="{Binding Publisher}" />
-                            <GridViewColumn Header="Version" Width="100"
-                                            DisplayMemberBinding="{Binding DisplayVersion}" />
-                            <GridViewColumn Header="Size" Width="100"
-                                            DisplayMemberBinding="{Binding FormattedSize}" />
-                            <GridViewColumn Header="Installed" Width="110"
-                                            DisplayMemberBinding="{Binding InstallDate}" />
+                            <GridViewColumn Header="Name" Width="280">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Publisher" Width="180">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Publisher}" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Publisher}" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Version" Width="100">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayVersion}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Size" Width="100">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FormattedSize}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Installed" Width="110">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding InstallDate}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
                         </GridView>
                     </ListView.View>
                 </ListView>
+
+                <!-- Empty state -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasScanned}" Value="True" />
+                                        <Condition Binding="{Binding FilteredPrograms.Count}" Value="0" />
+                                        <Condition Binding="{Binding IsBusy}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <materialDesign:PackIcon Kind="PackageVariantRemove"
+                                             Width="48" Height="48"
+                                             HorizontalAlignment="Center"
+                                             Foreground="{StaticResource AuraTextMuted}" />
+                    <TextBlock Text="No programs found"
+                               FontSize="15" Margin="0,10,0,4"
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource AuraTextSecondary}" />
+                    <TextBlock Text="Try adjusting your search filter or refresh the list"
+                               FontSize="12" HorizontalAlignment="Center"
+                               Foreground="{StaticResource AuraTextMuted}" />
+                </StackPanel>
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Post-Uninstall Scan Results -->
         <Expander Grid.Row="3"
@@ -145,10 +194,8 @@
                   IsExpanded="True"
                   Foreground="{StaticResource AuraTextPrimary}"
                   Margin="0,0,0,12">
-            <materialDesign:Card Background="{StaticResource AuraSurfaceLight}"
-                                 UniformCornerRadius="8"
-                                 Padding="8"
-                                 MaxHeight="200">
+            <Border Style="{StaticResource AuraGlassCardCompact}"
+                    CornerRadius="8" Padding="8" MaxHeight="200">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding PostUninstallJunk}">
                         <ItemsControl.ItemTemplate>
@@ -182,7 +229,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
-            </materialDesign:Card>
+            </Border>
         </Expander>
 
         <!-- Leftover Cleanup Button -->

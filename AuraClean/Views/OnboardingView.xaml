@@ -1,0 +1,475 @@
+<UserControl x:Class="AuraClean.Views.OnboardingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Background="Transparent">
+
+    <UserControl.Resources>
+        <!-- Shared typographic scale -->
+        <Style x:Key="OnboardHeadline" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="38" />
+            <Setter Property="FontWeight" Value="Light" />
+            <Setter Property="Foreground" Value="{StaticResource AuraTextBright}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="OnboardBody" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Foreground" Value="{StaticResource AuraTextSecondary}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="LineHeight" Value="24" />
+        </Style>
+        <Style x:Key="OnboardLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource AuraTextMuted}" />
+        </Style>
+
+        <!-- Step dot style -->
+        <Style x:Key="StepDot" TargetType="Ellipse">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Fill" Value="{StaticResource AuraBorder}" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="StepDotActive" TargetType="Ellipse" BasedOn="{StaticResource StepDot}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Fill" Value="{StaticResource AuraAccentPurple}" />
+        </Style>
+
+        <!-- Feature row icon container -->
+        <Style x:Key="FeatureIcon" TargetType="Border">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,0,20,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <!-- Full overlay -->
+    <Grid>
+        <Border Background="{StaticResource AuraBackground}" />
+
+        <!-- Content wrapper -->
+        <Grid Margin="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  STEP 0 — WELCOME                          -->
+            <!-- ═══════════════════════════════════════════ -->
+            <Grid Grid.Row="0"
+                  Visibility="{Binding IsStep0, Converter={StaticResource BoolToVis}}">
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                      MaxWidth="620" Margin="60,0">
+
+                    <StackPanel>
+                        <!-- Tiny label -->
+                        <TextBlock Style="{StaticResource OnboardLabel}"
+                                   Text="WELCOME" Margin="0,0,0,20" />
+
+                        <!-- Greeting with machine name -->
+                        <TextBlock Style="{StaticResource OnboardHeadline}">
+                            <Run Text="Hello, " /><Run Text="{Binding UserName, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="." />
+                        </TextBlock>
+
+                        <TextBlock Style="{StaticResource OnboardBody}" Margin="0,16,0,0">
+                            <Run Text="AuraClean keeps" />
+                            <Run Text="{Binding MachineName, Mode=OneWay}" FontWeight="Medium" Foreground="{StaticResource AuraTextPrimary}" />
+                            <Run Text="running clean, fast, and secure. It takes about 60 seconds to see your first results." />
+                        </TextBlock>
+
+                        <!-- What we'll cover -->
+                        <Border Margin="0,40,0,0" Padding="0"
+                                Background="Transparent"
+                                BorderBrush="{StaticResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
+                            <StackPanel Margin="0,24,0,0">
+                                <TextBlock Style="{StaticResource OnboardLabel}"
+                                           Text="WHAT YOU'LL LEARN" Margin="0,0,0,16" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <TextBlock Text="01" FontSize="14" FontWeight="Bold"
+                                               Foreground="{StaticResource AuraAccentPurple}"
+                                               Width="32" />
+                                    <TextBlock Text="Three workflows to manage your system"
+                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               FontSize="14" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <TextBlock Text="02" FontSize="14" FontWeight="Bold"
+                                               Foreground="{StaticResource AuraAccentPurple}"
+                                               Width="32" />
+                                    <TextBlock Text="Safety features that protect your data"
+                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               FontSize="14" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                                    <TextBlock Text="03" FontSize="14" FontWeight="Bold"
+                                               Foreground="{StaticResource AuraAccentPurple}"
+                                               Width="32" />
+                                    <TextBlock Text="How to run your first health check"
+                                               Foreground="{StaticResource AuraTextPrimary}"
+                                               FontSize="14" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  STEP 1 — THREE WORKFLOWS                  -->
+            <!-- ═══════════════════════════════════════════ -->
+            <Grid Grid.Row="0"
+                  Visibility="{Binding IsStep1, Converter={StaticResource BoolToVis}}">
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                      MaxWidth="720" Margin="60,0">
+
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource OnboardLabel}"
+                                   Text="CORE WORKFLOWS" Margin="0,0,0,20" />
+
+                        <TextBlock Style="{StaticResource OnboardHeadline}">
+                            <Run Text="Clean. Protect. " /><Run Text="Optimize." FontWeight="SemiBold" />
+                        </TextBlock>
+
+                        <TextBlock Style="{StaticResource OnboardBody}" Margin="0,12,0,36">
+                            Everything in AuraClean fits into one of these three actions.
+                        </TextBlock>
+
+                        <!-- Workflow 1: Clean -->
+                        <Grid Margin="0,0,0,28">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource FeatureIcon}"
+                                    Background="{StaticResource AuraAccentPurpleSemi}">
+                                <materialDesign:PackIcon Kind="Broom" Width="24" Height="24"
+                                                         Foreground="{StaticResource AuraAccentPurple}"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Clean" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{StaticResource AuraTextBright}" />
+                                <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
+                                    Remove temp files, browser caches, crash dumps, and leftover registry entries.
+                                    The System Cleaner and Browser Privacy tools work together to reclaim disk space.
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="System Cleaner" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                    <TextBlock Text="Privacy Clean" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                    <TextBlock Text="Uninstaller" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Workflow 2: Protect -->
+                        <Grid Margin="0,0,0,28">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource FeatureIcon}"
+                                    Background="{StaticResource AuraCoralSemi}">
+                                <materialDesign:PackIcon Kind="ShieldSearch" Width="24" Height="24"
+                                                         Foreground="{StaticResource AuraWarning}"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Protect" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{StaticResource AuraTextBright}" />
+                                <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
+                                    Scan for threats, quarantine suspicious files, and shred sensitive data
+                                    so it can never be recovered. Every destructive action creates a restore point first.
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Threat Scanner" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                    <TextBlock Text="Quarantine" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                    <TextBlock Text="File Shredder" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Workflow 3: Optimize -->
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource FeatureIcon}"
+                                    Background="{StaticResource AuraAccentTealSemi}">
+                                <materialDesign:PackIcon Kind="RocketLaunch" Width="24" Height="24"
+                                                         Foreground="{StaticResource AuraAccentTeal}"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Optimize" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{StaticResource AuraTextBright}" />
+                                <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
+                                    Free RAM, manage startup programs, find duplicate files, and visualize
+                                    exactly where your disk space is going with the interactive Storage Map.
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="RAM Booster" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                    <TextBlock Text="Startup Manager" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                    <TextBlock Text="  ·  " Foreground="{StaticResource AuraBorder}" />
+                                    <TextBlock Text="Storage Map" FontSize="11"
+                                               Foreground="{StaticResource AuraTextMuted}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  STEP 2 — SAFETY FEATURES                  -->
+            <!-- ═══════════════════════════════════════════ -->
+            <Grid Grid.Row="0"
+                  Visibility="{Binding IsStep2, Converter={StaticResource BoolToVis}}">
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                      MaxWidth="660" Margin="60,0">
+
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource OnboardLabel}"
+                                   Text="SAFETY NET" Margin="0,0,0,20" />
+
+                        <TextBlock Style="{StaticResource OnboardHeadline}">
+                            <Run Text="Nothing happens " /><Run Text="without a safety net." FontWeight="SemiBold" />
+                        </TextBlock>
+
+                        <TextBlock Style="{StaticResource OnboardBody}" Margin="0,12,0,40">
+                            AuraClean is built to be cautious. Every risky operation has a fallback.
+                        </TextBlock>
+
+                        <!-- Safety feature 1 -->
+                        <Grid Margin="0,0,0,32">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="&#xE8FB;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="20" Foreground="{StaticResource AuraSuccess}"
+                                       VerticalAlignment="Top" Margin="0,2,0,0" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Restore Points" FontSize="15" FontWeight="Medium"
+                                           Foreground="{StaticResource AuraTextBright}" />
+                                <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
+                                    Before any cleanup, AuraClean creates a Windows System Restore point.
+                                    If anything goes wrong, you can roll back with one click.
+                                </TextBlock>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Safety feature 2 -->
+                        <Grid Margin="0,0,0,32">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="ShieldOff" Width="22" Height="22"
+                                                     Foreground="{StaticResource AuraAmber}"
+                                                     VerticalAlignment="Top" Margin="0,2,0,0" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Quarantine" FontSize="15" FontWeight="Medium"
+                                           Foreground="{StaticResource AuraTextBright}" />
+                                <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
+                                    Suspicious files are quarantined, not deleted. They're stored safely
+                                    for 30 days so you can restore them if needed.
+                                </TextBlock>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Safety feature 3 -->
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="TestTube" Width="22" Height="22"
+                                                     Foreground="{StaticResource AuraAccentPurple}"
+                                                     VerticalAlignment="Top" Margin="0,2,0,0" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Dry Run Mode" FontSize="15" FontWeight="Medium"
+                                           Foreground="{StaticResource AuraTextBright}" />
+                                <TextBlock Style="{StaticResource OnboardBody}" Margin="0,4,0,0">
+                                    Turn on Dry Run in Settings to preview what would be cleaned
+                                    without actually deleting anything. Useful for your first few runs.
+                                </TextBlock>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  STEP 3 — READY TO GO                      -->
+            <!-- ═══════════════════════════════════════════ -->
+            <Grid Grid.Row="0"
+                  Visibility="{Binding IsStep3, Converter={StaticResource BoolToVis}}">
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                      MaxWidth="560" Margin="60,0">
+
+                    <StackPanel HorizontalAlignment="Left">
+                        <TextBlock Style="{StaticResource OnboardLabel}"
+                                   Text="READY" Margin="0,0,0,20" />
+
+                        <TextBlock Style="{StaticResource OnboardHeadline}">
+                            <Run Text="Start with a " /><Run Text="Health Check." FontWeight="SemiBold" />
+                        </TextBlock>
+
+                        <TextBlock Style="{StaticResource OnboardBody}" Margin="0,16,0,0">
+                            The Dashboard runs a four-step health check that scans for junk,
+                            threats, startup bloat, and browser tracking data. It takes about
+                            a minute and gives you a score from 0 to 100.
+                        </TextBlock>
+
+                        <TextBlock Style="{StaticResource OnboardBody}" Margin="0,16,0,0">
+                            You can always re-run it from the Dashboard, or explore individual
+                            tools from the sidebar whenever you're ready.
+                        </TextBlock>
+
+                        <!-- Keyboard shortcut hint -->
+                        <Border Margin="0,36,0,0" Padding="0"
+                                Background="Transparent"
+                                BorderBrush="{StaticResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
+                            <StackPanel Margin="0,20,0,0">
+                                <TextBlock Style="{StaticResource OnboardLabel}"
+                                           Text="KEYBOARD SHORTCUTS" Margin="0,0,0,14" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="8" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="8" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <Border Grid.Row="0" Grid.Column="0"
+                                            Background="{StaticResource AuraSurface}"
+                                            CornerRadius="4" Padding="8,3"
+                                            HorizontalAlignment="Left">
+                                        <TextBlock Text="Ctrl + 1" FontSize="12" FontFamily="Consolas"
+                                                   Foreground="{StaticResource AuraTextPrimary}" />
+                                    </Border>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Dashboard"
+                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               FontSize="13" VerticalAlignment="Center" Margin="14,0,0,0" />
+
+                                    <Border Grid.Row="2" Grid.Column="0"
+                                            Background="{StaticResource AuraSurface}"
+                                            CornerRadius="4" Padding="8,3"
+                                            HorizontalAlignment="Left">
+                                        <TextBlock Text="Ctrl + 4" FontSize="12" FontFamily="Consolas"
+                                                   Foreground="{StaticResource AuraTextPrimary}" />
+                                    </Border>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="System Cleaner"
+                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               FontSize="13" VerticalAlignment="Center" Margin="14,0,0,0" />
+
+                                    <Border Grid.Row="4" Grid.Column="0"
+                                            Background="{StaticResource AuraSurface}"
+                                            CornerRadius="4" Padding="8,3"
+                                            HorizontalAlignment="Left">
+                                        <TextBlock Text="Ctrl + 0" FontSize="12" FontFamily="Consolas"
+                                                   Foreground="{StaticResource AuraTextPrimary}" />
+                                    </Border>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="Settings"
+                                               Foreground="{StaticResource AuraTextSecondary}"
+                                               FontSize="13" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  BOTTOM BAR — Navigation + Skip             -->
+            <!-- ═══════════════════════════════════════════ -->
+            <Grid Grid.Row="1" Margin="48,0,48,36">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Skip -->
+                <Button Grid.Column="0"
+                        Style="{StaticResource AuraGhostButton}"
+                        Content="Skip"
+                        Command="{Binding SkipOnboardingCommand}"
+                        VerticalAlignment="Center" />
+
+                <!-- Step indicators -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <!-- Dot 0 -->
+                    <Ellipse Style="{StaticResource StepDotActive}"
+                             Visibility="{Binding IsStep0, Converter={StaticResource BoolToVis}}" />
+                    <Ellipse Style="{StaticResource StepDot}"
+                             Visibility="{Binding IsStep0, Converter={StaticResource InverseBoolToVis}}" />
+                    <!-- Dot 1 -->
+                    <Ellipse Style="{StaticResource StepDotActive}"
+                             Visibility="{Binding IsStep1, Converter={StaticResource BoolToVis}}" />
+                    <Ellipse Style="{StaticResource StepDot}"
+                             Visibility="{Binding IsStep1, Converter={StaticResource InverseBoolToVis}}" />
+                    <!-- Dot 2 -->
+                    <Ellipse Style="{StaticResource StepDotActive}"
+                             Visibility="{Binding IsStep2, Converter={StaticResource BoolToVis}}" />
+                    <Ellipse Style="{StaticResource StepDot}"
+                             Visibility="{Binding IsStep2, Converter={StaticResource InverseBoolToVis}}" />
+                    <!-- Dot 3 -->
+                    <Ellipse Style="{StaticResource StepDotActive}"
+                             Visibility="{Binding IsStep3, Converter={StaticResource BoolToVis}}" />
+                    <Ellipse Style="{StaticResource StepDot}"
+                             Visibility="{Binding IsStep3, Converter={StaticResource InverseBoolToVis}}" />
+                </StackPanel>
+
+                <!-- Next / Finish -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Style="{StaticResource AuraGhostButton}"
+                            Content="Back"
+                            Command="{Binding PreviousStepCommand}"
+                            Visibility="{Binding IsStep0, Converter={StaticResource InverseBoolToVis}}"
+                            Margin="0,0,12,0" />
+
+                    <!-- "Continue" for steps 0-2, "Get Started" for step 3 -->
+                    <Button Style="{StaticResource AuraPrimaryButton}"
+                            Command="{Binding NextStepCommand}"
+                            Visibility="{Binding IsStep3, Converter={StaticResource InverseBoolToVis}}"
+                            Content="Continue" />
+
+                    <Button Style="{StaticResource AuraPrimaryButton}"
+                            Command="{Binding NextStepCommand}"
+                            Visibility="{Binding IsStep3, Converter={StaticResource BoolToVis}}"
+                            Content="Get Started" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

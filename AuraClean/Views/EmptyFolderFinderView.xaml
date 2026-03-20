@@ -4,11 +4,6 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -30,8 +25,7 @@
         </StackPanel>
 
         <!-- Scan Paths Card -->
-        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="14" Padding="20" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Margin="0,0,0,16">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -104,11 +98,11 @@
                     </Button>
                 </Grid>
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Status Bar -->
-        <materialDesign:Card Grid.Row="2" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="14" Padding="16" Margin="0,0,0,16">
+        <Border Grid.Row="2" Style="{StaticResource AuraGlassCard}"
+                Padding="16" Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -145,7 +139,7 @@
                     </StackPanel>
                 </Button>
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Results DataGrid -->
         <DataGrid Grid.Row="3"

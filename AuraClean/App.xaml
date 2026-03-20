@@ -118,7 +118,7 @@
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="BgSurface" Property="Background" Value="#0A7C5CFC" />
+                                    <Setter TargetName="BgSurface" Property="Background" Value="{StaticResource AuraAccentPurpleSemi}" />
                                     <Setter Property="Foreground" Value="{StaticResource AuraTextPrimary}" />
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
@@ -169,6 +169,33 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="AuraSecondaryButton" TargetType="Button">
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Padding" Value="24,10" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" CornerRadius="10"
+                                    Background="{StaticResource AuraAccentTeal}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="AuraOutlinedButton" TargetType="Button">
                 <Setter Property="Foreground" Value="{StaticResource AuraAccentTeal}" />
                 <Setter Property="BorderBrush" Value="{StaticResource AuraAccentTeal}" />
@@ -186,7 +213,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#0AFFFFFF" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlayLight}" />
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
@@ -214,7 +241,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlaySubtle}" />
                                     <Setter Property="Foreground" Value="{StaticResource AuraTextPrimary}" />
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
@@ -237,6 +264,48 @@
                 <Setter Property="Padding" Value="20" />
             </Style>
 
+            <!-- Compact card for summary chips, stat badges, status bars -->
+            <Style x:Key="AuraGlassCardCompact" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource AuraSurfaceLight}" />
+                <Setter Property="BorderBrush" Value="{StaticResource AuraBorder}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="Padding" Value="14,8" />
+            </Style>
+
+            <!-- Flush card for list containers with no inner padding -->
+            <Style x:Key="AuraGlassCardFlush" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource AuraSurface}" />
+                <Setter Property="BorderBrush" Value="{StaticResource AuraBorder}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="14" />
+                <Setter Property="Padding" Value="0" />
+            </Style>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--         SEMI-TRANSPARENT OVERLAYS          -->
+            <!-- ═══════════════════════════════════════════ -->
+            <SolidColorBrush x:Key="AuraAccentPurpleSemi" Color="#0E7C5CFC" />
+            <SolidColorBrush x:Key="AuraAccentTealSemi" Color="#0E00E5C3" />
+            <SolidColorBrush x:Key="AuraAmberSemi" Color="#0EFFB74D" />
+            <SolidColorBrush x:Key="AuraCoralSemi" Color="#15FF6B8A" />
+            <SolidColorBrush x:Key="AuraOverlayLight" Color="#0AFFFFFF" />
+            <SolidColorBrush x:Key="AuraOverlaySubtle" Color="#08FFFFFF" />
+            <SolidColorBrush x:Key="AuraOverlayFaint" Color="#06FFFFFF" />
+            <SolidColorBrush x:Key="AuraTrackBg" Color="#10FFFFFF" />
+
+            <!-- Badge backgrounds (~8% alpha) -->
+            <SolidColorBrush x:Key="AuraAccentPurpleBadge" Color="#157C5CFC" />
+            <SolidColorBrush x:Key="AuraAccentTealBadge" Color="#1500E5C3" />
+            <SolidColorBrush x:Key="AuraAmberBadge" Color="#15FFB74D" />
+            <SolidColorBrush x:Key="AuraBlueBadge" Color="#1564B5F6" />
+
+            <!-- Severity backgrounds (~20% alpha) -->
+            <SolidColorBrush x:Key="AuraCriticalSeverity" Color="#33FF4444" />
+            <SolidColorBrush x:Key="AuraCoralSeverity" Color="#33FF6B8A" />
+            <SolidColorBrush x:Key="AuraAmberSeverity" Color="#33FFB74D" />
+            <SolidColorBrush x:Key="AuraSuccessSeverity" Color="#335BF0D7" />
+
             <!-- Global converters -->
             <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
             <converters:FileSizeConverter x:Key="FileSizeConverter" />
@@ -246,6 +315,7 @@
             <converters:TreemapColorConverter x:Key="TreemapColorConverter" />
             <converters:HexToBrushConverter x:Key="HexToBrush" />
             <converters:ScoreToWidthConverter x:Key="ScoreToWidth" />
+            <converters:HealthScoreColorConverter x:Key="HealthColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

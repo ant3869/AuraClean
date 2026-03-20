@@ -4,12 +4,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:FileSizeConverter x:Key="FileSizeConverter" />
-    </UserControl.Resources>
-
-    <Grid Margin="24">
+    <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -99,10 +94,8 @@
             <ItemsControl ItemsSource="{Binding Categories}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <materialDesign:Card Background="{StaticResource AuraSurface}"
-                                             UniformCornerRadius="8"
-                                             Margin="0,0,0,8"
-                                             Padding="0">
+                        <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
+                                Margin="0,0,0,8">
                             <Expander IsExpanded="{Binding IsExpanded}"
                                       Foreground="{StaticResource AuraTextPrimary}">
                                 <Expander.Header>
@@ -124,7 +117,8 @@
                                                    FontSize="15"
                                                    FontWeight="Medium"
                                                    Foreground="{StaticResource AuraTextPrimary}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
 
                                         <TextBlock Grid.Column="2"
                                                    Text="{Binding ItemCount, StringFormat='{}{0} items'}"
@@ -214,18 +208,15 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </Expander>
-                        </materialDesign:Card>
+                        </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
 
         <!-- Status Bar -->
-        <materialDesign:Card Grid.Row="3"
-                             Background="{StaticResource AuraSurfaceLight}"
-                             UniformCornerRadius="6"
-                             Padding="16,8"
-                             Margin="0,8,0,0">
+        <Border Grid.Row="3" Style="{StaticResource AuraGlassCardCompact}"
+                CornerRadius="6" Margin="0,8,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -251,6 +242,6 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
             </Grid>
-        </materialDesign:Card>
+        </Border>
     </Grid>
 </UserControl>

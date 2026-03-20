@@ -24,21 +24,17 @@ public partial class UninstallerViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<JunkItem> _postUninstallJunk = [];
     [ObservableProperty] private bool _hasPostUninstallResults;
     [ObservableProperty] private bool _isDryRun;
+    [ObservableProperty] private bool _hasScanned;
 
     // Selection
     [ObservableProperty] private int _selectedCount;
     [ObservableProperty] private bool _isAllSelected;
     public bool HasCheckedItems => SelectedCount > 0;
 
-    private DispatcherTimer? _searchDebounceTimer;
+    private readonly DispatcherTimer _searchDebounceTimer;
 
     public UninstallerViewModel()
     {
-    }
-
-    partial void OnSearchTextChanged(string value)
-    {
-        _searchDebounceTimer?.Stop();
         _searchDebounceTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(250)
@@ -48,6 +44,11 @@ public partial class UninstallerViewModel : ObservableObject
             _searchDebounceTimer.Stop();
             ApplyFilter();
         };
+    }
+
+    partial void OnSearchTextChanged(string value)
+    {
+        _searchDebounceTimer.Stop();
         _searchDebounceTimer.Start();
     }
 
@@ -92,7 +93,6 @@ public partial class UninstallerViewModel : ObservableObject
                     p.DisplayName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
                     p.Publisher.Contains(SearchText, StringComparison.OrdinalIgnoreCase)));
         }
-        HookSelectionEvents(FilteredPrograms);
         UpdateSelectionCount();
     }
 
@@ -108,12 +108,15 @@ public partial class UninstallerViewModel : ObservableObject
             var programs = await UninstallerService.GetInstalledProgramsAsync(progress);
 
             Programs = new ObservableCollection<InstalledProgram>(programs);
+            HookSelectionEvents(Programs);
             ApplyFilter();
             StatusMessage = $"Found {Programs.Count} installed programs.";
+            HasScanned = true;
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error loading programs: {ex.Message}";
+            HasScanned = true;
         }
         finally
         {

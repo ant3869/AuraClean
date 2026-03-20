@@ -4,10 +4,6 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -28,38 +24,29 @@
         </StackPanel>
 
         <!-- Action Bar -->
-        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="14" Padding="20" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Margin="0,0,0,16">
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
                     <Button Content="Check for Updates"
                             Command="{Binding CheckForUpdatesCommand}"
-                            Style="{StaticResource MaterialDesignFlatMidBgButton}"
-                            Background="{StaticResource AuraAccentTeal}"
-                            Foreground="White" FontWeight="SemiBold"
+                            Style="{StaticResource AuraSecondaryButton}"
                             Height="36" Padding="20,0"
-                            materialDesign:ButtonAssist.CornerRadius="8"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
 
                     <Button Content="Update Selected"
                             Command="{Binding UpdateSelectedCommand}"
-                            Style="{StaticResource MaterialDesignFlatMidBgButton}"
-                            Background="{StaticResource AuraAccentPurple}"
-                            Foreground="White" FontWeight="SemiBold"
+                            Style="{StaticResource AuraPrimaryButton}"
                             Height="36" Padding="20,0" Margin="12,0,0,0"
-                            materialDesign:ButtonAssist.CornerRadius="8"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
 
                     <Button Content="Select All"
                             Command="{Binding SelectAllCommand}"
-                            Style="{StaticResource MaterialDesignFlatButton}"
-                            Foreground="{StaticResource AuraTextSecondary}"
+                            Style="{StaticResource AuraGhostButton}"
                             Height="36" Margin="12,0,0,0" />
 
                     <Button Content="Deselect All"
                             Command="{Binding DeselectAllCommand}"
-                            Style="{StaticResource MaterialDesignFlatButton}"
-                            Foreground="{StaticResource AuraTextSecondary}"
+                            Style="{StaticResource AuraGhostButton}"
                             Height="36" Margin="4,0,0,0" />
                 </StackPanel>
 
@@ -68,12 +55,13 @@
                              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
                              Height="3" />
             </StackPanel>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Results List -->
         <Border Grid.Row="2" Background="{StaticResource AuraSurface}"
                 CornerRadius="14" Padding="4">
-            <DataGrid ItemsSource="{Binding Programs}"
+            <Grid>
+                <DataGrid ItemsSource="{Binding Programs}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False" CanUserDeleteRows="False"
                       IsReadOnly="False"
@@ -83,7 +71,7 @@
                       GridLinesVisibility="Horizontal"
                       HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
                       RowBackground="Transparent"
-                      AlternatingRowBackground="#08FFFFFF"
+                      AlternatingRowBackground="{StaticResource AuraOverlaySubtle}"
                       HeadersVisibility="Column"
                       FontSize="12.5">
                 <DataGrid.Columns>
@@ -101,6 +89,36 @@
                                         IsReadOnly="True" />
                 </DataGrid.Columns>
             </DataGrid>
+
+                <!-- Empty state: before first scan -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasScanned}" Value="False" />
+                                        <Condition Binding="{Binding IsBusy}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <materialDesign:PackIcon Kind="PackageVariantPlus"
+                                             Width="48" Height="48"
+                                             HorizontalAlignment="Center"
+                                             Foreground="{StaticResource AuraTextMuted}" />
+                    <TextBlock Text="Check for software updates"
+                               FontSize="15" Margin="0,10,0,4"
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource AuraTextSecondary}" />
+                    <TextBlock Text="Click 'Check for Updates' to scan for outdated software"
+                               FontSize="12" HorizontalAlignment="Center"
+                               Foreground="{StaticResource AuraTextMuted}" />
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Status Bar -->

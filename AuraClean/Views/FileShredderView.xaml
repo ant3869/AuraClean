@@ -7,11 +7,6 @@
              Drop="OnFileDrop"
              DragOver="OnDragOver">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:FileSizeConverter x:Key="FileSizeConverter" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -40,8 +35,8 @@
             </Grid.ColumnDefinitions>
 
             <!-- File List -->
-            <materialDesign:Card Grid.Column="0" Background="{StaticResource AuraSurface}"
-                                 UniformCornerRadius="16" Padding="0">
+            <Border Grid.Column="0" Style="{StaticResource AuraGlassCardFlush}"
+                    CornerRadius="16">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -180,13 +175,13 @@
                         </StackPanel>
                     </Border>
                 </Grid>
-            </materialDesign:Card>
+            </Border>
 
             <!-- Right Panel: Algorithm Choice + Shred Button + Results -->
             <StackPanel Grid.Column="2">
                 <!-- Algorithm Selection -->
-                <materialDesign:Card Background="{StaticResource AuraSurface}"
-                                     UniformCornerRadius="16" Padding="20" Margin="0,0,0,16">
+                <Border Style="{StaticResource AuraGlassCard}"
+                        CornerRadius="16" Margin="0,0,0,16">
                     <StackPanel>
                         <TextBlock Text="Shred Algorithm" FontSize="16" FontWeight="SemiBold"
                                    Foreground="{StaticResource AuraTextPrimary}" Margin="0,0,0,12" />
@@ -235,12 +230,12 @@
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsSelected" Value="True">
                                                         <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
-                                                        <Setter TargetName="Bd" Property="Background" Value="#0A7C5CFC" />
+                                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraAccentPurpleSemi}" />
                                                         <Setter TargetName="Dot" Property="Fill" Value="{StaticResource AuraAccentPurple}" />
                                                         <Setter TargetName="Dot" Property="Stroke" Value="{StaticResource AuraAccentPurple}" />
                                                     </Trigger>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
+                                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlaySubtle}" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -250,7 +245,7 @@
                             </ListBox.ItemContainerStyle>
                         </ListBox>
                     </StackPanel>
-                </materialDesign:Card>
+                </Border>
 
                 <!-- Shred Button -->
                 <Button Style="{StaticResource AuraPrimaryButton}"
@@ -267,9 +262,9 @@
                 </Button>
 
                 <!-- Results Card -->
-                <materialDesign:Card Background="{StaticResource AuraSurface}"
-                                     UniformCornerRadius="16" Padding="20"
-                                     Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                <Border Style="{StaticResource AuraGlassCard}"
+                        CornerRadius="16"
+                        Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <TextBlock Text="Shred Results" FontSize="16" FontWeight="SemiBold"
                                    Foreground="{StaticResource AuraTextPrimary}" Margin="0,0,0,12" />
@@ -290,7 +285,7 @@
                                        Foreground="{StaticResource AuraAccentPurple}" FontWeight="SemiBold" />
                         </Grid>
                     </StackPanel>
-                </materialDesign:Card>
+                </Border>
             </StackPanel>
         </Grid>
 

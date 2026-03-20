@@ -12,6 +12,7 @@ public partial class SoftwareUpdaterViewModel : ObservableObject
     [ObservableProperty] private string _statusMessage = "Click 'Check for Updates' to scan for outdated software.";
     [ObservableProperty] private bool _isWingetAvailable;
     [ObservableProperty] private int _outdatedCount;
+    [ObservableProperty] private bool _hasScanned;
 
     public ObservableCollection<UpdatableEntry> Programs { get; } = [];
 
@@ -59,6 +60,7 @@ public partial class SoftwareUpdaterViewModel : ObservableObject
         }
         finally
         {
+            HasScanned = true;
             IsBusy = false;
         }
     }

@@ -167,10 +167,11 @@ public partial class FileShredderViewModel : ObservableObject
                         });
                         added++;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("FileShredderVM", $"Failed to read file info: {path}", ex);
+                    }
                 }
-
-                StatusMessage = $"Added {added} files from {Path.GetFileName(dir)}. Total: {Files.Count} file(s).";
                 HookSelectionEvents();
                 UpdateSelectionCount();
             }
@@ -315,12 +316,13 @@ public partial class FileShredderViewModel : ObservableObject
             });
             return true;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("FileShredderVM", $"Failed to add file: {path}", ex);
+            return false;
+        }
     }
 
-    /// <summary>
-    /// Represents a file queued for shredding.
-    /// </summary>
     public class ShredFileItem : ObservableObject
     {
         public string FullPath { get; init; } = string.Empty;

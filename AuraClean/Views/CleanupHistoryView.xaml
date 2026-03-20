@@ -4,11 +4,6 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:FileSizeConverter x:Key="FileSizeConverter" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -168,7 +163,7 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlaySubtle}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -212,7 +207,7 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#06FFFFFF" />
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlayFaint}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -251,7 +246,7 @@
 
                             <!-- Size Badge -->
                             <Border Grid.Column="2" CornerRadius="6" Padding="8,3"
-                                    Background="#157C5CFC" Margin="8,0"
+                                    Background="{StaticResource AuraAccentPurpleBadge}" Margin="8,0"
                                     VerticalAlignment="Center">
                                 <TextBlock Text="{Binding BytesFreed, Converter={StaticResource FileSizeConverter}}"
                                            FontSize="11" FontWeight="SemiBold"
@@ -262,7 +257,7 @@
                             <Border Grid.Column="3"
                                     Visibility="{Binding WasDryRun, Converter={StaticResource BoolToVis}}"
                                     CornerRadius="6" Padding="8,3"
-                                    Background="#15FFB74D"
+                                    Background="{StaticResource AuraAmberBadge}"
                                     VerticalAlignment="Center">
                                 <TextBlock Text="DRY RUN" FontSize="10" FontWeight="SemiBold"
                                            Foreground="{StaticResource AuraAmber}" />

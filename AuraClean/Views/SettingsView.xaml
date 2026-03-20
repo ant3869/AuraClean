@@ -5,9 +5,6 @@
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
     <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:InverseBoolConverter x:Key="InverseBool" />
-
         <!-- Toggle style matching Aura theme -->
         <Style x:Key="AuraToggle" TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource AuraTextPrimary}" />
@@ -55,7 +52,7 @@
                 <!-- Unsaved indicator -->
                 <Border Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BoolToVis}}"
                         CornerRadius="8" Padding="10,4" Margin="0,0,12,0"
-                        Background="#30FFB74D">
+                        Background="{StaticResource AuraAmberSeverity}">
                     <TextBlock Text="Unsaved changes" FontSize="11"
                                Foreground="{StaticResource AuraAmber}" />
                 </Border>
@@ -220,6 +217,7 @@
                                            Foreground="{StaticResource AuraTextSecondary}" Margin="0,0,0,4" />
                                 <TextBox Text="{Binding DefaultMinDuplicateSizeMb, UpdateSourceTrigger=PropertyChanged}"
                                          FontSize="13"
+                                         MaxLength="6"
                                          Foreground="{StaticResource AuraTextPrimary}"
                                          Background="{StaticResource AuraSurfaceLight}"
                                          BorderBrush="{StaticResource AuraBorder}"
@@ -330,6 +328,7 @@
                                        Foreground="{StaticResource AuraTextSecondary}" />
                             <TextBox Text="{Binding ScheduledCleanupTime, UpdateSourceTrigger=PropertyChanged}"
                                      Width="70" Margin="8,0"
+                                     MaxLength="5"
                                      FontSize="13"
                                      Foreground="{StaticResource AuraTextPrimary}"
                                      Background="{StaticResource AuraSurfaceLight}" />
@@ -356,13 +355,15 @@
                 <!-- Storage path info -->
                 <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,20"
                         Padding="14"
-                        Background="#08FFFFFF">
+                        Background="{StaticResource AuraOverlaySubtle}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="FolderOutline" Width="16" Height="16"
                                                  Foreground="{StaticResource AuraTextSecondary}"
                                                  VerticalAlignment="Center" />
                         <TextBlock FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"
-                                   Foreground="{StaticResource AuraTextSecondary}">
+                                   Foreground="{StaticResource AuraTextSecondary}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding SettingsPath, Mode=OneWay}">
                             <Run Text="Settings stored at: " />
                             <Run Text="{Binding SettingsPath, Mode=OneWay}" />
                         </TextBlock>

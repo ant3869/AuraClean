@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] — 2026-03-19
+
+### Added
+
+- **Onboarding Wizard** — New 4-step first-run walkthrough overlay
+  - `OnboardingViewModel`, `OnboardingView.xaml` — welcome screen, system facts, feature tour, configuration
+  - Persists completion state via `HasCompletedOnboarding` setting in `SettingsService`
+  - Full-window overlay in `MainWindow` with `Panel.ZIndex="100"`
+- **Empty State Placeholders** — Informative empty-state panels shown before first scan or when no results match
+  - Uninstaller — "No programs found" with search/refresh hint
+  - Startup Manager — "No startup programs found" with system note
+  - Software Updater — "Check for software updates" prompt
+  - Driven by new `HasScanned` property on each ViewModel
+- **Design Tokens** — 20+ new named resource brushes in `App.xaml`
+  - Semi-transparent overlays: `AuraAccentPurpleSemi`, `AuraAccentTealSemi`, `AuraAmberSemi`, `AuraCoralSemi`, `AuraOverlayLight`, `AuraOverlaySubtle`, `AuraOverlayFaint`, `AuraTrackBg`
+  - Badge backgrounds: `AuraAccentPurpleBadge`, `AuraAccentTealBadge`, `AuraAmberBadge`, `AuraBlueBadge`
+  - Severity backgrounds: `AuraCriticalSeverity`, `AuraCoralSeverity`, `AuraAmberSeverity`, `AuraSuccessSeverity`
+- **Card Styles** — Reusable `AuraGlassCardCompact` (stat chips/badges) and `AuraGlassCardFlush` (list containers) Border styles in `App.xaml`
+- **AuraSecondaryButton** — New teal-accent button style for secondary actions
+- **HealthScoreColorConverter** — New global converter registered in `App.xaml`
+
+### Changed
+
+- **Card Component Standardization** — Replaced `materialDesign:Card` with `Border` + design-system styles across 16 views (StartupManager, StorageMap, SystemInfo, ThreatScanner, Uninstaller, DiskOptimizer, FileRecovery, Cleaner, BrowserCleaner, Dashboard, DuplicateFinder, InstallMonitor, FileShredder, LargeFileFinder, AppInstaller, and more)
+- **Converter Centralization** — Removed per-view `UserControl.Resources` converter declarations; all converters now registered globally in `App.xaml` (BoolToVis, FileSizeConverter, InverseBoolToVis, IntToVis, HexToBrush, ScoreToWidth, HealthColorConverter, TreemapColorConverter)
+- **Color Token Migration** — Replaced hardcoded hex values with named resource references throughout views (e.g., `#08FFFFFF` → `AuraOverlaySubtle`, `#157C5CFC` → `AuraAccentPurpleBadge`)
+- **ThreatScannerView** — Removed local `ThreatHighBrush`, `ThreatMediumBrush`, `ThreatLowBrush` in favor of global `AuraWarning`, `AuraAmber`, `AuraSuccess`
+- **Consistent Page Margins** — Standardized view margins to `Margin="32"` across Uninstaller, Startup Manager, Threat Scanner, Browser Cleaner
+- **ListView Text Overflow** — Name/Publisher columns now use `TextTrimming="CharacterEllipsis"` with `ToolTip` for overflow (Uninstaller, Startup Manager)
+
+### Fixed
+
+- **UninstallerViewModel** — Fixed `DispatcherTimer` leak: timer now initialized once in constructor instead of recreated per keystroke in `OnSearchTextChanged`
+- **Selection Event Hook Ordering** — Hook selection events on master collections before filtering to prevent stale event subscriptions (`UninstallerViewModel`, `StartupManagerViewModel`, `LargeFileFinderViewModel`)
+- **LargeFileFinderViewModel** — Batch delete now reports individual file failures and includes failure count in status message
+- **ThreatScannerView** — Corrected `InvBoolToVis` → `InverseBoolToVis` converter key reference
+- **Diagnostic Logging** — Replaced 12+ empty `catch {}` blocks with `DiagnosticLogger.Warn` calls across `DiskAnalyzerViewModel`, `DuplicateFinderViewModel`, `FileShredderViewModel`, `InstallMonitorViewModel`, `LargeFileFinderViewModel`, `StartupManagerViewModel`, `ThreatScannerViewModel`
+- **FileShredderViewModel** — Removed incorrect `StatusMessage` assignment after folder drop that overwrote file count
+
+### Performance
+
+- **FileCleanerService** — Refactored sequential junk scanning to `Parallel.ForEachAsync` with `ConcurrentBag` and `MaxDegreeOfParallelism = 4`, reducing scan time on multi-core systems
+- **ThreatScannerService** — Parallelized file heuristic analysis with `Parallel.ForEachAsync` (bounded at 4 threads), filters scannable extensions before enumeration
+
+### Build
+
+- **install.ps1** — Cleans stale publish output before build, kills running AuraClean instance before overwriting, desktop shortcut now set to Run as Administrator with UAC flag, shortcut icon linked to EXE
+- **AuraClean.csproj** — Added `auraimage.png`, `icon2.png`, `icon.ico` as embedded resources
+- **MainWindow** — Window icon changed from `icon2.png` to `icon.ico`
+
+---
+
 ## [1.3.1] — 2026-03-18
 
 ### Added

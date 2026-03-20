@@ -4,10 +4,6 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
-    <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-    </UserControl.Resources>
-
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -29,8 +25,7 @@
         </StackPanel>
 
         <!-- Controls Bar -->
-        <materialDesign:Card Grid.Row="1" Background="{StaticResource AuraSurface}"
-                             UniformCornerRadius="14" Padding="20" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -98,7 +93,7 @@
                             Content="Cancel" Padding="16,10" />
                 </StackPanel>
             </Grid>
-        </materialDesign:Card>
+        </Border>
 
         <!-- Results Area -->
         <Grid Grid.Row="2">
@@ -194,7 +189,7 @@
                       GridLinesVisibility="Horizontal"
                       HorizontalGridLinesBrush="{StaticResource AuraBorderSubtle}"
                       RowBackground="Transparent"
-                      AlternatingRowBackground="#06FFFFFF"
+                      AlternatingRowBackground="{StaticResource AuraOverlayFaint}"
                       HeadersVisibility="Column">
 
                 <DataGrid.Columns>
@@ -214,7 +209,14 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="*"
                                         IsReadOnly="True"
-                                        Foreground="{StaticResource AuraTextPrimary}" />
+                                        Foreground="{StaticResource AuraTextPrimary}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="ToolTip" Value="{Binding FileName}" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Size" Binding="{Binding FormattedSize}" Width="100"
                                         IsReadOnly="True"
                                         Foreground="{StaticResource AuraAccentTeal}"
@@ -227,7 +229,14 @@
                                         Foreground="{StaticResource AuraTextSecondary}" />
                     <DataGridTextColumn Header="Directory" Binding="{Binding Directory}" Width="*"
                                         IsReadOnly="True"
-                                        Foreground="{StaticResource AuraTextMuted}" />
+                                        Foreground="{StaticResource AuraTextMuted}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="ToolTip" Value="{Binding Directory}" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
 

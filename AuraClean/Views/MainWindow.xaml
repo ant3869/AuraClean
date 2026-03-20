@@ -35,10 +35,6 @@
         <KeyBinding Key="D0" Modifiers="Control" Command="{Binding NavigateToCommand}" CommandParameter="Settings" />
     </Window.InputBindings>
 
-    <Window.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-    </Window.Resources>
-
     <Grid>
         <Grid.ColumnDefinitions>
             <!-- Sidebar -->
@@ -487,5 +483,12 @@
                            FontSize="11.5" />
             </Border>
         </Grid>
+
+        <!-- ═══ ONBOARDING OVERLAY (full-window) ═══ -->
+        <views:OnboardingView DataContext="{Binding Onboarding}"
+                               Visibility="Collapsed"
+                               x:Name="OnboardingOverlay"
+                               Grid.ColumnSpan="2"
+                               Panel.ZIndex="100" />
     </Grid>
 </Window>

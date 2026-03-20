@@ -191,6 +191,9 @@ public class AppSettings
     public string ScheduledCleanupTime { get; set; } = "03:00";       // 24h format
     public int ScheduledCleanupDayOfWeek { get; set; } = 1;           // 1=Mon ... 7=Sun (for Weekly)
 
+    // ── Onboarding ──
+    public bool HasCompletedOnboarding { get; set; } = false;
+
     // ── Metadata ──
     public DateTime LastModified { get; set; } = DateTime.Now;
 }

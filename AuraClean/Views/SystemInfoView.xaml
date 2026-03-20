@@ -5,16 +5,11 @@
              xmlns:converters="clr-namespace:AuraClean.Converters">
 
     <UserControl.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
-        <converters:HexToBrushConverter x:Key="HexToBrush" />
-        <converters:ScoreToWidthConverter x:Key="ScoreToWidth" />
-
         <!-- Score bar style -->
         <Style x:Key="ScoreBarTrack" TargetType="Border">
             <Setter Property="Height" Value="6" />
             <Setter Property="CornerRadius" Value="3" />
-            <Setter Property="Background" Value="#10FFFFFF" />
+            <Setter Property="Background" Value="{StaticResource AuraTrackBg}" />
         </Style>
         <Style x:Key="ScoreBarFill" TargetType="Border">
             <Setter Property="Height" Value="6" />
@@ -132,7 +127,7 @@
                         <Grid Grid.Column="0" Width="140" Height="140">
                             <!-- Background ring -->
                             <Ellipse Width="140" Height="140" StrokeThickness="6"
-                                     Stroke="#10FFFFFF" Fill="Transparent" />
+                                     Stroke="{StaticResource AuraTrackBg}" Fill="Transparent" />
                             <!-- Score ring (using accent color) -->
                             <Ellipse Width="140" Height="140" StrokeThickness="6"
                                      Stroke="{Binding OverallColor, Converter={StaticResource HexToBrush}}"
@@ -229,7 +224,7 @@
                             <Grid Grid.Row="0" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal">
                                     <Border CornerRadius="10" Width="36" Height="36"
-                                            Background="#157C5CFC" Margin="0,0,12,0">
+                                            Background="{StaticResource AuraAccentPurpleBadge}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Cpu64Bit" Width="20" Height="20"
                                                                  Foreground="#7C5CFC"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -285,7 +280,7 @@
                             <Grid Grid.Row="0" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal">
                                     <Border CornerRadius="10" Width="36" Height="36"
-                                            Background="#1500E5C3" Margin="0,0,12,0">
+                                            Background="{StaticResource AuraAccentTealBadge}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Memory" Width="20" Height="20"
                                                                  Foreground="#00E5C3"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -341,7 +336,7 @@
                             <Grid Grid.Row="0" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal">
                                     <Border CornerRadius="10" Width="36" Height="36"
-                                            Background="#15FF6B8A" Margin="0,0,12,0">
+                                            Background="{StaticResource AuraCoralSemi}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Gpu" Width="20" Height="20"
                                                                  Foreground="#FF6B8A"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -397,7 +392,7 @@
                             <Grid Grid.Row="0" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal">
                                     <Border CornerRadius="10" Width="36" Height="36"
-                                            Background="#15FFB74D" Margin="0,0,12,0">
+                                            Background="{StaticResource AuraAmberBadge}" Margin="0,0,12,0">
                                         <materialDesign:PackIcon Kind="Harddisk" Width="20" Height="20"
                                                                  Foreground="#FFB74D"
                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -453,7 +448,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border CornerRadius="10" Width="36" Height="36"
-                                Background="#1564B5F6">
+                                Background="{StaticResource AuraBlueBadge}">
                             <materialDesign:PackIcon Kind="MicrosoftWindows" Width="20" Height="20"
                                                      Foreground="#64B5F6"
                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -524,7 +519,7 @@
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="#08FFFFFF" />
+                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlaySubtle}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -544,9 +539,8 @@
                 </Grid>
 
                 <!-- Info Grid -->
-                <materialDesign:Card Background="{StaticResource AuraSurface}"
-                                     UniformCornerRadius="16" Padding="0"
-                                     Margin="0,0,0,8">
+                <Border Style="{StaticResource AuraGlassCardFlush}"
+                        CornerRadius="16" Margin="0,0,0,8">
                     <ListView ItemsSource="{Binding FilteredEntries}"
                               Background="Transparent"
                               BorderThickness="0"
@@ -601,7 +595,7 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                </materialDesign:Card>
+                </Border>
 
             </StackPanel>
         </ScrollViewer>
