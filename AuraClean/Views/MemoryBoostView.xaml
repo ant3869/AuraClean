@@ -3,12 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
-             xmlns:helpers="clr-namespace:AuraClean.Helpers">
+             xmlns:helpers="clr-namespace:AuraClean.Helpers"
+             xmlns:controls="clr-namespace:AuraClean.Views.Controls">
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -16,10 +18,14 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,24"
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
-            <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{DynamicResource AuraTextBright}">
-                <Run Text="Memory " /><Run Text="Optimizer" FontWeight="SemiBold" />
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAmber}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{DynamicResource AuraTextBright}">
+                    <Run Text="Memory " /><Run Text="Optimizer" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
             <TextBlock Text="Free up memory held by background processes to speed up your system"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
@@ -48,12 +54,12 @@
                         <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                                      Width="180" Height="180"
                                      Value="{Binding UsagePercent}" Minimum="0" Maximum="100"
-                                     Foreground="{StaticResource AuraAccentPurple}"
+                                     Foreground="{StaticResource AuraAmber}"
                                      IsIndeterminate="False" />
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:F0}%}"
                                        FontSize="36" FontWeight="Bold"
-                                       Foreground="{StaticResource AuraAccentPurple}"
+                                       Foreground="{StaticResource AuraAmber}"
                                        HorizontalAlignment="Center" />
                             <TextBlock Text="in use"
                                        FontSize="13" Foreground="{DynamicResource AuraTextSecondary}"
@@ -165,5 +171,8 @@
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,16,0,0" />
+
+        <!-- Post-Action Result Card -->
+        <controls:ResultCard x:Name="MemoryResultCard" Grid.Row="3" />
     </Grid>
 </UserControl>

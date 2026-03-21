@@ -28,6 +28,8 @@
             <converters:HexToBrushConverter x:Key="HexToBrush" />
             <converters:ScoreToWidthConverter x:Key="ScoreToWidth" />
             <converters:HealthScoreColorConverter x:Key="HealthColorConverter" />
+            <converters:TrendArrowColorConverter x:Key="TrendArrowColorConverter" />
+            <converters:HealthGlowBrushConverter x:Key="HealthGlowBrushConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

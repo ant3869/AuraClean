@@ -10,7 +10,7 @@
     <!--   SECTIONS                                                  -->
     <!--   1. Navigation — sidebar button                            -->
     <!--   2. Buttons   — primary, secondary, outlined, ghost        -->
-    <!--   3. Cards     — glass, compact, flush                      -->
+    <!--   3. Cards     — container, stat, data, flush             -->
     <!--   4. Inputs    — search box                                 -->
     <!--   5. Text      — page header, section header                -->
     <!--   6. Badges    — icon badge, status badge                   -->
@@ -67,7 +67,7 @@
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="BgSurface"
                                                         Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                        To="#188B7AE8" Duration="0:0:0.2">
+                                                        To="#1C9B88FF" Duration="0:0:0.2">
                                             <ColorAnimation.EasingFunction>
                                                 <QuarticEase EasingMode="EaseOut" />
                                             </ColorAnimation.EasingFunction>
@@ -104,7 +104,7 @@
                                         </DoubleAnimation>
                                         <ColorAnimation Storyboard.TargetName="BgSurface"
                                                         Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                        To="#128B7AE8" Duration="0:0:0.25">
+                                                        To="#169B88FF" Duration="0:0:0.25">
                                             <ColorAnimation.EasingFunction>
                                                 <QuarticEase EasingMode="EaseOut" />
                                             </ColorAnimation.EasingFunction>
@@ -150,7 +150,7 @@
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border BorderBrush="{StaticResource AuraAccentTeal}"
+                    <Border BorderBrush="{StaticResource AuraAccentPurple}"
                             BorderThickness="2"
                             CornerRadius="{StaticResource AuraRadiusM}"
                             Margin="-3"
@@ -267,7 +267,7 @@
         </Setter>
     </Style>
 
-    <!-- Secondary: solid teal fill, white text -->
+    <!-- Secondary: solid violet-light fill, white text -->
     <Style x:Key="AuraSecondaryButton" TargetType="Button">
         <Setter Property="FocusVisualStyle" Value="{StaticResource AuraFocusVisual}" />
         <Setter Property="Foreground" Value="White" />
@@ -287,8 +287,10 @@
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd"
                             CornerRadius="{StaticResource AuraRadiusM}"
-                            Background="{StaticResource AuraAccentTeal}"
                             Padding="{TemplateBinding Padding}">
+                        <Border.Background>
+                            <SolidColorBrush Color="{StaticResource AuraVioletDarkColor}" />
+                        </Border.Background>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -369,11 +371,11 @@
         </Setter>
     </Style>
 
-    <!-- Outlined: transparent bg, teal border, teal text -->
+    <!-- Outlined: transparent bg, violet border, violet text -->
     <Style x:Key="AuraOutlinedButton" TargetType="Button">
         <Setter Property="FocusVisualStyle" Value="{StaticResource AuraFocusVisual}" />
-        <Setter Property="Foreground" Value="{StaticResource AuraAccentTeal}" />
-        <Setter Property="BorderBrush" Value="{StaticResource AuraAccentTeal}" />
+        <Setter Property="Foreground" Value="{StaticResource AuraAccentPurple}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
         <Setter Property="FontFamily" Value="{StaticResource AuraFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource AuraFontSizeMD}" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -580,10 +582,16 @@
 
     <!-- ═══════════════════════════════════════════ -->
     <!--  3. CARDS                                   -->
+    <!--  Differentiated by purpose:                 -->
+    <!--    AuraCard        — general container      -->
+    <!--    AuraStatCard    — metrics / KPIs          -->
+    <!--    AuraActionCard  — primary action zones    -->
+    <!--    AuraDataCard    — lists / tables (flush)  -->
+    <!--    AuraSectionCard — stacked sections        -->
     <!-- ═══════════════════════════════════════════ -->
 
-    <!-- Standard card: general-purpose container -->
-    <Style x:Key="AuraGlassCard" TargetType="Border">
+    <!-- Container card: general-purpose, hover-interactive -->
+    <Style x:Key="AuraCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource AuraSurface}" />
         <Setter Property="BorderBrush">
             <Setter.Value>
@@ -598,7 +606,7 @@
                 <BeginStoryboard>
                     <Storyboard>
                         <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
-                                        To="#3A8B7AE8" Duration="0:0:0.25">
+                                        To="#489B88FF" Duration="0:0:0.25">
                             <ColorAnimation.EasingFunction>
                                 <QuarticEase EasingMode="EaseOut" />
                             </ColorAnimation.EasingFunction>
@@ -621,8 +629,11 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Compact card: stat chips, summary badges, status bars -->
-    <Style x:Key="AuraGlassCardCompact" TargetType="Border">
+    <!-- Legacy alias — all Glass references keep working -->
+    <Style x:Key="AuraGlassCard" TargetType="Border" BasedOn="{StaticResource AuraCard}" />
+
+    <!-- Stat card: metrics, KPI chips — lighter bg, compact padding, no hover -->
+    <Style x:Key="AuraStatCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
         <Setter Property="BorderBrush">
             <Setter.Value>
@@ -630,14 +641,30 @@
             </Setter.Value>
         </Setter>
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusM}" />
-        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusL}" />
+        <Setter Property="Padding" Value="16,12" />
+    </Style>
+
+    <!-- Legacy alias -->
+    <Style x:Key="AuraGlassCardCompact" TargetType="Border" BasedOn="{StaticResource AuraStatCard}" />
+
+    <!-- Action card: primary interaction zones — accent top border hint -->
+    <Style x:Key="AuraActionCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource AuraSurface}" />
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource AuraBorderColor}" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="BorderThickness" Value="1,2,1,1" />
+        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusXL}" />
+        <Setter Property="Padding" Value="20" />
         <Style.Triggers>
             <EventTrigger RoutedEvent="MouseEnter">
                 <BeginStoryboard>
                     <Storyboard>
                         <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
-                                        To="#3A8B7AE8" Duration="0:0:0.25">
+                                        To="#5C9B88FF" Duration="0:0:0.25">
                             <ColorAnimation.EasingFunction>
                                 <QuarticEase EasingMode="EaseOut" />
                             </ColorAnimation.EasingFunction>
@@ -660,18 +687,60 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Flush card: list containers, data grids (no inner padding) -->
-    <Style x:Key="AuraGlassCardFlush" TargetType="Border">
+    <!-- Data card: lists, tables, data grids (flush, no padding) -->
+    <Style x:Key="AuraDataCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource AuraSurface}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AuraBorder}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusXL}" />
+        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusL}" />
         <Setter Property="Padding" Value="0" />
     </Style>
 
+    <!-- Legacy alias -->
+    <Style x:Key="AuraGlassCardFlush" TargetType="Border" BasedOn="{StaticResource AuraDataCard}" />
+
     <!-- Section card: standard card with bottom margin for vertical stacking -->
-    <Style x:Key="AuraSectionCard" TargetType="Border" BasedOn="{StaticResource AuraGlassCard}">
+    <Style x:Key="AuraSectionCard" TargetType="Border" BasedOn="{StaticResource AuraCard}">
         <Setter Property="Margin" Value="0,0,0,16" />
+    </Style>
+
+    <!-- Hero card: elevated container with ambient gradient glow for focal sections -->
+    <Style x:Key="AuraHeroCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource AuraSurface}" />
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource AuraBorderColor}" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="Padding" Value="36,32" />
+        <Style.Triggers>
+            <EventTrigger RoutedEvent="MouseEnter">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                        To="#409B88FF" Duration="0:0:0.3">
+                            <ColorAnimation.EasingFunction>
+                                <QuarticEase EasingMode="EaseOut" />
+                            </ColorAnimation.EasingFunction>
+                        </ColorAnimation>
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+            <EventTrigger RoutedEvent="MouseLeave">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                        To="{StaticResource AuraBorderColor}" Duration="0:0:0.25">
+                            <ColorAnimation.EasingFunction>
+                                <QuarticEase EasingMode="EaseOut" />
+                            </ColorAnimation.EasingFunction>
+                        </ColorAnimation>
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Style.Triggers>
     </Style>
 
 

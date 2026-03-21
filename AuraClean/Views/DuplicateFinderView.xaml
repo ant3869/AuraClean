@@ -17,10 +17,14 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,16"
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
-            <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{DynamicResource AuraTextBright}">
-                <Run Text="Duplicate " /><Run Text="Finder" FontWeight="SemiBold" />
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAmber}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{DynamicResource AuraTextBright}">
+                    <Run Text="Duplicate " /><Run Text="Finder" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
             <TextBlock Text="Find identical copies of files wasting disk space and choose which to keep"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
@@ -126,7 +130,8 @@
                 <materialDesign:PackIcon Kind="ContentDuplicate"
                                          Width="48" Height="48"
                                          HorizontalAlignment="Center"
-                                         Foreground="{DynamicResource AuraTextMuted}" />
+                                         Foreground="{StaticResource AuraAmber}"
+                                         Opacity="0.5" />
                 <TextBlock Text="No duplicates found"
                            FontSize="15" Margin="0,10,0,4"
                            HorizontalAlignment="Center"
@@ -141,7 +146,7 @@
                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
                 <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                              IsIndeterminate="True" Width="64" Height="64"
-                             Foreground="{StaticResource AuraAccentPurple}" />
+                             Foreground="{StaticResource AuraAmber}" />
                 <TextBlock Text="{Binding StatusMessage}" FontSize="14"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            HorizontalAlignment="Center" Margin="0,12,0,0"

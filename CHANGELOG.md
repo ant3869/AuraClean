@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] — 2026-03-21
+
+### Added
+
+- **Health Score Trend Indicator** — Dashboard shows ↑ / ↓ / — arrow next to the health score reflecting change since last check, persisted across sessions via `SettingsService`
+- **Collapsible Navigation Sections** — Sidebar groups (Cleanup, Analyze, Optimize, Utilities) with togglable headers and `ToggleSectionCommand`; collapsed state persisted per session
+- **Keyboard Shortcut Badges** — Keyboard hints (e.g. `Ctrl+1`) appear on navigation items on hover via `ShowKeyboardShortcuts` toggle
+- **ResultCard Notification Control** — New `ResultCard` UserControl (`Views/Controls/`) providing animated success/warning banners after clean, shred, and boost operations across Cleaner, BrowserCleaner, FileShredder, and MemoryBoost views
+- **Animated Drag-and-Drop Feedback** — FileShredderView now shows a drop overlay with animated border color transitions (coral highlight, confirmation pulse on drop)
+- **Dynamic AppVersion** — Version string auto-derived from assembly metadata; no hardcoded version in UI
+- **Design System Documentation** — `docs/DESIGN_SYSTEM.md` documenting token architecture, card taxonomy, and usage guidelines
+- **UX Research Docs** — `docs/ux/color-strategy-audit.md` and `docs/ux/delight-opportunities.md`
+
+### Changed
+
+- **Design System Extraction** — ~290 lines of inline design tokens and component styles extracted from `App.xaml` into dedicated `Resources/DesignTokens.xaml` (10 sections: color primitives, semantic brushes, gradients, overlays, badges, severity, fonts, typography, spacing, radius, layout) and `Resources/ComponentStyles.xaml` (nav buttons, primary/secondary/outlined/ghost buttons, cards, inputs, text, badges)
+- **Theme Palette Overhaul** — Renamed "Obsidian Aurora" / "Aurora Light" to "Storm Dark" / "Storm Light" with completely revised hex palette (backgrounds, surfaces, text, borders, accents) in `ThemeService.cs`
+- **Card Style Taxonomy** — Replaced monolithic card styles with purpose-driven hierarchy: `AuraCard` (container), `AuraStatCard` (metrics), `AuraActionCard` (interaction zones), `AuraDataCard` (lists/tables), `AuraHeroCard` (focal sections), `AuraSectionCard` (stacked); legacy `AuraGlassCard*` aliases preserved for backward compatibility
+- **Accent Color Shift** — `AuraSecondaryButton` and `AuraOutlinedButton` changed from teal accent to violet accent (`AuraAccentPurple` / `AuraVioletDarkColor`)
+- **GPU-Accelerated Animations** — New `AnimationHelper.cs` with attached behaviors (`FadeSlideOnVisible`, `EntranceAnimation`) using `RenderTransform` for composited animations; respects `SystemParameters.ClientAreaAnimation` reduced-motion preference
+- **View Code-Behind Enhancements** — BrowserCleaner, Cleaner, FileShredder, and MemoryBoost views now subscribe to ViewModel property changes and trigger `ResultCard` notifications on operation completion with proper `Unloaded` cleanup
+- **ViewModel Status Messages** — Refined status/progress messages across ~10 ViewModels for consistency and clarity
+- **Font Family** — Migrated to `AuraFontFamily` resource reference throughout views
+- **Navigation Layout** — Sidebar items reorganized into collapsible groups with section headers; branding area enlarged with gradient references
+
+### Fixed
+
+- **Health Check Resilience** — Each health-check step now wrapped in individual `try/catch` with `DiagnosticLogger.Error` to prevent a single failing metric from aborting the entire health check
+- **Thread-Safe Collections** — Added `lock` guards around `ObservableCollection` access in `BrowserCleanerViewModel` and `CleanerViewModel` to prevent cross-thread mutation crashes
+- **Diagnostic Logging** — Additional `DiagnosticLogger.Error` calls in `DiskOptimizerService`, `SystemInfoService`, and `ThreatScannerService` replacing silent exception swallowing
+
+---
+
 ## [1.4.0] — 2026-03-19
 
 ### Added

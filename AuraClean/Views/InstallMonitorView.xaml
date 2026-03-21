@@ -14,10 +14,14 @@
 
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,24">
-            <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{DynamicResource AuraTextBright}">
-                <Run Text="Install " /><Run Text="Monitor" FontWeight="SemiBold" />
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentPurple}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{DynamicResource AuraTextBright}">
+                    <Run Text="Install " /><Run Text="Monitor" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
             <TextBlock Text="Record what a program adds to your system so you can fully remove it later"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
@@ -121,6 +125,7 @@
 
                     <!-- Hero stat: Registry Keys -->
                     <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Registry Keys" FontSize="12" Foreground="{DynamicResource AuraTextSecondary}" />
@@ -133,6 +138,7 @@
 
                     <!-- Compact: New Files -->
                     <Border Grid.Column="2" Style="{StaticResource AuraGlassCardCompact}"
+                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="New Files" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
@@ -144,6 +150,7 @@
 
                     <!-- Compact: Total Size -->
                     <Border Grid.Column="4" Style="{StaticResource AuraGlassCardCompact}"
+                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Total Size" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
@@ -155,6 +162,7 @@
 
                     <!-- Compact: Directories -->
                     <Border Grid.Column="6" Style="{StaticResource AuraGlassCardCompact}"
+                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Directories" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />

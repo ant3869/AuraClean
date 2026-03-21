@@ -20,6 +20,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _currentViewName = "Dashboard";
     [ObservableProperty] private int _systemHealthScore = 85;
     [ObservableProperty] private string _healthLabel = "Good";
+    [ObservableProperty] private string _scoreTrendArrow = string.Empty;
+    [ObservableProperty] private string _scoreTrendTooltip = string.Empty;
+    [ObservableProperty] private bool _hasScoreTrend;
+    private int? _previousHealthScore;
     [ObservableProperty] private bool _isAdmin;
     [ObservableProperty] private string _statusBarText = "AuraClean — Ready";
     [ObservableProperty] private DateTime _lastCleanedDate;
@@ -75,7 +79,8 @@ public partial class MainViewModel : ObservableObject
     // Navigation section collapse state
     [ObservableProperty] private bool _isCleanupExpanded = true;
     [ObservableProperty] private bool _isAnalyzeExpanded = true;
-    [ObservableProperty] private bool _isToolsExpanded = false;
+    [ObservableProperty] private bool _isOptimizeExpanded = true;
+    [ObservableProperty] private bool _isUtilitiesExpanded = false;
 
     public MainViewModel()
     {
@@ -94,6 +99,14 @@ public partial class MainViewModel : ObservableObject
             DateTime.TryParse(File.ReadAllText(settingsFile), out var lastCleaned))
         {
             LastCleanedDate = lastCleaned;
+        }
+
+        // Load previous health score for trend indicator
+        var prevScoreFile = Path.Combine(settingsDir, "prev_health_score.txt");
+        if (File.Exists(prevScoreFile) &&
+            int.TryParse(File.ReadAllText(prevScoreFile).Trim(), out var prevScore))
+        {
+            _previousHealthScore = Math.Clamp(prevScore, 0, 100);
         }
 
         UpdateHealthScore();
@@ -170,6 +183,37 @@ public partial class MainViewModel : ObservableObject
             >= 40 => "Fair",
             _ => "Poor"
         };
+
+        // Trend indicator vs previous score
+        if (_previousHealthScore.HasValue)
+        {
+            int delta = value - _previousHealthScore.Value;
+            if (delta > 0)
+            {
+                ScoreTrendArrow = "↑";
+                ScoreTrendTooltip = $"Up {delta} point{(delta != 1 ? "s" : "")} since last scan";
+                HasScoreTrend = true;
+            }
+            else if (delta < 0)
+            {
+                ScoreTrendArrow = "↓";
+                ScoreTrendTooltip = $"Down {Math.Abs(delta)} point{(Math.Abs(delta) != 1 ? "s" : "")} since last scan";
+                HasScoreTrend = true;
+            }
+            else
+            {
+                ScoreTrendArrow = "—";
+                ScoreTrendTooltip = "Unchanged since last scan";
+                HasScoreTrend = true;
+            }
+        }
+        else
+        {
+            HasScoreTrend = false;
+        }
+
+        // Persist current score as "previous" for next launch
+        SaveHealthScore(value);
     }
 
     [RelayCommand]
@@ -185,7 +229,20 @@ public partial class MainViewModel : ObservableObject
     private void ToggleAnalyze() => IsAnalyzeExpanded = !IsAnalyzeExpanded;
 
     [RelayCommand]
-    private void ToggleTools() => IsToolsExpanded = !IsToolsExpanded;
+    private void ToggleOptimize() => IsOptimizeExpanded = !IsOptimizeExpanded;
+
+    [RelayCommand]
+    private void ToggleUtilities() => IsUtilitiesExpanded = !IsUtilitiesExpanded;
+
+    // Legacy alias — kept in case any binding still references it
+    public bool IsToolsExpanded
+    {
+        get => IsUtilitiesExpanded;
+        set => IsUtilitiesExpanded = value;
+    }
+
+    [RelayCommand]
+    private void ToggleTools() => ToggleUtilities();
 
     [RelayCommand]
     private async Task QuickAnalyzeAsync()
@@ -432,6 +489,20 @@ public partial class MainViewModel : ObservableObject
         }
 
         SystemHealthScore = Math.Clamp(score, 0, 100);
+    }
+
+    private void SaveHealthScore(int score)
+    {
+        try
+        {
+            var settingsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AuraClean");
+            Directory.CreateDirectory(settingsDir);
+            File.WriteAllText(Path.Combine(settingsDir, "prev_health_score.txt"),
+                score.ToString());
+        }
+        catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "Failed to persist health score", ex); }
     }
 
     private void SaveLastCleanedDate()

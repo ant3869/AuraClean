@@ -39,10 +39,12 @@
         <!-- Title Bar -->
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="App " /><Run Text="Settings" FontWeight="SemiBold" />
-                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontSize="26" FontWeight="Light"
+                               Foreground="{DynamicResource AuraTextBright}">
+                        <Run Text="App " /><Run Text="Settings" FontWeight="SemiBold" />
+                    </TextBlock>
+                </StackPanel>
                 <TextBlock Text="Configure AuraClean preferences and defaults"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13" Margin="0,4,0,0" />

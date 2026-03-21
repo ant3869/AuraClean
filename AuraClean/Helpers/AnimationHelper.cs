@@ -234,6 +234,56 @@ public static class AnimationHelper
         rangeBase.BeginAnimation(System.Windows.Controls.Primitives.RangeBase.ValueProperty, anim);
     }
 
+    /// <summary>
+    /// Animates a TextBlock displaying a number from 0 up to <paramref name="targetValue"/>.
+    /// Uses a DoubleAnimation with QuarticEase deceleration (~600ms).
+    /// Applies <paramref name="formatter"/> to display each intermediate value.
+    /// </summary>
+    public static void AnimateCountUp(TextBlock textBlock, double targetValue, Func<double, string>? formatter = null)
+    {
+        if (!IsAnimationEnabled)
+        {
+            textBlock.Text = formatter != null ? formatter(targetValue) : targetValue.ToString("N0");
+            return;
+        }
+
+        formatter ??= v => v.ToString("N0");
+        var duration = new Duration(TimeSpan.FromMilliseconds(600));
+        var proxy = new CountUpProxy(textBlock, formatter);
+        var anim = new DoubleAnimation(0, targetValue, duration)
+        {
+            EasingFunction = EaseOut,
+        };
+        proxy.BeginAnimation(CountUpProxy.ValueProperty, anim);
+    }
+
+    /// <summary>
+    /// Lightweight DependencyObject that drives a TextBlock's Text via DoubleAnimation.
+    /// </summary>
+    private sealed class CountUpProxy : Animatable
+    {
+        private readonly TextBlock _target;
+        private readonly Func<double, string> _formatter;
+
+        public static readonly DependencyProperty ValueProperty =
+            DependencyProperty.Register("Value", typeof(double), typeof(CountUpProxy),
+                new PropertyMetadata(0.0, OnValueChanged));
+
+        public CountUpProxy(TextBlock target, Func<double, string> formatter)
+        {
+            _target = target;
+            _formatter = formatter;
+        }
+
+        protected override Freezable CreateInstanceCore() => new CountUpProxy(_target, _formatter);
+
+        private static void OnValueChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var proxy = (CountUpProxy)d;
+            proxy._target.Text = proxy._formatter((double)e.NewValue);
+        }
+    }
+
     // ═══════════════════════════════════════
     //  PRIVATE HELPERS
     // ═══════════════════════════════════════

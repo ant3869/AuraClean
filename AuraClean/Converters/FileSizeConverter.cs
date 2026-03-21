@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
+using System.Windows.Media;
 
 namespace AuraClean.Converters;
 
@@ -199,6 +200,58 @@ public class ScoreToAngleConverter : IValueConverter
         if (value is not IConvertible || !double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double score))
             score = 0;
         return score / 100.0 * 360.0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+public class TrendArrowColorConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var arrow = value as string ?? string.Empty;
+        return arrow switch
+        {
+            "↑" => new SolidColorBrush(Color.FromRgb(0x4F, 0xD4, 0xA0)), // AuraSuccess / Mint
+            "↓" => new SolidColorBrush(Color.FromRgb(0xE8, 0x60, 0x70)), // AuraWarning / Coral
+            _ => new SolidColorBrush(Color.FromRgb(0x6B, 0x65, 0x80)),   // Muted
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+public class HealthGlowBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var glowColor = value is int score
+            ? score switch
+            {
+                < 40 => Color.FromArgb(0x14, 0xFF, 0x6B, 0x8A),  // Coral glow
+                < 70 => Color.FromArgb(0x14, 0xFF, 0xB7, 0x4D),  // Amber glow
+                _ => Color.FromArgb(0x14, 0x5C, 0xA8, 0x8A)      // Teal glow
+            }
+            : Color.FromArgb(0x14, 0x9B, 0x88, 0xFF);            // Default violet
+
+        var fadeColor = Color.FromArgb((byte)(glowColor.A / 3), glowColor.R, glowColor.G, glowColor.B);
+
+        var brush = new RadialGradientBrush
+        {
+            Center = new System.Windows.Point(0.3, 0.5),
+            RadiusX = 0.5,
+            RadiusY = 1.2,
+            GradientStops =
+            {
+                new GradientStop(glowColor, 0),
+                new GradientStop(fadeColor, 0.6),
+                new GradientStop(Colors.Transparent, 1)
+            }
+        };
+        brush.Freeze();
+        return brush;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

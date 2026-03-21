@@ -4,6 +4,7 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Data;
 
 namespace AuraClean.ViewModels;
@@ -56,6 +57,38 @@ public partial class CleanerViewModel : ObservableObject
     partial void OnCategoriesChanged(ObservableCollection<JunkCategory> value)
     {
         BindingOperations.EnableCollectionSynchronization(value, _categoriesLock);
+        HookItemSelectionEvents();
+    }
+
+    public string SmartCleanLabel
+    {
+        get
+        {
+            if (!HasResults) return "CLEAN SELECTED";
+            var selected = Categories.SelectMany(c => c.Items).Where(i => i.IsSelected).ToList();
+            if (selected.Count == 0) return "Select items to clean";
+            var totalSize = selected.Sum(i => i.SizeBytes);
+            return $"CLEAN {selected.Count} FILES \u00b7 {FormatHelper.FormatBytes(totalSize)}";
+        }
+    }
+
+    private void HookItemSelectionEvents()
+    {
+        foreach (var cat in Categories)
+        {
+            foreach (var item in cat.Items)
+            {
+                item.PropertyChanged -= OnJunkItemPropertyChanged;
+                item.PropertyChanged += OnJunkItemPropertyChanged;
+            }
+        }
+        OnPropertyChanged(nameof(SmartCleanLabel));
+    }
+
+    private void OnJunkItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(JunkItem.IsSelected))
+            OnPropertyChanged(nameof(SmartCleanLabel));
     }
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isAnalyzing;

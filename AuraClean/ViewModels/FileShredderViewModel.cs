@@ -32,6 +32,16 @@ public partial class FileShredderViewModel : ObservableObject
     [ObservableProperty] private bool _isAllSelected;
     public bool HasCheckedItems => SelectedCount > 0;
 
+    public string SmartShredLabel
+    {
+        get
+        {
+            if (Files.Count == 0) return "ADD FILES TO SHRED";
+            var count = SelectedCount > 0 ? SelectedCount : Files.Count;
+            return $"SHRED {count} FILE{(count != 1 ? "S" : "")}";
+        }
+    }
+
     public string FormattedBytesOverwritten => FormatHelper.FormatBytes(LastBytesOverwritten);
 
     public ObservableCollection<AlgorithmOption> Algorithms { get; } =
@@ -74,6 +84,7 @@ public partial class FileShredderViewModel : ObservableObject
     {
         SelectedCount = Files.Count(f => f.IsSelected);
         OnPropertyChanged(nameof(HasCheckedItems));
+        OnPropertyChanged(nameof(SmartShredLabel));
     }
 
     partial void OnSelectedAlgorithmChanged(FileShredderService.ShredAlgorithm value) =>
@@ -198,6 +209,7 @@ public partial class FileShredderViewModel : ObservableObject
         Files.Clear();
         HasResults = false;
         StatusMessage = "Add files to securely shred them.";
+        UpdateSelectionCount();
     }
 
     [RelayCommand]

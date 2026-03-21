@@ -16,10 +16,14 @@
         <!-- Title -->
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Cleanup " /><Run Text="History" FontWeight="SemiBold" />
-                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentTeal}"
+                             VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock FontSize="26" FontWeight="Light"
+                               Foreground="{DynamicResource AuraTextBright}">
+                        <Run Text="Cleanup " /><Run Text="History" FontWeight="SemiBold" />
+                    </TextBlock>
+                </StackPanel>
                 <TextBlock Text="Review past cleanup operations and track space recovered"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13" Margin="0,4,0,0" />
@@ -71,7 +75,8 @@
             </Grid.ColumnDefinitions>
 
             <!-- Total Operations -->
-            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="16">
+            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="16"
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="Counter" Width="18" Height="18"
@@ -81,12 +86,13 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding TotalOperations}" FontSize="24" FontWeight="Bold"
-                               Foreground="{DynamicResource AuraTextBright}" />
+                               Foreground="{StaticResource AuraAccentTeal}" />
                 </StackPanel>
             </Border>
 
             <!-- Space Freed -->
-            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="16">
+            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="16"
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="HarddiskRemove" Width="18" Height="18"
@@ -96,12 +102,13 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding TotalBytesFreedDisplay}" FontSize="24" FontWeight="Bold"
-                               Foreground="{DynamicResource AuraTextBright}" />
+                               Foreground="{StaticResource AuraAccentTeal}" />
                 </StackPanel>
             </Border>
 
             <!-- Items Cleaned -->
-            <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="16">
+            <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="16"
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="FileRemove" Width="18" Height="18"
@@ -111,12 +118,13 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding TotalItemsCleaned}" FontSize="24" FontWeight="Bold"
-                               Foreground="{DynamicResource AuraTextBright}" />
+                               Foreground="{StaticResource AuraSuccess}" />
                 </StackPanel>
             </Border>
 
             <!-- Last Operation -->
-            <Border Grid.Column="6" Style="{StaticResource AuraGlassCard}" Padding="16">
+            <Border Grid.Column="6" Style="{StaticResource AuraGlassCard}" Padding="16"
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="ClockOutline" Width="18" Height="18"
@@ -126,7 +134,7 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding LastOperationDate}" FontSize="16" FontWeight="SemiBold"
-                               Foreground="{DynamicResource AuraTextBright}" TextTrimming="CharacterEllipsis" />
+                               Foreground="{StaticResource AuraAmber}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -275,7 +283,8 @@
             <materialDesign:PackIcon Kind="ClipboardTextClockOutline"
                                      Width="48" Height="48"
                                      HorizontalAlignment="Center"
-                                     Foreground="{DynamicResource AuraTextMuted}" />
+                                     Foreground="{StaticResource AuraAccentTeal}"
+                                     Opacity="0.5" />
             <TextBlock Text="No cleanup history yet"
                        FontSize="15" Margin="0,10,0,4"
                        HorizontalAlignment="Center"

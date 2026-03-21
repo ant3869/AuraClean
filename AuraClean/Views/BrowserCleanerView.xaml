@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
-             xmlns:helpers="clr-namespace:AuraClean.Helpers">
+             xmlns:helpers="clr-namespace:AuraClean.Helpers"
+             xmlns:controls="clr-namespace:AuraClean.Views.Controls">
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
@@ -11,16 +12,21 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,24"
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
-            <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{DynamicResource AuraTextBright}">
-                <Run Text="Privacy " /><Run Text="Clean" FontWeight="SemiBold" />
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentTeal}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{DynamicResource AuraTextBright}">
+                    <Run Text="Privacy " /><Run Text="Clean" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
             <TextBlock Text="Clear browser caches, cookies, and tracking data to protect your privacy"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
@@ -91,7 +97,8 @@
             <materialDesign:PackIcon Kind="Web"
                                      Width="48" Height="48"
                                      HorizontalAlignment="Center"
-                                     Foreground="{DynamicResource AuraTextMuted}" />
+                                     Foreground="{StaticResource AuraAccentTeal}"
+                                     Opacity="0.5" />
             <TextBlock Text="No browser data scanned"
                        FontSize="15" Margin="0,10,0,4"
                        HorizontalAlignment="Center"
@@ -119,7 +126,8 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Hero stat: Total Data Found -->
-                    <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}">
+                    <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                         <StackPanel>
                             <TextBlock Text="Total Data Found" FontSize="12"
                                        Foreground="{DynamicResource AuraTextSecondary}" />
@@ -133,6 +141,7 @@
 
                     <!-- Compact: Reclaimable Space -->
                     <Border Grid.Column="2" Style="{StaticResource AuraGlassCardCompact}"
+                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}"
                             Padding="14,12">
                         <StackPanel>
                             <TextBlock Text="Reclaimable" FontSize="11"
@@ -145,6 +154,7 @@
 
                     <!-- Compact: Clean Targets -->
                     <Border Grid.Column="4" Style="{StaticResource AuraGlassCardCompact}"
+                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}"
                             Padding="14,12">
                         <StackPanel>
                             <TextBlock Text="Targets" FontSize="11"
@@ -205,5 +215,8 @@
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,12,0,0" TextWrapping="Wrap" />
+
+        <!-- Post-Action Result Card -->
+        <controls:ResultCard x:Name="BrowserResultCard" Grid.Row="4" />
     </Grid>
 </UserControl>

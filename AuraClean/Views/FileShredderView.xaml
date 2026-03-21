@@ -4,6 +4,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
              xmlns:helpers="clr-namespace:AuraClean.Helpers"
+             xmlns:controls="clr-namespace:AuraClean.Views.Controls"
              AllowDrop="True"
              Drop="OnFileDrop"
              DragOver="OnDragOver">
@@ -13,14 +14,19 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,24">
-            <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{DynamicResource AuraTextBright}">
-                <Run Text="File " /><Run Text="Shredder" FontWeight="SemiBold" />
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraWarning}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{DynamicResource AuraTextBright}">
+                    <Run Text="File " /><Run Text="Shredder" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
             <TextBlock Text="Securely delete files by overwriting data — making recovery impossible"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
@@ -36,8 +42,15 @@
             </Grid.ColumnDefinitions>
 
             <!-- File List -->
-            <Border Grid.Column="0" Style="{StaticResource AuraGlassCardFlush}"
-                    CornerRadius="16">
+            <Border x:Name="DropZoneBorder" Grid.Column="0" Style="{StaticResource AuraGlassCardFlush}"
+                    CornerRadius="16"
+                    BorderThickness="1.5"
+                    BorderBrush="Transparent"
+                    Focusable="True"
+                    KeyDown="OnDropZoneKeyDown"
+                    AutomationProperties.Name="File drop zone. Drag and drop files or press Enter to add files."
+                    AutomationProperties.HelpText="You can also use the Add Files or Add Folder buttons above."
+                    ToolTip="Drop files here or press Enter to browse">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -152,7 +165,8 @@
                             </Style>
                         </StackPanel.Style>
                         <materialDesign:PackIcon Kind="ShieldLockOutline" Width="48" Height="48"
-                                                 Foreground="{DynamicResource AuraTextMuted}"
+                                                 Foreground="{StaticResource AuraWarning}"
+                                                 Opacity="0.5"
                                                  HorizontalAlignment="Center" />
                         <TextBlock Text="No files added yet"
                                    Foreground="{DynamicResource AuraTextMuted}"
@@ -163,6 +177,23 @@
                                    FontSize="12" HorizontalAlignment="Center"
                                    Margin="0,4,0,0" />
                     </StackPanel>
+
+                    <!-- Drop Overlay (shown during drag-over) -->
+                    <Border x:Name="DropOverlay" Grid.Row="0" Grid.RowSpan="3"
+                            Background="#220078D4" CornerRadius="14"
+                            Visibility="Collapsed" IsHitTestVisible="False">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <materialDesign:PackIcon Kind="FileDownloadOutline" Width="40" Height="40"
+                                                     Foreground="{StaticResource AuraWarning}"
+                                                     Opacity="0.8"
+                                                     HorizontalAlignment="Center" />
+                            <TextBlock x:Name="DropHintText" Text="Drop files to add"
+                                       Foreground="{StaticResource AuraWarning}"
+                                       FontSize="16" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
 
                     <!-- Progress -->
                     <Border Grid.Row="2" Padding="16,12"
@@ -260,7 +291,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ShieldLock" Width="20" Height="20"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="SHRED FILES" FontSize="14" FontWeight="Bold"
+                        <TextBlock Text="{Binding SmartShredLabel}" FontSize="14" FontWeight="Bold"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
@@ -298,5 +329,8 @@
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,16,0,0" />
+
+        <!-- Post-Action Result Card -->
+        <controls:ResultCard x:Name="ShredderResultCard" Grid.Row="3" />
     </Grid>
 </UserControl>

@@ -51,10 +51,14 @@
               helpers:AnimationHelper.AnimateOnVisible="True"
               helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel>
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="System " /><Run Text="Information" FontWeight="SemiBold" />
-                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentPurple}"
+                             VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock FontSize="26" FontWeight="Light"
+                               Foreground="{DynamicResource AuraTextBright}">
+                        <Run Text="System " /><Run Text="Information" FontWeight="SemiBold" />
+                    </TextBlock>
+                </StackPanel>
                 <TextBlock Text="Your hardware at a glance — specs, performance scores, and system details"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13" Margin="0,4,0,0" />
@@ -91,7 +95,7 @@
                     VerticalAlignment="Center" HorizontalAlignment="Center">
             <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                          IsIndeterminate="True" Width="48" Height="48"
-                         Foreground="{StaticResource AuraAccentPurple}" />
+                         Foreground="{StaticResource AuraAccentTeal}" />
             <TextBlock Text="{Binding StatusMessage}"
                        AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource AuraTextSecondary}" FontSize="13"

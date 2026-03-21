@@ -17,10 +17,14 @@
 
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{DynamicResource AuraTextBright}">
-                <Run Text="App Bundle " /><Run Text="Installer" FontWeight="SemiBold" />
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentPurple}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{DynamicResource AuraTextBright}">
+                    <Run Text="App Bundle " /><Run Text="Installer" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
             <TextBlock Text="Select and install popular free &amp; open-source applications in one click"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13" Margin="0,4,0,0" />
@@ -134,7 +138,7 @@
         <!-- Progress bar overlay during install -->
         <ProgressBar Grid.Row="2" Value="{Binding OverallProgress}" Maximum="100"
                      Height="3" VerticalAlignment="Bottom" Margin="14,0,14,0"
-                     Foreground="{StaticResource AuraAccentTeal}"
+                     Foreground="{StaticResource AuraAccentPurple}"
                      Background="Transparent"
                      Visibility="{Binding IsInstalling, Converter={StaticResource BoolToVis}}" />
 
@@ -263,7 +267,7 @@
                                                  Height="3" Margin="0,0,0,4">
                                         <ProgressBar.Style>
                                             <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
-                                                <Setter Property="Foreground" Value="{StaticResource AuraAccentTeal}" />
+                                                <Setter Property="Foreground" Value="{StaticResource AuraAccentPurple}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding Status}" Value="{x:Static models:InstallStatus.Completed}">
                                                         <Setter Property="Foreground" Value="{StaticResource AuraSuccess}" />
@@ -318,8 +322,8 @@
         <StackPanel Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{Binding Apps.Count, Converter={StaticResource IntToVisibilityConverter}, ConverterParameter=inverse}">
             <materialDesign:PackIcon Kind="ApplicationBraces" Width="64" Height="64"
-                                     Foreground="{DynamicResource AuraTextMuted}"
-                                     HorizontalAlignment="Center" Opacity="0.3" />
+                                     Foreground="{StaticResource AuraAccentPurple}"
+                                     HorizontalAlignment="Center" Opacity="0.5" />
             <TextBlock Text="No applications match your search" FontSize="14"
                        Foreground="{DynamicResource AuraTextMuted}"
                        HorizontalAlignment="Center" Margin="0,12,0,0" />

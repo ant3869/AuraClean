@@ -4,7 +4,8 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:vm="clr-namespace:AuraClean.ViewModels"
              xmlns:converters="clr-namespace:AuraClean.Converters"
-             xmlns:helpers="clr-namespace:AuraClean.Helpers">
+             xmlns:helpers="clr-namespace:AuraClean.Helpers"
+             xmlns:controls="clr-namespace:AuraClean.Views.Controls">
 
     <UserControl.Resources>
         <!-- Threat level colors — ThreatHigh reuses AuraWarning, ThreatMedium reuses AuraAmber, ThreatLow reuses AuraSuccess -->
@@ -18,6 +19,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- ═══ HEADER ═══ -->
@@ -30,10 +32,14 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Threat " /><Run Text="Scanner" FontWeight="SemiBold" />
-                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource AuraWarning}"
+                             VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock FontSize="26" FontWeight="Light"
+                               Foreground="{DynamicResource AuraTextBright}">
+                        <Run Text="Threat " /><Run Text="Scanner" FontWeight="SemiBold" />
+                    </TextBlock>
+                </StackPanel>
                 <TextBlock Text="Scan for malware, adware, and unwanted programs — quarantine anything suspicious"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="13"
@@ -90,7 +96,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding SelectedScanMode}" Value="Quick">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAccentTeal}" />
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
@@ -158,7 +164,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding SelectedScanMode}" Value="Custom">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraWarning}" />
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
@@ -192,7 +198,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding SelectedScanMode}" Value="BrowserOnly">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAmber}" />
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
@@ -290,7 +296,7 @@
                      Value="{Binding ProgressValue}"
                      Minimum="0" Maximum="100"
                      Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"
-                     Foreground="{StaticResource AuraAccentPurple}"
+                     Foreground="{StaticResource AuraWarning}"
                      Height="3" VerticalAlignment="Bottom"
                      Margin="0,0,0,-8"
                      helpers:AnimationHelper.SmoothProgress="True" />
@@ -335,7 +341,7 @@
                 <ProgressBar IsIndeterminate="True"
                              Style="{StaticResource MaterialDesignCircularProgressBar}"
                              Width="60" Height="60"
-                             Foreground="{StaticResource AuraAccentPurple}"
+                             Foreground="{StaticResource AuraWarning}"
                              HorizontalAlignment="Center"
                              Margin="0,0,0,16" />
                 <TextBlock Text="{Binding StatusMessage}"
@@ -460,8 +466,8 @@
                                                          Foreground="{StaticResource AuraWarning}"
                                                          VerticalAlignment="Center" />
                                 <TextBlock VerticalAlignment="Center" Margin="10,0,0,0"
-                                           Foreground="{DynamicResource AuraTextBright}" FontSize="15">
-                                    <Run Text="{Binding TotalThreats, Mode=OneWay}" FontWeight="SemiBold" />
+                                           Foreground="{DynamicResource AuraTextSecondary}" FontSize="15">
+                                    <Run Text="{Binding TotalThreats, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource AuraWarning}" />
                                     <Run Text=" threat(s) found" FontWeight="Light" />
                                 </TextBlock>
                             </StackPanel>
@@ -837,5 +843,8 @@
                 </Button>
             </Grid>
         </Border>
+
+        <!-- Post-Action Result Card -->
+        <controls:ResultCard x:Name="ScanResultCard" Grid.Row="5" />
     </Grid>
 </UserControl>

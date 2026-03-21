@@ -36,33 +36,34 @@
     <!--  Always consume via Semantic Brushes below.      -->
     <!-- ─────────────────────────────────────────────── -->
 
-    <!-- Backgrounds & surfaces — Plum Noir -->
-    <Color x:Key="AuraBgColor">#0B0A10</Color>
-    <Color x:Key="AuraSurfaceColor">#12111A</Color>
-    <Color x:Key="AuraSurfaceLightColor">#1A1824</Color>
-    <Color x:Key="AuraSurfaceElevatedColor">#22202E</Color>
+    <!-- Backgrounds & surfaces — Obsidian Forge -->
+    <Color x:Key="AuraBgColor">#090810</Color>
+    <Color x:Key="AuraSurfaceColor">#111018</Color>
+    <Color x:Key="AuraSurfaceLightColor">#1B1926</Color>
+    <Color x:Key="AuraSurfaceElevatedColor">#272438</Color>
 
-    <!-- Accent palette — Signature Violet / Sage -->
-    <Color x:Key="AuraVioletColor">#8B7AE8</Color>
-    <Color x:Key="AuraVioletDarkColor">#7362CC</Color>
-    <Color x:Key="AuraCyanColor">#5CA88A</Color>
-    <Color x:Key="AuraCoralColor">#D4606E</Color>
-    <Color x:Key="AuraMintColor">#5AB88C</Color>
-    <Color x:Key="AuraAmberColor">#D4A24E</Color>
+    <!-- Accent palette — Signature Violet (single accent) -->
+    <Color x:Key="AuraVioletColor">#9B88FF</Color>
+    <Color x:Key="AuraVioletDarkColor">#8270E6</Color>
+    <Color x:Key="AuraVioletLightColor">#B8AEFF</Color>
 
-    <!-- Functional palette -->
-    <Color x:Key="AuraCriticalColor">#D4443C</Color>
-    <Color x:Key="AuraBlueColor">#8B7AE8</Color>
+    <!-- Semantic status palette — reserved for meaning, not decoration -->
+    <Color x:Key="AuraCyanColor">#4EC9A0</Color>
+    <Color x:Key="AuraCoralColor">#E86070</Color>
+    <Color x:Key="AuraMintColor">#4FD4A0</Color>
+    <Color x:Key="AuraAmberColor">#E8B04A</Color>
+    <Color x:Key="AuraCriticalColor">#E84040</Color>
+    <Color x:Key="AuraBlueColor">#5E94FF</Color>
 
     <!-- Text hierarchy — violet-neutral -->
-    <Color x:Key="AuraTextBrightColor">#EDE9F4</Color>
-    <Color x:Key="AuraTextColor">#B2AEC0</Color>
-    <Color x:Key="AuraTextDimColor">#6E6980</Color>
-    <Color x:Key="AuraTextMutedColor">#3A3548</Color>
+    <Color x:Key="AuraTextBrightColor">#F2EEFF</Color>
+    <Color x:Key="AuraTextColor">#BAB6CC</Color>
+    <Color x:Key="AuraTextDimColor">#746F88</Color>
+    <Color x:Key="AuraTextMutedColor">#3E3950</Color>
 
     <!-- Borders — violet-tinted -->
-    <Color x:Key="AuraBorderColor">#231F38</Color>
-    <Color x:Key="AuraBorderSubtleColor">#1A182A</Color>
+    <Color x:Key="AuraBorderColor">#2A2540</Color>
+    <Color x:Key="AuraBorderSubtleColor">#1E1B30</Color>
 
 
     <!-- ─────────────────────────────────────────────── -->
@@ -76,8 +77,10 @@
     <SolidColorBrush x:Key="AuraSurfaceLight" Color="{StaticResource AuraSurfaceLightColor}" />
     <SolidColorBrush x:Key="AuraSurfaceElevated" Color="{StaticResource AuraSurfaceElevatedColor}" />
 
-    <!-- Accents -->
+    <!-- Accent (single) -->
     <SolidColorBrush x:Key="AuraAccentPurple" Color="{StaticResource AuraVioletColor}" />
+    <SolidColorBrush x:Key="AuraAccentLight" Color="{StaticResource AuraVioletLightColor}" />
+    <!-- Legacy alias — kept for backward compat, points to success -->
     <SolidColorBrush x:Key="AuraAccentTeal" Color="{StaticResource AuraCyanColor}" />
 
     <!-- Semantic status -->
@@ -134,10 +137,13 @@
     <!--  backdrop, and interactive states.              -->
     <!-- ─────────────────────────────────────────────── -->
 
-    <SolidColorBrush x:Key="AuraAccentPurpleSemi" Color="#1A8B7AE8" />
-    <SolidColorBrush x:Key="AuraAccentTealSemi" Color="#1A5CA88A" />
-    <SolidColorBrush x:Key="AuraAmberSemi" Color="#1AD4A24E" />
-    <SolidColorBrush x:Key="AuraCoralSemi" Color="#1AD4606E" />
+    <SolidColorBrush x:Key="AuraAccentPurpleSemi" Color="#1A9B88FF" />
+    <!-- Neutral icon badge tint — replaces per-color decorative badges -->
+    <SolidColorBrush x:Key="AuraIconBadgeBg" Color="#18FFFFFF" />
+    <!-- Legacy aliases for views that still reference old names -->
+    <SolidColorBrush x:Key="AuraAccentTealSemi" Color="#1A9B88FF" />
+    <SolidColorBrush x:Key="AuraAmberSemi" Color="#1A9B88FF" />
+    <SolidColorBrush x:Key="AuraCoralSemi" Color="#1AE86070" />
     <SolidColorBrush x:Key="AuraOverlayLight" Color="#0DFFFFFF" />
     <SolidColorBrush x:Key="AuraOverlaySubtle" Color="#0AFFFFFF" />
     <SolidColorBrush x:Key="AuraOverlayFaint" Color="#06FFFFFF" />
@@ -146,14 +152,23 @@
 
     <!-- ─────────────────────────────────────────────── -->
     <!--  5. BADGE BRUSHES                               -->
-    <!--  Low-alpha accent tints for badge backgrounds.  -->
+    <!--  Neutral default + semantic status tints only.  -->
+    <!--  Color is reserved for meaning, not decoration. -->
     <!-- ─────────────────────────────────────────────── -->
 
-    <SolidColorBrush x:Key="AuraAccentPurpleBadge" Color="#228B7AE8" />
-    <SolidColorBrush x:Key="AuraAccentTealBadge" Color="#225CA88A" />
-    <SolidColorBrush x:Key="AuraAmberBadge" Color="#22D4A24E" />
-    <SolidColorBrush x:Key="AuraBlueBadge" Color="#228B7AE8" />
-    <SolidColorBrush x:Key="AuraSuccessTint" Color="#1A5AB88C" />
+    <!-- Neutral badge — default for all decorative icon badges -->
+    <SolidColorBrush x:Key="AuraNeutralBadge" Color="#14FFFFFF" />
+    <!-- Semantic badges — only for status indicators -->
+    <SolidColorBrush x:Key="AuraSuccessBadge" Color="#1A4FD4A0" />
+    <SolidColorBrush x:Key="AuraWarningBadge" Color="#1AE8B04A" />
+    <SolidColorBrush x:Key="AuraCriticalBadge" Color="#1AE84040" />
+    <SolidColorBrush x:Key="AuraInfoBadge" Color="#1A5E94FF" />
+    <!-- Legacy aliases — kept so existing views don't break -->
+    <SolidColorBrush x:Key="AuraAccentPurpleBadge" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="AuraAccentTealBadge" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="AuraAmberBadge" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="AuraBlueBadge" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="AuraSuccessTint" Color="#1A4FD4A0" />
 
 
     <!-- ─────────────────────────────────────────────── -->
@@ -161,10 +176,10 @@
     <!--  Higher-alpha backgrounds for status indicators -->
     <!-- ─────────────────────────────────────────────── -->
 
-    <SolidColorBrush x:Key="AuraCriticalSeverity" Color="#33D4443C" />
-    <SolidColorBrush x:Key="AuraCoralSeverity" Color="#33D4606E" />
-    <SolidColorBrush x:Key="AuraAmberSeverity" Color="#33D4A24E" />
-    <SolidColorBrush x:Key="AuraSuccessSeverity" Color="#335AB88C" />
+    <SolidColorBrush x:Key="AuraCriticalSeverity" Color="#33E84040" />
+    <SolidColorBrush x:Key="AuraCoralSeverity" Color="#33E86070" />
+    <SolidColorBrush x:Key="AuraAmberSeverity" Color="#33E8B04A" />
+    <SolidColorBrush x:Key="AuraSuccessSeverity" Color="#334FD4A0" />
 
     <!-- Score card background gradient (SystemInfoView) -->
     <LinearGradientBrush x:Key="AuraGradientScoreCard" StartPoint="0,0" EndPoint="1,1">
@@ -176,8 +191,22 @@
     <!-- Logo text gradient -->
     <LinearGradientBrush x:Key="AuraGradientLogo" StartPoint="0,0.5" EndPoint="1,0.5">
         <GradientStop Color="{StaticResource AuraTextBrightColor}" Offset="0" />
-        <GradientStop Color="#A090D8" Offset="1" />
+        <GradientStop Color="#B8A0F0" Offset="1" />
     </LinearGradientBrush>
+
+    <!-- Atmospheric glow — radial violet bloom for hero backgrounds -->
+    <RadialGradientBrush x:Key="AuraGlowViolet" Center="0.5,0.4" RadiusX="0.6" RadiusY="0.8">
+        <GradientStop Color="#189B88FF" Offset="0" />
+        <GradientStop Color="#089B88FF" Offset="0.5" />
+        <GradientStop Color="#00000000" Offset="1" />
+    </RadialGradientBrush>
+
+    <!-- Ambient depth glow for elevated hero cards -->
+    <RadialGradientBrush x:Key="AuraGlowHero" Center="0.5,0.3" RadiusX="0.7" RadiusY="0.9">
+        <GradientStop Color="#209B88FF" Offset="0" />
+        <GradientStop Color="#0C8270E6" Offset="0.45" />
+        <GradientStop Color="#00000000" Offset="1" />
+    </RadialGradientBrush>
 
 
     <!-- ─────────────────────────────────────────────── -->
@@ -223,13 +252,13 @@
     <sys:Double x:Key="AuraFontSizeXL">20</sys:Double>
 
     <!-- Title: page titles, brand text -->
-    <sys:Double x:Key="AuraFontSizeTitle">28</sys:Double>
+    <sys:Double x:Key="AuraFontSizeTitle">30</sys:Double>
 
     <!-- Display: page headings (e.g., "System Cleaner") -->
-    <sys:Double x:Key="AuraFontSizeDisplay">36</sys:Double>
+    <sys:Double x:Key="AuraFontSizeDisplay">42</sys:Double>
 
     <!-- Hero: large stat numbers (e.g., health score) — use AuraFontFamilyMono -->
-    <sys:Double x:Key="AuraFontSizeHero">72</sys:Double>
+    <sys:Double x:Key="AuraFontSizeHero">96</sys:Double>
 
 
     <!-- ─────────────────────────────────────────────── -->

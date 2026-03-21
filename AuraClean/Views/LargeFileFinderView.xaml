@@ -17,10 +17,14 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,20"
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
-            <TextBlock FontSize="26" FontWeight="Light"
-                       Foreground="{DynamicResource AuraTextBright}">
-                <Run Text="Large File " /><Run Text="Finder" FontWeight="SemiBold" />
-            </TextBlock>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAmber}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock FontSize="26" FontWeight="Light"
+                           Foreground="{DynamicResource AuraTextBright}">
+                    <Run Text="Large File " /><Run Text="Finder" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
             <TextBlock Text="Find the biggest files on your drives so you can decide what to keep"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13"
@@ -118,6 +122,7 @@
 
                 <!-- Stats -->
                 <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                        BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAmber}"
                         Padding="14,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="File" Foreground="{StaticResource AuraAccentPurple}"
@@ -130,6 +135,7 @@
                 </Border>
 
                 <Border Grid.Column="1" Style="{StaticResource AuraGlassCard}"
+                        BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAmber}"
                         Padding="14,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Harddisk" Foreground="{StaticResource AuraWarning}"
@@ -252,7 +258,7 @@
                 <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                              IsIndeterminate="True"
                              Width="48" Height="48"
-                             Foreground="{StaticResource AuraAccentPurple}" />
+                             Foreground="{StaticResource AuraAmber}" />
                 <TextBlock Text="{Binding ProgressCurrentDir}"
                            Foreground="{DynamicResource AuraTextSecondary}" FontSize="12"
                            HorizontalAlignment="Center" Margin="0,12,0,0"
@@ -284,7 +290,8 @@
                     </Style>
                 </StackPanel.Style>
                 <materialDesign:PackIcon Kind="FileFindOutline" Width="48" Height="48"
-                                         Foreground="{DynamicResource AuraTextMuted}"
+                                         Foreground="{StaticResource AuraAmber}"
+                                         Opacity="0.5"
                                          HorizontalAlignment="Center" />
                 <TextBlock Text="Select a location and click Scan"
                            Foreground="{DynamicResource AuraTextMuted}"

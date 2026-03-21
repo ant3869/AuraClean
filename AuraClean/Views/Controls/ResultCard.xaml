@@ -1,0 +1,40 @@
+<UserControl x:Class="AuraClean.Views.Controls.ResultCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="True"
+             KeyDown="OnKeyDown"
+             AutomationProperties.LiveSetting="Polite">
+    <Border x:Name="CardBorder"
+            Background="{DynamicResource AuraSurfaceLight}"
+            CornerRadius="10"
+            Padding="0"
+            Margin="0,8,0,0"
+            Cursor="Hand"
+            MouseLeftButtonUp="OnCardClicked"
+            AutomationProperties.Name="Action result">
+        <Grid>
+            <!-- Thin left accent border -->
+            <Border x:Name="AccentStripe"
+                    Width="4" HorizontalAlignment="Left"
+                    CornerRadius="10,0,0,10"
+                    Background="{DynamicResource AuraSuccess}" />
+
+            <StackPanel Margin="20,16,16,16">
+                <TextBlock x:Name="ValueText"
+                           FontSize="24" FontWeight="SemiBold"
+                           FontFamily="{DynamicResource AuraFontFamilyMono}"
+                           Foreground="{DynamicResource AuraTextBright}"
+                           AutomationProperties.LiveSetting="Polite" />
+                <TextBlock x:Name="DescriptionText"
+                           FontSize="13"
+                           Foreground="{DynamicResource AuraTextSecondary}"
+                           Margin="0,4,0,0" />
+                <TextBlock Text="Click or press Escape to dismiss"
+                           FontSize="10"
+                           Foreground="{DynamicResource AuraTextMuted}"
+                           Margin="0,6,0,0"
+                           Opacity="0.5" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

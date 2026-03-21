@@ -2,12 +2,14 @@ using System.ComponentModel;
 using System.Windows.Controls;
 using AuraClean.Models;
 using AuraClean.ViewModels;
+using AuraClean.Views.Controls;
 
 namespace AuraClean.Views;
 
 public partial class ThreatScannerView : UserControl
 {
     private ThreatScannerViewModel? _subscribedVm;
+    private bool _wasScanInProgress;
 
     public ThreatScannerView()
     {
@@ -30,9 +32,36 @@ public partial class ThreatScannerView : UserControl
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (args.PropertyName == nameof(ThreatScannerViewModel.SelectedScanMode) &&
-            sender is ThreatScannerViewModel vm)
+        if (sender is not ThreatScannerViewModel vm) return;
+
+        if (args.PropertyName == nameof(ThreatScannerViewModel.SelectedScanMode))
             UpdateCustomPathVisibility(vm.SelectedScanMode);
+
+        if (args.PropertyName == nameof(ThreatScannerViewModel.IsScanning))
+        {
+            if (vm.IsScanning) _wasScanInProgress = true;
+            else if (_wasScanInProgress)
+            {
+                _wasScanInProgress = false;
+                if (vm.IsClean)
+                {
+                    ScanResultCard.Show(
+                        "No threats found",
+                        $"{vm.FilesScanned} files scanned in {vm.ScanDuration}",
+                        ResultCard.Severity.Success);
+                }
+                else
+                {
+                    var severity = vm.CriticalCount > 0
+                        ? ResultCard.Severity.Danger
+                        : ResultCard.Severity.Warning;
+                    ScanResultCard.Show(
+                        $"{vm.TotalThreats} threats detected",
+                        $"{vm.CriticalCount} critical, {vm.HighCount} high — {vm.ScanDuration}",
+                        severity);
+                }
+            }
+        }
     }
 
     private void UnsubscribeVm()

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 
 namespace AuraClean.ViewModels;
@@ -30,6 +31,19 @@ public partial class QuarantineViewModel : ObservableObject
     [ObservableProperty] private int _expiredCount;
     [ObservableProperty] private string _quarantinePath = string.Empty;
 
+    public string SmartDeleteLabel
+    {
+        get
+        {
+            var count = Entries.Count(e => e.IsSelected);
+            return count > 0 ? $"Delete {count} item{(count != 1 ? "s" : "")}" : "Delete Selected";
+        }
+    }
+
+    public string SmartPurgeLabel => ExpiredCount > 0
+        ? $"Purge {ExpiredCount} expired"
+        : "Purge Expired";
+
     public QuarantineViewModel()
     {
         QuarantinePath = QuarantineService.GetQuarantineDirectory();
@@ -54,6 +68,7 @@ public partial class QuarantineViewModel : ObservableObject
                 .ToList();
 
             Entries = new ObservableCollection<QuarantineEntryItem>(items);
+            HookEntrySelectionEvents();
 
             var stats = QuarantineService.GetStats();
             TotalItems = stats.TotalItems;
@@ -61,6 +76,7 @@ public partial class QuarantineViewModel : ObservableObject
             ExpiredCount = entries.Count(e => e.IsExpired);
 
             StatusMessage = $"{TotalItems} items in quarantine ({TotalSizeDisplay}).";
+            OnPropertyChanged(nameof(SmartPurgeLabel));
         }
         catch (Exception ex)
         {
@@ -212,6 +228,22 @@ public partial class QuarantineViewModel : ObservableObject
     {
         foreach (var item in Entries)
             item.IsSelected = false;
+    }
+
+    private void HookEntrySelectionEvents()
+    {
+        foreach (var item in Entries)
+        {
+            item.PropertyChanged -= OnEntryPropertyChanged;
+            item.PropertyChanged += OnEntryPropertyChanged;
+        }
+        OnPropertyChanged(nameof(SmartDeleteLabel));
+    }
+
+    private void OnEntryPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(QuarantineEntryItem.IsSelected))
+            OnPropertyChanged(nameof(SmartDeleteLabel));
     }
 
     [RelayCommand]
