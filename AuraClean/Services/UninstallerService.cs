@@ -2,6 +2,7 @@ using AuraClean.Models;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace AuraClean.Services;
 
@@ -79,6 +80,7 @@ public static class UninstallerService
                                 EstimatedSizeKB = Convert.ToInt64(appKey.GetValue("EstimatedSize") ?? 0),
                                 IsWindowsInstaller = (appKey.GetValue("WindowsInstaller") is int wi && wi == 1),
                                 RegistryKeyPath = $"{subKey}\\{keyName}",
+                                RegistryHive = hive,
                                 RegistryView = view
                             };
 
@@ -183,28 +185,12 @@ public static class UninstallerService
         return await Task.Run(() =>
         {
             var results = new List<JunkItem>();
-            var searchTerms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var searchTerms = BuildRemnantDirectorySearchTerms(
+                program.DisplayName,
+                program.Publisher);
 
-            // Build search terms
-            if (!string.IsNullOrWhiteSpace(program.DisplayName))
-                searchTerms.Add(program.DisplayName);
-            if (!string.IsNullOrWhiteSpace(program.Publisher))
-                searchTerms.Add(program.Publisher);
-
-            // Extract program name segments (e.g., "Adobe Photoshop" → "Adobe", "Photoshop")
-            foreach (var name in new[] { program.DisplayName, program.Publisher })
-            {
-                if (string.IsNullOrWhiteSpace(name)) continue;
-                foreach (var word in name.Split([' ', '-', '_'],
-                    StringSplitOptions.RemoveEmptyEntries))
-                {
-                    if (word.Length >= 4) searchTerms.Add(word);
-                }
-            }
-
-            // Remove noise
-            foreach (var noise in new[] { "Windows", "Microsoft", "Update", "Corporation" })
-                searchTerms.Remove(noise);
+            if (searchTerms.Count == 0)
+                return results;
 
             // Directories to scan
             var scanPaths = new[]
@@ -230,8 +216,7 @@ public static class UninstallerService
                         ct.ThrowIfCancellationRequested();
                         var dirName = Path.GetFileName(dir);
 
-                        if (searchTerms.Any(term =>
-                            dirName.Contains(term, StringComparison.OrdinalIgnoreCase)))
+                        if (IsSafeRemnantDirectoryMatch(dirName, searchTerms))
                         {
                             long size = GetDirectorySize(dir);
                             results.Add(new JunkItem
@@ -240,7 +225,9 @@ public static class UninstallerService
                                 Description = $"Remnant directory: {dirName}",
                                 Type = JunkType.RemnantDirectory,
                                 SizeBytes = size,
-                                LastModified = Directory.GetLastWriteTime(dir)
+                                LastModified = Directory.GetLastWriteTime(dir),
+                                IsSelected = false,
+                                LockingProcess = "Review before deleting"
                             });
                         }
                     }
@@ -252,6 +239,63 @@ public static class UninstallerService
             return results;
         }, ct);
     }
+
+    internal static HashSet<string> BuildRemnantDirectorySearchTerms(
+        string displayName,
+        string publisher)
+    {
+        var terms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var publisherTerms = SplitSearchWords(publisher)
+            .Select(NormalizeSearchTerm)
+            .Where(t => t.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var fullName = NormalizeSearchTerm(displayName);
+        if (IsSpecificSearchTerm(fullName, minimumLength: 4))
+            terms.Add(fullName);
+
+        foreach (var word in SplitSearchWords(displayName))
+        {
+            var term = NormalizeSearchTerm(word);
+            if (IsSpecificSearchTerm(term, minimumLength: 5) && !publisherTerms.Contains(term))
+                terms.Add(term);
+        }
+
+        return terms;
+    }
+
+    internal static bool IsSafeRemnantDirectoryMatch(
+        string directoryName,
+        HashSet<string> searchTerms)
+    {
+        var normalized = NormalizeSearchTerm(directoryName);
+        return searchTerms.Contains(normalized);
+    }
+
+    private static bool IsSpecificSearchTerm(string term, int minimumLength) =>
+        term.Length >= minimumLength &&
+        term.Any(char.IsLetter) &&
+        !RemnantNoiseTerms.Contains(term);
+
+    private static IEnumerable<string> SplitSearchWords(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        return Regex.Split(value, @"[^A-Za-z0-9]+")
+            .Where(w => !string.IsNullOrWhiteSpace(w));
+    }
+
+    private static string NormalizeSearchTerm(string value) =>
+        string.Concat(value.Where(char.IsLetterOrDigit)).ToLowerInvariant();
+
+    private static readonly HashSet<string> RemnantNoiseTerms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "windows", "microsoft", "update", "version", "corporation",
+        "software", "technologies", "technology", "company", "installer",
+        "setup", "helper", "service", "application", "program", "inc",
+        "llc", "ltd"
+    };
 
     /// <summary>
     /// Parses a Windows UninstallString into a filename and arguments.

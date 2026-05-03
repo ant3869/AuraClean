@@ -12,6 +12,15 @@ namespace AuraClean.Services;
 /// </summary>
 public static class FileCleanerService
 {
+    private static readonly HashSet<string> ProtectedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff",
+        ".webp", ".heic", ".heif", ".avif", ".jxl",
+        ".raw", ".dng", ".cr2", ".cr3", ".nef", ".nrw", ".arw",
+        ".srf", ".sr2", ".orf", ".rw2", ".raf", ".pef", ".srw",
+        ".x3f", ".psd", ".xcf", ".svg"
+    };
+
     /// <summary>
     /// Analyzes the system for junk files and returns categorized results.
     /// </summary>
@@ -77,29 +86,29 @@ public static class FileCleanerService
         // 14. Windows.old (if present)
         progress?.Report("Checking for Windows.old...");
         if (Directory.Exists(@"C:\Windows.old"))
+        {
+            long oldSize = 0;
+            try
             {
-                long oldSize = 0;
-                try
+                foreach (var f in Directory.EnumerateFiles(@"C:\Windows.old", "*", SearchOption.AllDirectories).Take(5000))
                 {
-                    foreach (var f in Directory.EnumerateFiles(@"C:\Windows.old", "*", SearchOption.AllDirectories).Take(5000))
-                    {
-                        try { oldSize += new FileInfo(f).Length; } catch { /* Per-file size read failure — expected for locked files */ }
-                    }
-                }
-                catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", "Failed to enumerate Windows.old", ex); }
-                if (oldSize > 0)
-                {
-                    results.Add(new JunkItem
-                    {
-                        Path = @"C:\Windows.old",
-                        Description = "Windows.old (previous installation)",
-                        Type = JunkType.WindowsOld,
-                        SizeBytes = oldSize,
-                        LastModified = Directory.GetLastWriteTime(@"C:\Windows.old"),
-                        IsSelected = false // Don't auto-select — user should decide
-                    });
+                    try { oldSize += new FileInfo(f).Length; } catch { /* Per-file size read failure — expected for locked files */ }
                 }
             }
+            catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", "Failed to enumerate Windows.old", ex); }
+            if (oldSize > 0)
+            {
+                results.Add(new JunkItem
+                {
+                    Path = @"C:\Windows.old",
+                    Description = "Windows.old (previous installation)",
+                    Type = JunkType.WindowsOld,
+                    SizeBytes = oldSize,
+                    LastModified = Directory.GetLastWriteTime(@"C:\Windows.old"),
+                    IsSelected = false // Don't auto-select — user should decide
+                });
+            }
+        }
 
         // 15. WinSxS Component Store (safe cleanup via DISM)
         // Runs outside Task.Run because it needs async process execution
@@ -140,13 +149,33 @@ public static class FileCleanerService
     public static async Task<(int Deleted, int Skipped, long BytesFreed, List<string> Errors)> CleanItemsAsync(
         IEnumerable<JunkItem> items,
         IProgress<string>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool dryRun = false)
     {
         int deleted = 0, skipped = 0;
         long bytesFreed = 0;
         var errors = new List<string>();
         var stoppedServices = new List<string>();
         var itemList = items.Where(i => i.IsSelected).ToList();
+
+        foreach (var item in itemList)
+        {
+            item.IsLocked = false;
+            item.LockingProcess = string.Empty;
+        }
+
+        if (dryRun)
+        {
+            var protectedItems = itemList.Where(i => IsProtectedUserMediaFile(i.Path)).ToList();
+            foreach (var item in protectedItems)
+            {
+                item.IsLocked = true;
+                item.LockingProcess = "Protected photo or screenshot file";
+            }
+
+            var cleanableItems = itemList.Except(protectedItems).ToList();
+            return (cleanableItems.Count, protectedItems.Count, cleanableItems.Sum(i => i.SizeBytes), errors);
+        }
 
         try
         {
@@ -209,6 +238,14 @@ public static class FileCleanerService
                     {
                         if (File.Exists(item.Path))
                         {
+                            if (IsProtectedUserMediaFile(item.Path))
+                            {
+                                skipped++;
+                                item.IsLocked = true;
+                                item.LockingProcess = "Protected photo or screenshot file";
+                                continue;
+                            }
+
                             // Attempt-based: just try to delete, handle failure gracefully
                             var size = new FileInfo(item.Path).Length;
                             File.Delete(item.Path);
@@ -219,16 +256,30 @@ public static class FileCleanerService
                         {
                             // For directories: delete files individually, skip locked ones,
                             // then try to remove the (hopefully empty) directory tree.
-                            var (dirDeleted, dirSkipped, dirBytes) = CleanDirectoryBestEffort(item.Path);
+                            var (dirDeleted, dirSkipped, dirBytes, protectedMediaSkipped) =
+                                CleanDirectoryBestEffort(item.Path);
                             deleted += dirDeleted;
                             skipped += dirSkipped;
                             bytesFreed += dirBytes;
+
+                            if (dirSkipped > 0)
+                            {
+                                item.IsLocked = true;
+                                item.LockingProcess = protectedMediaSkipped > 0
+                                    ? "Contains protected photo or screenshot files"
+                                    : "Contains locked or in-use files";
+                            }
 
                             if (dirSkipped == 0)
                             {
                                 // All files deleted — remove directory structure
                                 try { Directory.Delete(item.Path, recursive: true); }
-                                catch { /* non-empty remnant — leave it */ }
+                                catch
+                                {
+                                    skipped++;
+                                    item.IsLocked = true;
+                                    item.LockingProcess = "Directory could not be removed";
+                                }
                             }
                         }
                         else
@@ -266,6 +317,8 @@ public static class FileCleanerService
                     catch (Exception ex)
                     {
                         skipped++;
+                        item.IsLocked = true;
+                        item.LockingProcess = ex.Message;
                         errors.Add($"{item.Path} — {ex.Message}");
                         DiagnosticLogger.Warn("FileCleanerService", $"Failed to clean: {item.Path}", ex);
                     }
@@ -321,9 +374,11 @@ public static class FileCleanerService
     /// Best-effort directory cleaning: deletes as many individual files as possible,
     /// skipping locked ones. Returns counts of deleted, skipped, and bytes freed.
     /// </summary>
-    private static (int Deleted, int Skipped, long BytesFreed) CleanDirectoryBestEffort(string dirPath)
+    private static (int Deleted, int Skipped, long BytesFreed, int ProtectedMediaSkipped)
+        CleanDirectoryBestEffort(string dirPath)
     {
         int deleted = 0, skippedCount = 0;
+        int protectedMediaSkipped = 0;
         long bytesFreed = 0;
 
         try
@@ -332,6 +387,13 @@ public static class FileCleanerService
             {
                 try
                 {
+                    if (IsProtectedUserMediaFile(file))
+                    {
+                        skippedCount++;
+                        protectedMediaSkipped++;
+                        continue;
+                    }
+
                     var size = new FileInfo(file).Length;
                     File.Delete(file);
                     bytesFreed += size;
@@ -359,9 +421,40 @@ public static class FileCleanerService
             }
             catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", $"Failed to enumerate subdirectories of {dirPath}", ex); }
         }
-        catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", $"Failed to enumerate files in {dirPath}", ex); }
+        catch (Exception ex)
+        {
+            skippedCount++;
+            DiagnosticLogger.Warn("FileCleanerService", $"Failed to enumerate files in {dirPath}", ex);
+        }
 
-        return (deleted, skippedCount, bytesFreed);
+        return (deleted, skippedCount, bytesFreed, protectedMediaSkipped);
+    }
+
+    internal static bool ContainsProtectedUserMedia(string dirPath, int maxFiles = 1000)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(dirPath, "*", SearchOption.AllDirectories)
+                .Take(maxFiles)
+                .Any(IsProtectedUserMediaFile);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    internal static bool IsProtectedUserMediaFile(string path)
+    {
+        try
+        {
+            var extension = Path.GetExtension(path);
+            return !string.IsNullOrEmpty(extension) && ProtectedImageExtensions.Contains(extension);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>

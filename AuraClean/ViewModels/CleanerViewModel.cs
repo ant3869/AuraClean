@@ -125,13 +125,18 @@ public partial class CleanerViewModel : ObservableObject
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
+            var settings = SettingsService.Load();
 
-            // Run system junk scan and heuristic scan in parallel
+            // Run system junk scan and optional heuristic scan in parallel.
             ProgressValue = 10;
             var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(progress);
 
             ProgressValue = 30;
-            var abandonedTask = HeuristicScannerService.ScanForAbandonedFilesAsync(progress);
+            var abandonedTask = settings.RunHeuristicScan
+                ? HeuristicScannerService.ScanForAbandonedFilesAsync(
+                    settings.AbandonedFileDaysThreshold,
+                    progress)
+                : Task.FromResult(new List<JunkItem>());
 
             var systemJunk = await systemJunkTask;
             ProgressValue = 60;
@@ -140,7 +145,10 @@ public partial class CleanerViewModel : ObservableObject
             ProgressValue = 80;
 
             // Combine all results
-            var allItems = systemJunk.Concat(abandoned).ToList();
+            var allItems = systemJunk.Concat(abandoned)
+                .Where(i => !FileCleanerService.IsProtectedUserMediaFile(i.Path))
+                .ToList();
+            ApplyDefaultSelections(allItems, settings);
 
             // Group by category — build all data off-thread then assign once
             var grouped = allItems.GroupBy(i => i.Category)
@@ -150,6 +158,7 @@ public partial class CleanerViewModel : ObservableObject
                     var cat = new JunkCategory { Name = g.Key };
                     foreach (var item in g.OrderByDescending(i => i.SizeBytes))
                         cat.Items.Add(item);
+                    cat.IsAllSelected = cat.Items.Count > 0 && cat.Items.All(i => i.IsSelected);
                     return cat;
                 })
                 .ToList();
@@ -184,22 +193,12 @@ public partial class CleanerViewModel : ObservableObject
         if (!HasResults) return;
 
         IsBusy = true;
-        StatusMessage = "Creating restore point...";
+        StatusMessage = "Preparing cleanup...";
         ProgressValue = 0;
 
         try
         {
-            // Safety: Create restore point
-            var (rpSuccess, rpMsg) = await RestorePointService.CreateRestorePointAsync();
-            if (!rpSuccess)
-            {
-                StatusMessage = $"Warning: {rpMsg} — Proceeding with cleanup...";
-                await Task.Delay(1500);
-            }
-
-            ProgressValue = 10;
-
-            // Collect all selected items
+            var settings = SettingsService.Load();
             var selectedItems = Categories.SelectMany(c => c.Items)
                 .Where(i => i.IsSelected).ToList();
 
@@ -209,6 +208,41 @@ public partial class CleanerViewModel : ObservableObject
                 IsBusy = false;
                 return;
             }
+
+            if (settings.DryRunMode)
+            {
+                var (_, protectedSkipped, wouldFree, _) =
+                    await FileCleanerService.CleanItemsAsync(selectedItems, dryRun: true);
+
+                StatusMessage = $"Dry run: would clean {selectedItems.Count - protectedSkipped} items " +
+                    $"({FormatHelper.FormatBytes(wouldFree)}). {protectedSkipped} protected media file(s) skipped.";
+                ProgressValue = 100;
+                CanUndoLastClean = false;
+                return;
+            }
+
+            if (!SafetyPromptService.ConfirmDestructiveAction(
+                    $"Clean {selectedItems.Count} selected item(s)? This can permanently remove files."))
+            {
+                StatusMessage = "Cleanup cancelled.";
+                return;
+            }
+
+            var rpSuccess = false;
+            if (settings.CreateRestorePointBeforeClean)
+            {
+                StatusMessage = "Creating restore point...";
+
+                var (created, rpMsg) = await RestorePointService.CreateRestorePointAsync();
+                rpSuccess = created;
+                if (!rpSuccess)
+                {
+                    StatusMessage = $"Warning: {rpMsg} — Proceeding with cleanup...";
+                    await Task.Delay(1500);
+                }
+            }
+
+            ProgressValue = 10;
 
             var progress = new Progress<string>(msg => StatusMessage = msg);
             var (deleted, skipped, bytesFreed, errors) =
@@ -283,6 +317,28 @@ public partial class CleanerViewModel : ObservableObject
             category.IsAllSelected = false;
             foreach (var item in category.Items)
                 item.IsSelected = false;
+        }
+    }
+
+    private static void ApplyDefaultSelections(IEnumerable<JunkItem> items, AppSettings settings)
+    {
+        foreach (var item in items)
+        {
+            item.IsSelected = item.Type switch
+            {
+                JunkType.TempFile => settings.CleanTempFiles,
+                JunkType.WindowsUpdateCache => settings.CleanWindowsUpdate,
+                JunkType.Prefetch => settings.CleanPrefetch,
+                JunkType.CrashDump => settings.CleanCrashDumps,
+                JunkType.RecycleBin => settings.CleanRecycleBin,
+                JunkType.BrowserCache => settings.CleanBrowserCache,
+                JunkType.ThumbnailCache => settings.CleanThumbnailCache,
+                JunkType.LogFile => settings.CleanWindowsLogs,
+                JunkType.WindowsOld => false,
+                JunkType.WinSxS => false,
+                JunkType.AbandonedFile => false,
+                _ => item.IsSelected
+            };
         }
     }
 

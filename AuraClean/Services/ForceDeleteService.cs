@@ -235,8 +235,7 @@ public static class ForceDeleteService
                     try
                     {
                         using var baseKey = RegistryKey.OpenBaseKey(
-                            program.RegistryKeyPath.StartsWith("SOFTWARE\\Microsoft")
-                                ? RegistryHive.LocalMachine : RegistryHive.CurrentUser,
+                            program.RegistryHive,
                             program.RegistryView);
                         var parentPath = Path.GetDirectoryName(program.RegistryKeyPath)?.Replace('/', '\\');
                         var keyName = Path.GetFileName(program.RegistryKeyPath);

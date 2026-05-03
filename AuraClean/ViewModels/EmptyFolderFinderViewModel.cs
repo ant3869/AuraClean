@@ -16,7 +16,7 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
     [ObservableProperty] private int _totalFound;
     [ObservableProperty] private string _selectedPath = string.Empty;
     [ObservableProperty] private ObservableCollection<string> _scanPaths = [];
-    [ObservableProperty] private bool _selectAll = true;
+    [ObservableProperty] private bool _selectAll;
 
     private CancellationTokenSource? _cts;
 
@@ -133,6 +133,19 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
         if (selectedCount == 0)
         {
             StatusMessage = "No folders selected for deletion.";
+            return;
+        }
+
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            StatusMessage = $"Dry run: would delete {selectedCount} empty folder(s).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Delete {selectedCount} selected empty folder(s)?"))
+        {
+            StatusMessage = "Empty folder deletion cancelled.";
             return;
         }
 

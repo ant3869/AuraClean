@@ -183,6 +183,19 @@ public partial class QuarantineViewModel : ObservableObject
             return;
         }
 
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            StatusMessage = $"Dry run: would permanently delete {selected.Count} quarantined file(s).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Permanently delete {selected.Count} selected quarantined file(s)?"))
+        {
+            StatusMessage = "Quarantine purge cancelled.";
+            return;
+        }
+
         IsBusy = true;
         StatusMessage = "Permanently deleting selected files...";
 
@@ -203,6 +216,19 @@ public partial class QuarantineViewModel : ObservableObject
     [RelayCommand]
     private async Task PurgeExpiredAsync()
     {
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            StatusMessage = $"Dry run: would purge {ExpiredCount} expired quarantined item(s).";
+            return;
+        }
+
+        if (ExpiredCount > 0 && !SafetyPromptService.ConfirmDestructiveAction(
+                $"Permanently delete {ExpiredCount} expired quarantined item(s)?"))
+        {
+            StatusMessage = "Expired quarantine purge cancelled.";
+            return;
+        }
+
         IsBusy = true;
         StatusMessage = "Purging expired items...";
 

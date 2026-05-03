@@ -41,6 +41,9 @@ public partial class DuplicateFinderViewModel : ObservableObject
 
     public DuplicateFinderViewModel()
     {
+        var settings = SettingsService.Load();
+        MinSizeKB = (int)Math.Clamp(settings.DefaultMinDuplicateSizeMb * 1024, 1L, int.MaxValue);
+
         // Populate quick paths
         var paths = new List<string>();
         paths.Add(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
@@ -141,6 +144,22 @@ public partial class DuplicateFinderViewModel : ObservableObject
         if (selectedCount == 0)
         {
             StatusMessage = "No files selected for deletion.";
+            return;
+        }
+
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            var bytes = DuplicateGroups.SelectMany(g => g.Files)
+                .Where(f => f.IsSelected && !f.IsKeep)
+                .Sum(f => f.SizeBytes);
+            StatusMessage = $"Dry run: would delete {selectedCount} duplicate file(s) ({FormatHelper.FormatBytes(bytes)}).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Delete {selectedCount} selected duplicate file(s)?"))
+        {
+            StatusMessage = "Duplicate deletion cancelled.";
             return;
         }
 

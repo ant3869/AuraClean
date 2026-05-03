@@ -74,13 +74,20 @@ public partial class App : Application
                 JunkType.BrowserCache => settings.CleanBrowserCache,
                 JunkType.ThumbnailCache => settings.CleanThumbnailCache,
                 JunkType.LogFile => settings.CleanWindowsLogs,
-                _ => true
+                JunkType.WindowsOld => false,
+                JunkType.WinSxS => false,
+                JunkType.AbandonedFile => false,
+                _ => item.IsSelected
             };
         }
 
-        var (deleted, _, bytesFreed, _) = await FileCleanerService.CleanItemsAsync(items);
+        var (deleted, _, bytesFreed, _) = await FileCleanerService.CleanItemsAsync(
+            items,
+            dryRun: settings.DryRunMode);
         DiagnosticLogger.Info("AutoCleanup",
-            $"Cleaned {deleted} items, freed {bytesFreed} bytes.");
+            settings.DryRunMode
+                ? $"Dry run: would clean {deleted} items, freeing {bytesFreed} bytes."
+                : $"Cleaned {deleted} items, freed {bytesFreed} bytes.");
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -24,7 +24,7 @@
 ## Features
 
 **Cleanup**
-- **Uninstaller** — Deep uninstall with orphaned registry & remnant file scanning, force-remove broken MSI entries
+- **Uninstaller** — Deep uninstall with review-first leftover scanning and force-remove support for broken MSI entries
 - **System Cleaner** — Scans 15 junk categories: temp files, Windows Update cache, prefetch, crash dumps, Recycle Bin, WinSxS, and more
 - **RAM Booster** — Trim working sets and purge the standby list using native Windows APIs
 - **Privacy Clean** — Clear browser caches, cookies, and tracking data with SQLite VACUUM + DNS flush
@@ -43,7 +43,7 @@
 - **Software Updater** — Check installed programs for available updates
 - **Disk Optimizer** — TRIM, defrag, and optimization recommendations for HDD/SSD
 - **File Recovery** — Scan and recover recently deleted files
-- **Empty Folder Finder** — Detect and remove empty folders and nested empty trees
+- **Empty Folder Finder** — Detect empty folders from low-risk temp/cache roots; results require explicit selection before removal
 - **App Installer** — Bundle installer for streamlined application deployment
 
 **Security**
@@ -122,8 +122,11 @@ All user data is stored locally in `%LocalAppData%\AuraClean\` — settings, cle
 
 ## Security
 
-- Restore points created before destructive operations
-- Dry-run mode to preview changes without touching files
+- Restore points can be created before cleaning operations
+- Dry-run mode and confirmation prompts apply across destructive cleanup tools
+- Cleaner preserves common photo/screenshot formats even when they appear inside selected junk folders
+- Abandoned application-data cleanup is opt-in and reviewed separately from routine system junk
+- Uninstaller leftovers, orphaned registry keys, and empty-folder results are review-first instead of preselected
 - DoD 5220.22-M compliant file shredding
 - Quarantine with restore and auto-purge
 - WinSxS cleanup uses official DISM commands only

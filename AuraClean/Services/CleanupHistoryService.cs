@@ -184,7 +184,8 @@ public enum CleanupOperationType
     MemoryBoost,
     FileShred,
     QuarantinePurge,
-    ThreatQuarantine
+    ThreatQuarantine,
+    ThreatDelete
 }
 
 public static class CleanupOperationTypeExtensions
@@ -200,6 +201,7 @@ public static class CleanupOperationTypeExtensions
         CleanupOperationType.MemoryBoost => "RAM Boost",
         CleanupOperationType.FileShred => "Secure Shred",
         CleanupOperationType.ThreatQuarantine => "Threat Quarantine",
+        CleanupOperationType.ThreatDelete => "Threat Delete",
         CleanupOperationType.QuarantinePurge => "Quarantine Purge",
         _ => type.ToString()
     };
@@ -216,6 +218,7 @@ public static class CleanupOperationTypeExtensions
         CleanupOperationType.FileShred => "ShieldLock",
         CleanupOperationType.QuarantinePurge => "ShieldRemove",
         CleanupOperationType.ThreatQuarantine => "ShieldAlert",
+        CleanupOperationType.ThreatDelete => "DeleteForever",
         _ => "ClipboardList"
     };
 }

@@ -280,15 +280,28 @@ public partial class ThreatScannerViewModel : ObservableObject
                 return;
             }
 
+            if (SafetyPromptService.IsDryRunEnabled())
+            {
+                ActionStatusMessage = $"Dry run: would permanently delete {selectedThreats.Count} threat(s).";
+                return;
+            }
+
+            if (!SafetyPromptService.ConfirmDestructiveAction(
+                    $"Permanently delete {selectedThreats.Count} selected threat(s)? Quarantine is safer when available."))
+            {
+                ActionStatusMessage = "Threat deletion cancelled.";
+                return;
+            }
+
             var progress = new Progress<string>(msg => ActionStatusMessage = msg);
             var toDelete = new HashSet<ThreatItem>(selectedThreats);
             var (deleted, failed, errors) = await ThreatScannerService.DeleteThreatsAsync(
                 selectedThreats, progress, CancellationToken.None);
 
-            // Remove successfully targeted items from UI
+            // Remove only items the service marked as handled.
             foreach (var cat in Categories.ToList())
             {
-                var removable = cat.Items.Where(t => toDelete.Contains(t)).ToList();
+                var removable = cat.Items.Where(t => toDelete.Contains(t) && t.IsQuarantined).ToList();
                 foreach (var item in removable)
                     cat.Items.Remove(item);
 
@@ -302,8 +315,7 @@ public partial class ThreatScannerViewModel : ObservableObject
                 (failed > 0 ? $" Failed: {failed}." : "") +
                 (Categories.Sum(c => c.Items.Count) == 0 ? " System is clean!" : "");
 
-            if (Categories.Sum(c => c.Items.Count) == 0)
-                IsClean = true;
+            IsClean = Categories.Sum(c => c.Items.Count) == 0;
 
             // Log to cleanup history
             try
@@ -312,7 +324,7 @@ public partial class ThreatScannerViewModel : ObservableObject
                 {
                     CleanupHistoryService.LogOperation(new CleanupRecord
                     {
-                        OperationType = CleanupOperationType.ThreatQuarantine,
+                        OperationType = CleanupOperationType.ThreatDelete,
                         ItemCount = deleted,
                         Details = $"Permanently deleted {deleted} threat(s)"
                     });

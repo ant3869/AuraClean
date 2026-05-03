@@ -60,6 +60,9 @@ public partial class LargeFileFinderViewModel : ObservableObject
 
     public LargeFileFinderViewModel()
     {
+        var settings = SettingsService.Load();
+        MinimumSizeMB = (int)Math.Clamp(settings.DefaultLargeFileSizeMb, 1L, int.MaxValue);
+
         LoadDrives();
 
         if (Drives.Count > 0)
@@ -262,11 +265,25 @@ public partial class LargeFileFinderViewModel : ObservableObject
     {
         var checkedFiles = FilteredFiles.Where(f => f.IsSelected).ToList();
 
-        // Fall back to single-selected row if nothing is checked
-        if (checkedFiles.Count == 0 && SelectedFile != null)
-            checkedFiles = [SelectedFile];
+        if (checkedFiles.Count == 0)
+        {
+            StatusMessage = "No files selected for deletion.";
+            return;
+        }
 
-        if (checkedFiles.Count == 0) return;
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            var bytes = checkedFiles.Sum(f => f.SizeBytes);
+            StatusMessage = $"Dry run: would delete {checkedFiles.Count} file(s) ({FormatHelper.FormatBytes(bytes)}).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Delete {checkedFiles.Count} selected large file(s)?"))
+        {
+            StatusMessage = "Large file deletion cancelled.";
+            return;
+        }
 
         int deleted = 0;
         long freedBytes = 0;

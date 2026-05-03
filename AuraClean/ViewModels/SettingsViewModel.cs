@@ -48,6 +48,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _scheduledCleanupFrequency;
     [ObservableProperty] private string _scheduledCleanupTime;
     [ObservableProperty] private int _scheduledCleanupDayOfWeek;
+    [ObservableProperty] private int _scheduledCleanupDayIndex;
 
     // ── UI State ──
     [ObservableProperty] private string _statusMessage = "Settings loaded.";
@@ -115,6 +116,7 @@ public partial class SettingsViewModel : ObservableObject
         ScheduledCleanupFrequency = s.ScheduledCleanupFrequency;
         ScheduledCleanupTime = s.ScheduledCleanupTime;
         ScheduledCleanupDayOfWeek = s.ScheduledCleanupDayOfWeek;
+        ScheduledCleanupDayIndex = Math.Clamp(s.ScheduledCleanupDayOfWeek, 1, 7) - 1;
 
         SettingsPath = SettingsService.GetSettingsDirectory();
         HasUnsavedChanges = false;
@@ -160,7 +162,7 @@ public partial class SettingsViewModel : ObservableObject
             ScheduledCleanupEnabled = ScheduledCleanupEnabled,
             ScheduledCleanupFrequency = ScheduledCleanupFrequency,
             ScheduledCleanupTime = ScheduledCleanupTime,
-            ScheduledCleanupDayOfWeek = ScheduledCleanupDayOfWeek,
+            ScheduledCleanupDayOfWeek = ScheduledCleanupDayIndex + 1,
 
             LastModified = DateTime.Now
         };
@@ -225,4 +227,9 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnScheduledCleanupFrequencyChanged(string value) => HasUnsavedChanges = true;
     partial void OnScheduledCleanupTimeChanged(string value) => HasUnsavedChanges = true;
     partial void OnScheduledCleanupDayOfWeekChanged(int value) => HasUnsavedChanges = true;
+    partial void OnScheduledCleanupDayIndexChanged(int value)
+    {
+        ScheduledCleanupDayOfWeek = value + 1;
+        HasUnsavedChanges = true;
+    }
 }

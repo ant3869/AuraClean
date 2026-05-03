@@ -23,8 +23,8 @@ public static class RegistryScannerService
         var results = new List<JunkItem>();
         if (string.IsNullOrWhiteSpace(programName)) return results;
 
-        // Build search terms: program name segments + publisher
         var searchTerms = BuildSearchTerms(programName, publisher);
+        if (searchTerms.Count == 0) return results;
 
         await Task.Run(() =>
         {
@@ -83,8 +83,9 @@ public static class RegistryScannerService
             string fullPath = $"{currentPath}\\{subKeyName}";
 
             // Check if the key name itself matches any search term
-            bool nameMatches = searchTerms.Any(term =>
-                subKeyName.Contains(term, StringComparison.OrdinalIgnoreCase));
+            bool nameMatches = UninstallerService.IsSafeRemnantDirectoryMatch(
+                subKeyName,
+                searchTerms);
 
             if (nameMatches)
             {
@@ -94,7 +95,9 @@ public static class RegistryScannerService
                     Description = $"Registry key matching uninstalled program: {subKeyName}",
                     Type = JunkType.OrphanedRegistryKey,
                     SizeBytes = 0,
-                    LastModified = DateTime.Now
+                    LastModified = DateTime.Now,
+                    IsSelected = false,
+                    LockingProcess = "Review before deleting"
                 });
                 continue; // Don't recurse into matched keys — the entire subtree is a match
             }
@@ -114,7 +117,9 @@ public static class RegistryScannerService
                         Description = $"Registry key with values referencing uninstalled program",
                         Type = JunkType.OrphanedRegistryKey,
                         SizeBytes = 0,
-                        LastModified = DateTime.Now
+                        LastModified = DateTime.Now,
+                        IsSelected = false,
+                        LockingProcess = "Review before deleting"
                     });
                     continue;
                 }
@@ -139,8 +144,9 @@ public static class RegistryScannerService
                 var value = key.GetValue(valueName);
                 if (value is not string strValue) continue;
 
-                if (searchTerms.Any(term =>
-                    strValue.Contains(term, StringComparison.OrdinalIgnoreCase)))
+                var normalizedValue = string.Concat(strValue.Where(char.IsLetterOrDigit))
+                    .ToLowerInvariant();
+                if (searchTerms.Any(term => normalizedValue.Contains(term, StringComparison.OrdinalIgnoreCase)))
                 {
                     return true;
                 }
@@ -156,43 +162,7 @@ public static class RegistryScannerService
     /// </summary>
     private static HashSet<string> BuildSearchTerms(string programName, string publisher)
     {
-        var terms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // Add the full program name
-        if (!string.IsNullOrWhiteSpace(programName))
-        {
-            terms.Add(programName);
-
-            // Also add individual words that are at least 4 chars (avoid noise like "the", "pro")
-            foreach (var word in programName.Split([' ', '-', '_', '.'], StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (word.Length >= 4)
-                    terms.Add(word);
-            }
-        }
-
-        // Add publisher name
-        if (!string.IsNullOrWhiteSpace(publisher))
-        {
-            terms.Add(publisher);
-
-            foreach (var word in publisher.Split([' ', '-', '_', '.', ','], StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (word.Length >= 4)
-                    terms.Add(word);
-            }
-        }
-
-        // Remove common noise terms
-        terms.Remove("Windows");
-        terms.Remove("Microsoft");
-        terms.Remove("Update");
-        terms.Remove("Version");
-        terms.Remove("Corporation");
-        terms.Remove("Software");
-        terms.Remove("Technologies");
-
-        return terms;
+        return UninstallerService.BuildRemnantDirectorySearchTerms(programName, publisher);
     }
 
     /// <summary>
@@ -247,11 +217,11 @@ public static class RegistryScannerService
         try
         {
             // Parse the key path to determine hive and subkey
-            var (hive, subKeyPath) = ParseKeyPath(keyPath);
+            var (hive, view, subKeyPath) = ParseKeyPath(keyPath);
             if (hive == null || subKeyPath == null)
                 return (false, "Invalid registry key path.");
 
-            using var baseKey = RegistryKey.OpenBaseKey(hive.Value, RegistryView.Default);
+            using var baseKey = RegistryKey.OpenBaseKey(hive.Value, view);
             baseKey.DeleteSubKeyTree(subKeyPath, throwOnMissingSubKey: false);
 
             var msg = backup != null
@@ -280,13 +250,13 @@ public static class RegistryScannerService
         return keyPath;
     }
 
-    private static (RegistryHive? Hive, string? SubKey) ParseKeyPath(string keyPath)
+    private static (RegistryHive? Hive, RegistryView View, string? SubKey) ParseKeyPath(string keyPath)
     {
         if (keyPath.StartsWith("HKCU\\", StringComparison.OrdinalIgnoreCase) ||
             keyPath.StartsWith("HKEY_CURRENT_USER\\", StringComparison.OrdinalIgnoreCase))
         {
             var idx = keyPath.IndexOf('\\') + 1;
-            return (RegistryHive.CurrentUser, keyPath[idx..]);
+            return (RegistryHive.CurrentUser, RegistryView.Default, keyPath[idx..]);
         }
 
         if (keyPath.StartsWith("HKLM\\", StringComparison.OrdinalIgnoreCase) ||
@@ -294,6 +264,11 @@ public static class RegistryScannerService
             keyPath.StartsWith("HKEY_LOCAL_MACHINE\\", StringComparison.OrdinalIgnoreCase))
         {
             var idx = keyPath.IndexOf('\\') + 1;
+            var view = keyPath.StartsWith("HKLM (32-bit)", StringComparison.OrdinalIgnoreCase)
+                ? RegistryView.Registry32
+                : keyPath.StartsWith("HKLM (64-bit)", StringComparison.OrdinalIgnoreCase)
+                    ? RegistryView.Registry64
+                    : RegistryView.Default;
 
             // Handle display labels like "HKLM (64-bit)\\"
             var subKey = keyPath[idx..];
@@ -303,9 +278,9 @@ public static class RegistryScannerService
                 if (nextSlash >= 0) subKey = subKey[(nextSlash + 1)..];
             }
 
-            return (RegistryHive.LocalMachine, subKey);
+            return (RegistryHive.LocalMachine, view, subKey);
         }
 
-        return (null, null);
+        return (null, RegistryView.Default, null);
     }
 }

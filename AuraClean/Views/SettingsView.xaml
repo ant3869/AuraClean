@@ -345,7 +345,7 @@
                                        FontSize="12" VerticalAlignment="Center"
                                        Foreground="{DynamicResource AuraTextSecondary}" />
                             <ComboBox ItemsSource="{Binding DayOfWeekNames}"
-                                      SelectedIndex="{Binding ScheduledCleanupDayOfWeek}"
+                                      SelectedIndex="{Binding ScheduledCleanupDayIndex}"
                                       Width="120" Margin="8,0"
                                       FontSize="13"
                                       Foreground="{DynamicResource AuraTextPrimary}"

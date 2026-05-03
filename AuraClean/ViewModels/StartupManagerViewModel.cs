@@ -178,6 +178,19 @@ public partial class StartupManagerViewModel : ObservableObject
             checkedEntries = [SelectedEntry];
         if (checkedEntries.Count == 0) return;
 
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            StatusMessage = $"Dry run: would delete {checkedEntries.Count} startup item(s).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Delete {checkedEntries.Count} selected startup item(s)?"))
+        {
+            StatusMessage = "Startup deletion cancelled.";
+            return;
+        }
+
         IsBusy = true;
         int deleted = 0;
 

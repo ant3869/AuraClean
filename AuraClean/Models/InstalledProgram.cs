@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Win32;
 
 namespace AuraClean.Models;
 
@@ -23,7 +24,10 @@ public partial class InstalledProgram : ObservableObject
     public string RegistryKeyPath { get; set; } = string.Empty;
 
     /// <summary>Registry view (32-bit vs 64-bit) that this entry belongs to.</summary>
-    public Microsoft.Win32.RegistryView RegistryView { get; set; }
+    public RegistryView RegistryView { get; set; }
+
+    /// <summary>Registry hive that this entry belongs to.</summary>
+    public RegistryHive RegistryHive { get; set; } = RegistryHive.LocalMachine;
 
     public string FormattedSize =>
         EstimatedSizeKB switch

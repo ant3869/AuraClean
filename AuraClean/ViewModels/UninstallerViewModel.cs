@@ -133,6 +133,19 @@ public partial class UninstallerViewModel : ObservableObject
             checkedPrograms = [SelectedProgram];
         if (checkedPrograms.Count == 0) return;
 
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            StatusMessage = $"Dry run: would run uninstallers for {checkedPrograms.Count} program(s).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Run uninstallers for {checkedPrograms.Count} selected program(s)?"))
+        {
+            StatusMessage = "Uninstall cancelled.";
+            return;
+        }
+
         IsBusy = true;
         int uninstalled = 0;
 
@@ -197,44 +210,83 @@ public partial class UninstallerViewModel : ObservableObject
     {
         if (PostUninstallJunk.Count == 0) return;
 
+        var selectedItems = PostUninstallJunk.Where(j => j.IsSelected).ToList();
+        if (selectedItems.Count == 0)
+        {
+            StatusMessage = "No leftover items selected for cleanup.";
+            return;
+        }
+
+        var settings = SettingsService.Load();
+        if (settings.DryRunMode)
+        {
+            var registryCount = selectedItems.Count(j => j.Type == JunkType.OrphanedRegistryKey);
+            var fileItems = selectedItems.Where(j => j.Type != JunkType.OrphanedRegistryKey);
+            var (_, protectedSkipped, wouldFree, _) =
+                await FileCleanerService.CleanItemsAsync(fileItems, dryRun: true);
+
+            StatusMessage = $"Dry run: would clean {selectedItems.Count - protectedSkipped} leftover item(s) " +
+                $"({registryCount} registry, {FormatHelper.FormatBytes(wouldFree)} files). " +
+                $"{protectedSkipped} protected media file(s) skipped.";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Clean {selectedItems.Count} selected leftover item(s)? Review vendor/shared folders carefully."))
+        {
+            StatusMessage = "Leftover cleanup cancelled.";
+            return;
+        }
+
         IsBusy = true;
-        StatusMessage = "Creating restore point...";
 
         try
         {
-            // Safety: Create restore point before cleaning
-            var (rpSuccess, rpMsg) = await RestorePointService.CreateRestorePointAsync(
-                $"AuraClean - Deep Clean {SelectedProgram?.DisplayName}");
-
-            if (!rpSuccess)
+            if (settings.CreateRestorePointBeforeClean)
             {
-                StatusMessage = $"Warning: {rpMsg} — Proceeding with cleanup...";
-                await Task.Delay(2000);
+                StatusMessage = "Creating restore point...";
+                var (rpSuccess, rpMsg) = await RestorePointService.CreateRestorePointAsync(
+                    $"AuraClean - Deep Clean {SelectedProgram?.DisplayName}");
+
+                if (!rpSuccess)
+                {
+                    StatusMessage = $"Warning: {rpMsg} — Proceeding with cleanup...";
+                    await Task.Delay(2000);
+                }
             }
 
             var progress = new Progress<string>(msg => StatusMessage = msg);
 
             // Clean registry keys
             int regCleaned = 0;
-            foreach (var item in PostUninstallJunk.Where(j =>
-                j.IsSelected && j.Type == JunkType.OrphanedRegistryKey))
+            foreach (var item in selectedItems.Where(j => j.Type == JunkType.OrphanedRegistryKey))
             {
-                var (success, _) = await RegistryScannerService.DeleteRegistryKeyAsync(item.Path);
-                if (success) regCleaned++;
+                var (success, message) = await RegistryScannerService.DeleteRegistryKeyAsync(item.Path);
+                if (success)
+                {
+                    item.IsLocked = false;
+                    item.LockingProcess = string.Empty;
+                    regCleaned++;
+                }
+                else
+                {
+                    item.IsLocked = true;
+                    item.LockingProcess = message;
+                }
             }
 
             // Clean file system items
-            var fileItems = PostUninstallJunk.Where(j =>
-                j.IsSelected && j.Type != JunkType.OrphanedRegistryKey);
+            var fileItems = selectedItems.Where(j => j.Type != JunkType.OrphanedRegistryKey);
             var (deleted, skipped, bytesFreed, errors) =
                 await FileCleanerService.CleanItemsAsync(fileItems, progress);
 
             StatusMessage = $"Cleaned: {deleted + regCleaned} items ({FormatHelper.FormatBytes(bytesFreed)} freed). " +
                            $"Skipped: {skipped}.";
 
-            // Refresh scan results
-            PostUninstallJunk.Clear();
-            HasPostUninstallResults = false;
+            // Refresh scan results, keeping unselected and failed/skipped items visible.
+            foreach (var item in selectedItems.Where(j => !j.IsLocked).ToList())
+                PostUninstallJunk.Remove(item);
+            HasPostUninstallResults = PostUninstallJunk.Count > 0;
         }
         catch (Exception ex)
         {
@@ -256,8 +308,19 @@ public partial class UninstallerViewModel : ObservableObject
     {
         if (SelectedProgram == null) return;
 
+        var settings = SettingsService.Load();
+        var effectiveDryRun = IsDryRun || settings.DryRunMode;
+
+        if (!effectiveDryRun &&
+            !SafetyPromptService.ConfirmDestructiveAction(
+                $"Force uninstall {SelectedProgram.DisplayName}? This removes files and registry entries directly."))
+        {
+            StatusMessage = "Force uninstall cancelled.";
+            return;
+        }
+
         IsBusy = true;
-        StatusMessage = IsDryRun
+        StatusMessage = effectiveDryRun
             ? $"[Preview] Analyzing force uninstall for {SelectedProgram.DisplayName}..."
             : $"Force uninstalling {SelectedProgram.DisplayName}...";
 
@@ -265,7 +328,7 @@ public partial class UninstallerViewModel : ObservableObject
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
 
-            if (!IsDryRun)
+            if (!effectiveDryRun && settings.CreateRestorePointBeforeClean)
             {
                 // Create restore point before force uninstall
                 var (rpSuccess, rpMsg) = await RestorePointService.CreateRestorePointAsync(
@@ -278,11 +341,11 @@ public partial class UninstallerViewModel : ObservableObject
             }
 
             var result = await ForceDeleteService.ForceUninstallAsync(
-                SelectedProgram, dryRun: IsDryRun, progress: progress);
+                SelectedProgram, dryRun: effectiveDryRun, progress: progress);
 
             StatusMessage = result.Message;
 
-            if (result.Success && !IsDryRun)
+            if (result.Success && !effectiveDryRun)
             {
                 await LoadProgramsAsync();
             }

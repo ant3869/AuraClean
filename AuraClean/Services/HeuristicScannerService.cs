@@ -19,6 +19,7 @@ public static class HeuristicScannerService
     ///   2. No file in the directory has been modified in the last 180 days.
     /// </summary>
     public static async Task<List<JunkItem>> ScanForAbandonedFilesAsync(
+        int dayThreshold = ABANDONED_DAYS_THRESHOLD,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -34,7 +35,8 @@ public static class HeuristicScannerService
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)
         };
 
-        var cutoffDate = DateTime.Now.AddDays(-ABANDONED_DAYS_THRESHOLD);
+        var effectiveThreshold = Math.Max(1, dayThreshold);
+        var cutoffDate = DateTime.Now.AddDays(-effectiveThreshold);
 
         await Parallel.ForEachAsync(
             scanPaths.Where(p => !string.IsNullOrEmpty(p) && Directory.Exists(p)),
@@ -63,6 +65,10 @@ public static class HeuristicScannerService
                         // Check 2: Is the most recent file modification older than the threshold?
                         if (!IsDirectoryStale(dir, cutoffDate)) continue;
 
+                        // User media is never junk. Do not even present stale folders
+                        // containing photos/screenshots as abandoned app data.
+                        if (FileCleanerService.ContainsProtectedUserMedia(dir)) continue;
+
                         // Both conditions met — this is an abandoned directory
                         // Use a quick size estimate (cap at 1000 files to avoid long scans)
                         long size = GetDirectorySizeCapped(dir, 1000);
@@ -72,10 +78,11 @@ public static class HeuristicScannerService
                             results.Add(new JunkItem
                             {
                                 Path = dir,
-                                Description = $"Abandoned: No registry match, inactive >{ABANDONED_DAYS_THRESHOLD} days",
+                                Description = $"Abandoned: No registry match, inactive >{effectiveThreshold} days",
                                 Type = JunkType.AbandonedFile,
                                 SizeBytes = size,
-                                LastModified = GetMostRecentWriteTime(dir)
+                                LastModified = GetMostRecentWriteTime(dir),
+                                IsSelected = false
                             });
                         }
                     }

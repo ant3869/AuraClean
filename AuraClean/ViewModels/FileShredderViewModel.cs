@@ -37,8 +37,8 @@ public partial class FileShredderViewModel : ObservableObject
         get
         {
             if (Files.Count == 0) return "ADD FILES TO SHRED";
-            var count = SelectedCount > 0 ? SelectedCount : Files.Count;
-            return $"SHRED {count} FILE{(count != 1 ? "S" : "")}";
+            if (SelectedCount == 0) return "SELECT FILES TO SHRED";
+            return $"SHRED {SelectedCount} FILE{(SelectedCount != 1 ? "S" : "")}";
         }
     }
 
@@ -54,7 +54,10 @@ public partial class FileShredderViewModel : ObservableObject
 
     public FileShredderViewModel()
     {
-        SelectedAlgorithmOption = Algorithms[2]; // DoD3Pass default
+        var settings = SettingsService.Load();
+        SelectedAlgorithmOption = Algorithms.FirstOrDefault(a =>
+            a.Algorithm.ToString().Equals(settings.DefaultShredAlgorithm, StringComparison.OrdinalIgnoreCase))
+            ?? Algorithms[2];
         UpdateAlgorithmDescription();
     }
 
@@ -223,7 +226,23 @@ public partial class FileShredderViewModel : ObservableObject
 
         var filesToShred = Files.Where(f => f.IsSelected).ToList();
         if (filesToShred.Count == 0)
-            filesToShred = Files.ToList();
+        {
+            StatusMessage = "Select at least one file to shred.";
+            return;
+        }
+
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            StatusMessage = $"Dry run: would shred {filesToShred.Count} file(s).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Permanently shred {filesToShred.Count} selected file(s)? This cannot be undone."))
+        {
+            StatusMessage = "Shredding cancelled.";
+            return;
+        }
 
         IsBusy = true;
         HasResults = false;

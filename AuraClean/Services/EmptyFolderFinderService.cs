@@ -103,7 +103,7 @@ public static class EmptyFolderFinderService
                     Name = Path.GetFileName(path),
                     ParentPath = Path.GetDirectoryName(path) ?? "",
                     LastModified = Directory.GetLastWriteTime(path),
-                    IsSelected = true
+                    IsSelected = false
                 });
             }
             catch { }
@@ -119,7 +119,7 @@ public static class EmptyFolderFinderService
                     Name = Path.GetFileName(path),
                     ParentPath = Path.GetDirectoryName(path) ?? "",
                     LastModified = Directory.GetLastWriteTime(path),
-                    IsSelected = true,
+                    IsSelected = false,
                     EmptySubfolderCount = subdirs.Length
                 });
 
@@ -182,33 +182,30 @@ public static class EmptyFolderFinderService
     }
 
     /// <summary>
-    /// Returns common scan root paths (user profile folders, program files, etc.).
+    /// Returns low-risk temp/cache roots for empty-folder scans.
     /// </summary>
     public static List<string> GetDefaultScanPaths()
     {
         var paths = new List<string>();
 
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (Directory.Exists(userProfile))
-            paths.Add(userProfile);
-
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        if (Directory.Exists(programFiles))
-            paths.Add(programFiles);
-
-        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-        if (Directory.Exists(programFilesX86) && programFilesX86 != programFiles)
-            paths.Add(programFilesX86);
-
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        if (Directory.Exists(appData))
-            paths.Add(appData);
+        AddIfExists(paths, Path.GetTempPath());
+        AddIfExists(paths, @"C:\Windows\Temp");
 
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (Directory.Exists(localAppData))
-            paths.Add(localAppData);
+        AddIfExists(paths, Path.Combine(localAppData, "Temp"));
+        AddIfExists(paths, Path.Combine(localAppData, "CrashDumps"));
+        AddIfExists(paths, Path.Combine(localAppData, @"Microsoft\Windows\WER"));
 
-        return paths;
+        var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        AddIfExists(paths, Path.Combine(programData, @"Microsoft\Windows\WER"));
+
+        return paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static void AddIfExists(List<string> paths, string path)
+    {
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+            paths.Add(path);
     }
 }
 
@@ -221,7 +218,7 @@ public class EmptyFolderItem
     public string Name { get; set; } = string.Empty;
     public string ParentPath { get; set; } = string.Empty;
     public DateTime LastModified { get; set; }
-    public bool IsSelected { get; set; } = true;
+    public bool IsSelected { get; set; }
     public int EmptySubfolderCount { get; set; }
 
     public string DisplayInfo => EmptySubfolderCount > 0

@@ -40,7 +40,9 @@ class Program
         await TestSystemInfoService();
         await TestLargeFileFinderService();
         await TestFileShredderService();
-        await TestWinSxSParsing();
+        TestWinSxSParsing();
+        await TestProtectedImageCleanup();
+        TestUninstallerSafeMatching();
         await TestEmptyFolderFinder();
 
         Console.WriteLine("\n════════════════════════════════════════");
@@ -249,7 +251,7 @@ class Program
         Console.WriteLine();
     }
 
-    static async Task TestWinSxSParsing()
+    static void TestWinSxSParsing()
     {
         Console.WriteLine("═══ TEST SUITE 4: WinSxS Parsing (ParseDismSize) ═══");
 
@@ -303,9 +305,40 @@ class Program
         Console.WriteLine();
     }
 
+    static void TestUninstallerSafeMatching()
+    {
+        Console.WriteLine("═══ TEST SUITE 6: Safe Uninstaller Matching ═══");
+
+        try
+        {
+            var terms = UninstallerService.BuildRemnantDirectorySearchTerms(
+                "Google Chrome",
+                "Google LLC");
+
+            Assert(terms.Contains("googlechrome"), "Full product name is searchable");
+            Assert(terms.Contains("chrome"), "Product-specific word is searchable");
+            Assert(!terms.Contains("google"), "Publisher-only vendor term is not searchable");
+            Assert(!UninstallerService.IsSafeRemnantDirectoryMatch("Google", terms),
+                "Shared vendor folder does not match");
+            Assert(UninstallerService.IsSafeRemnantDirectoryMatch("Chrome", terms),
+                "Product folder matches");
+            Assert(UninstallerService.IsSafeRemnantDirectoryMatch("Google Chrome", terms),
+                "Full product folder matches");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"  EXCEPTION: {ex.Message}");
+            Console.ResetColor();
+            _fail++;
+        }
+
+        Console.WriteLine();
+    }
+
     static async Task TestEmptyFolderFinder()
     {
-        Console.WriteLine("═══ TEST SUITE 5: EmptyFolderFinderService ═══");
+        Console.WriteLine("═══ TEST SUITE 7: EmptyFolderFinderService ═══");
 
         var testRoot = Path.Combine(Path.GetTempPath(), "AuraClean_EFF_Test");
         try
@@ -376,7 +409,10 @@ class Program
 
             // Test DeleteAsync
             var selectedBefore = results.Where(r => r.IsSelected).ToList();
-            Assert(selectedBefore.Count > 0, $"All items default to selected ({selectedBefore.Count})");
+            Assert(selectedBefore.Count == 0, $"Empty folders default to unselected ({selectedBefore.Count} selected)");
+
+            foreach (var item in results)
+                item.IsSelected = true;
 
             var (deleted, failed) = await EmptyFolderFinderService.DeleteAsync(
                 results,
@@ -404,8 +440,22 @@ class Program
 
             // Test GetDefaultScanPaths
             var defaults = EmptyFolderFinderService.GetDefaultScanPaths();
-            Assert(defaults.Count >= 2, $"GetDefaultScanPaths returned {defaults.Count} paths (expected >= 2)");
+            Assert(defaults.Count > 0, $"GetDefaultScanPaths returned {defaults.Count} paths (expected > 0)");
             Assert(defaults.All(Directory.Exists), "All default scan paths exist on disk");
+
+            var broadRoots = new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+            }.Where(p => !string.IsNullOrWhiteSpace(p))
+             .Select(NormalizeRoot)
+             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            Assert(defaults.Select(NormalizeRoot).All(p => !broadRoots.Contains(p)),
+                "Default scan paths avoid broad user/profile/program roots");
 
             // Test cancellation
             var cts = new CancellationTokenSource();
@@ -436,6 +486,78 @@ class Program
         finally
         {
             // Cleanup
+            try { if (Directory.Exists(testRoot)) Directory.Delete(testRoot, true); } catch { }
+        }
+
+        Console.WriteLine();
+    }
+
+    static string NormalizeRoot(string path) =>
+        Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    static async Task TestProtectedImageCleanup()
+    {
+        Console.WriteLine("═══ TEST SUITE 5: Protected Image Cleanup ═══");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AuraClean_ImageProtection_Test");
+        try
+        {
+            if (Directory.Exists(testRoot)) Directory.Delete(testRoot, true);
+            Directory.CreateDirectory(testRoot);
+
+            var screenshot = Path.Combine(testRoot, "screenshot.png");
+            var tempFile = Path.Combine(testRoot, "cache.tmp");
+            File.WriteAllBytes(screenshot, [1, 2, 3, 4]);
+            File.WriteAllText(tempFile, "temporary data");
+
+            var directoryItem = new JunkItem
+            {
+                Path = testRoot,
+                Description = "Test directory with protected image",
+                Type = JunkType.AbandonedFile,
+                SizeBytes = 5,
+                IsSelected = true
+            };
+
+            var (deleted, skipped, _, errors) = await FileCleanerService.CleanItemsAsync([directoryItem]);
+
+            Assert(deleted == 1, $"Directory cleanup deleted non-image junk (deleted={deleted})");
+            Assert(skipped == 1, $"Directory cleanup skipped protected image (skipped={skipped})");
+            Assert(errors.Count == 0, "Directory cleanup had no errors");
+            Assert(File.Exists(screenshot), "Protected screenshot still exists");
+            Assert(!File.Exists(tempFile), "Temporary file was deleted");
+            Assert(Directory.Exists(testRoot), "Directory remains because it contains protected media");
+            Assert(directoryItem.IsLocked, "Directory item remains flagged when protected media is skipped");
+
+            var photo = Path.Combine(testRoot, "photo.jpg");
+            File.WriteAllBytes(photo, [5, 6, 7, 8]);
+            var photoItem = new JunkItem
+            {
+                Path = photo,
+                Description = "Direct photo file",
+                Type = JunkType.TempFile,
+                SizeBytes = 4,
+                IsSelected = true
+            };
+
+            var (photoDeleted, photoSkipped, _, photoErrors) =
+                await FileCleanerService.CleanItemsAsync([photoItem]);
+
+            Assert(photoDeleted == 0, $"Direct photo was not deleted (deleted={photoDeleted})");
+            Assert(photoSkipped == 1, $"Direct photo was skipped (skipped={photoSkipped})");
+            Assert(photoErrors.Count == 0, "Direct photo cleanup had no errors");
+            Assert(File.Exists(photo), "Direct photo still exists");
+            Assert(photoItem.IsLocked, "Direct photo item is flagged as protected");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"  EXCEPTION: {ex.Message}");
+            Console.ResetColor();
+            _fail++;
+        }
+        finally
+        {
             try { if (Directory.Exists(testRoot)) Directory.Delete(testRoot, true); } catch { }
         }
 
