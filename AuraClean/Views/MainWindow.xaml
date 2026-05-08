@@ -483,6 +483,35 @@
                         </Rectangle.Fill>
                     </Rectangle>
 
+                    <Button Style="{StaticResource AuraGhostButton}"
+                            Command="{Binding ToggleExperienceModeCommand}"
+                            AutomationProperties.Name="{Binding ExperienceModeToggleLabel}"
+                            Padding="8,6"
+                            Margin="0,0,0,10"
+                            HorizontalContentAlignment="Stretch"
+                            ToolTip="{Binding ExperienceModeDescription}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="Tune"
+                                                     Width="14" Height="14"
+                                                     Foreground="{StaticResource AuraAmber}"
+                                                     VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                <TextBlock Text="{Binding ExperienceModeLabel, StringFormat='{}{0} Mode'}"
+                                           Foreground="{DynamicResource AuraTextPrimary}"
+                                           FontSize="11"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ExperienceModeDescription}"
+                                           Foreground="{DynamicResource AuraTextMuted}"
+                                           FontSize="9.5"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+
                     <StackPanel Orientation="Horizontal"
                                 Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}">
                         <materialDesign:PackIcon Kind="ShieldKey"

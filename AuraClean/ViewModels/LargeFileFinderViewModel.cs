@@ -263,6 +263,12 @@ public partial class LargeFileFinderViewModel : ObservableObject
     [RelayCommand]
     private void DeleteSelected()
     {
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to delete large files. Normal mode is review-only for personal files.";
+            return;
+        }
+
         var checkedFiles = FilteredFiles.Where(f => f.IsSelected).ToList();
 
         if (checkedFiles.Count == 0)

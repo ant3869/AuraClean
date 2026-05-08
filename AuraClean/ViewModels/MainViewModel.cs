@@ -32,8 +32,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _healthCheckStep;
     [ObservableProperty] private int _healthCheckTotalSteps = 4;
     [ObservableProperty] private string _healthCheckSummary = string.Empty;
+    [ObservableProperty] private bool _isAdvancedMode;
+    private bool _isApplyingExternalModeChange;
 
     public string AppVersion { get; } = $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
+
+    public string ExperienceModeLabel => IsAdvancedMode ? "Advanced" : "Normal";
+
+    public string ExperienceModeDescription => IsAdvancedMode
+        ? "Full controls and expert actions are visible."
+        : "Only low-risk cleanup and plain-language choices are shown.";
+
+    public string ExperienceModeToggleLabel => IsAdvancedMode
+        ? "Switch to Normal Mode"
+        : "Switch to Advanced Mode";
 
     // System info properties for Dashboard
     [ObservableProperty] private string _osName = string.Empty;
@@ -48,6 +60,30 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnLastCleanedDateChanged(DateTime value) =>
         OnPropertyChanged(nameof(LastCleanedDisplay));
+
+    partial void OnIsAdvancedModeChanged(bool value)
+    {
+        if (!_isApplyingExternalModeChange)
+            ExperienceModeService.SaveMode(value);
+
+        ApplyExperienceModeToChildren(value);
+        OnPropertyChanged(nameof(ExperienceModeLabel));
+        OnPropertyChanged(nameof(ExperienceModeDescription));
+        OnPropertyChanged(nameof(ExperienceModeToggleLabel));
+        StatusBarText = value
+            ? "Advanced mode enabled — expert controls are visible."
+            : "Normal mode enabled — only safer defaults are shown.";
+    }
+
+    private void OnExperienceModeChanged(bool isAdvancedMode)
+    {
+        if (IsAdvancedMode == isAdvancedMode)
+            return;
+
+        _isApplyingExternalModeChange = true;
+        IsAdvancedMode = isAdvancedMode;
+        _isApplyingExternalModeChange = false;
+    }
 
     // Child ViewModels
     public UninstallerViewModel Uninstaller { get; } = new();
@@ -89,6 +125,9 @@ public partial class MainViewModel : ObservableObject
 
         IsContextMenuInstalled = ContextMenuService.IsContextMenuInstalled();
         ContextMenuStatus = IsContextMenuInstalled ? "Installed" : "Not installed";
+        IsAdvancedMode = ExperienceModeService.IsAdvancedMode();
+        ApplyExperienceModeToChildren(IsAdvancedMode);
+        ExperienceModeService.ModeChanged += OnExperienceModeChanged;
 
         // Load last cleaned date from settings (fallback: never)
         var settingsDir = Path.Combine(
@@ -243,6 +282,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleTools() => ToggleUtilities();
+
+    [RelayCommand]
+    private void ToggleExperienceMode() => IsAdvancedMode = !IsAdvancedMode;
 
     [RelayCommand]
     private async Task QuickAnalyzeAsync()
@@ -518,5 +560,39 @@ public partial class MainViewModel : ObservableObject
                 DateTime.Now.ToString("o"));
         }
         catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "Failed to persist last-cleaned date", ex); }
+    }
+
+    private void ApplyExperienceModeToChildren(bool isAdvancedMode)
+    {
+        object?[] children =
+        [
+            Uninstaller,
+            Cleaner,
+            Memory,
+            InstallMonitor,
+            BrowserCleaner,
+            DiskAnalyzer,
+            StartupManager,
+            DuplicateFinder,
+            FileShredder,
+            LargeFileFinder,
+            SystemInfo,
+            Settings,
+            CleanupHistory,
+            Quarantine,
+            ThreatScanner,
+            SoftwareUpdater,
+            DiskOptimizer,
+            FileRecovery,
+            EmptyFolderFinder,
+            AppInstaller,
+            Onboarding
+        ];
+
+        foreach (var child in children)
+        {
+            if (child is IExperienceModeAware modeAware)
+                modeAware.SetExperienceMode(isAdvancedMode);
+        }
     }
 }

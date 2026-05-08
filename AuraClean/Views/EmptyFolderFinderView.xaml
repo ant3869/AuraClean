@@ -44,7 +44,8 @@
                            Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,0,10" />
 
                 <!-- Path list -->
-                <ItemsControl Grid.Row="1" ItemsSource="{Binding ScanPaths}" Margin="0,0,0,10">
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding ScanPaths}" Margin="0,0,0,10"
+                              Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="{DynamicResource AuraSurfaceLight}"
@@ -64,6 +65,7 @@
                                     <Button Grid.Column="2" Style="{StaticResource AuraGhostButton}"
                                             Command="{Binding DataContext.RemovePathCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
+                                            Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                             Padding="4,2" MinWidth="0" MinHeight="0">
                                         <materialDesign:PackIcon Kind="Close" Width="14" Height="14" />
                                     </Button>
@@ -72,6 +74,13 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <TextBlock Grid.Row="1"
+                           Text="Normal mode scans only low-risk temp and cache locations."
+                           Foreground="{DynamicResource AuraTextSecondary}"
+                           FontSize="12"
+                           Margin="0,0,0,10"
+                           Visibility="{Binding IsNormalMode, Converter={StaticResource BoolToVis}}" />
 
                 <!-- Add path controls -->
                 <Grid Grid.Row="2">
@@ -83,6 +92,7 @@
 
                     <Button Grid.Column="0" Style="{StaticResource AuraOutlinedButton}"
                             Command="{Binding BrowseFolderCommand}"
+                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
                             Padding="12,6" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">

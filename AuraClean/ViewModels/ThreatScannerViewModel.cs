@@ -66,6 +66,9 @@ public partial class ThreatScannerViewModel : ObservableObject
     {
         if (IsScanning) return;
 
+        if (!IsAdvancedMode && SelectedScanMode != ScanMode.Quick)
+            SelectedScanMode = ScanMode.Quick;
+
         _cts = new CancellationTokenSource();
         IsScanning = true;
         HasResults = false;
@@ -146,6 +149,13 @@ public partial class ThreatScannerViewModel : ObservableObject
     [RelayCommand]
     private void SelectScanMode(string mode)
     {
+        if (!IsAdvancedMode && mode != "Quick")
+        {
+            StatusMessage = "Normal mode uses Quick Scan. Turn on Advanced mode for full, custom, and browser-only scans.";
+            SelectedScanMode = ScanMode.Quick;
+            return;
+        }
+
         SelectedScanMode = mode switch
         {
             "Quick" => ScanMode.Quick,
@@ -265,6 +275,11 @@ public partial class ThreatScannerViewModel : ObservableObject
     private async Task DeleteSelectedAsync()
     {
         if (IsQuarantining) return;
+        if (!IsAdvancedMode)
+        {
+            ActionStatusMessage = "Normal mode uses quarantine instead of permanent deletion. Turn on Advanced mode to delete threats.";
+            return;
+        }
         IsQuarantining = true;
 
         try
@@ -349,6 +364,12 @@ public partial class ThreatScannerViewModel : ObservableObject
     [RelayCommand]
     private void DeleteAll()
     {
+        if (!IsAdvancedMode)
+        {
+            ActionStatusMessage = "Normal mode uses quarantine instead of permanent deletion. Turn on Advanced mode to delete threats.";
+            return;
+        }
+
         foreach (var cat in Categories)
             foreach (var item in cat.Items)
                 item.IsSelected = true;
@@ -359,6 +380,12 @@ public partial class ThreatScannerViewModel : ObservableObject
     [RelayCommand]
     private void WhitelistSelected()
     {
+        if (!IsAdvancedMode)
+        {
+            ActionStatusMessage = "Turn on Advanced mode to whitelist detected items.";
+            return;
+        }
+
         var selectedThreats = Categories
             .SelectMany(c => c.Items)
             .Where(t => t.IsSelected)

@@ -166,7 +166,7 @@
                 <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="8,0,0,0">
                     <Border Background="{DynamicResource AuraSurfaceLight}" CornerRadius="8"
                             Padding="10,4" VerticalAlignment="Center" Margin="0,0,8,0"
-                            Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                         <TextBlock FontSize="12" VerticalAlignment="Center">
                             <Run Text="{Binding SelectedCount, Mode=OneWay}" Foreground="{StaticResource AuraAccentPurple}" FontWeight="SemiBold" />
                             <Run Text=" checked" Foreground="{DynamicResource AuraTextSecondary}" />
@@ -181,6 +181,7 @@
                     <Button Style="{StaticResource AuraGhostButton}"
                             Command="{Binding DeleteSelectedCommand}"
                             Foreground="{StaticResource AuraWarning}"
+                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                             Content="Delete" Padding="12,6" Margin="4,0,0,0" />
                 </StackPanel>
             </Grid>
@@ -207,6 +208,7 @@
                         <DataGridTemplateColumn.Header>
                             <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                       AutomationProperties.Name="Select All Large Files"
+                                      Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=DataGrid}, Converter={StaticResource BoolToVis}}"
                                       HorizontalAlignment="Center"
                                       ToolTip="Select / Deselect All" />
                         </DataGridTemplateColumn.Header>
@@ -214,6 +216,7 @@
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                           AutomationProperties.Name="Select Large File"
+                                          Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=DataGrid}, Converter={StaticResource BoolToVis}}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

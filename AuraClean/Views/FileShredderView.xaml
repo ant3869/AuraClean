@@ -214,9 +214,26 @@
 
             <!-- Right Panel: Algorithm Choice + Shred Button + Results -->
             <StackPanel Grid.Column="2">
+                <Border Style="{StaticResource AuraGlassCard}"
+                        CornerRadius="16" Margin="0,0,0,16"
+                        Visibility="{Binding IsNormalMode, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <TextBlock Text="Advanced Mode Required"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AuraTextPrimary}"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="File shredding is permanent and cannot be undone. Switch to Advanced mode when you intentionally need secure deletion."
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource AuraTextSecondary}" />
+                    </StackPanel>
+                </Border>
+
                 <!-- Algorithm Selection -->
                 <Border Style="{StaticResource AuraGlassCard}"
-                        CornerRadius="16" Margin="0,0,0,16">
+                        CornerRadius="16" Margin="0,0,0,16"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <TextBlock Text="Shred Algorithm" FontSize="16" FontWeight="SemiBold"
                                    Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,0,12" />
@@ -286,6 +303,7 @@
                 <Button Style="{StaticResource AuraPrimaryButton}"
                         Command="{Binding ShredAllCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                         HorizontalAlignment="Stretch"
                         Padding="0,16" Margin="0,0,0,16">
                     <StackPanel Orientation="Horizontal">

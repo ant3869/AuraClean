@@ -68,7 +68,8 @@ public partial class CleanerViewModel : ObservableObject
             var selected = Categories.SelectMany(c => c.Items).Where(i => i.IsSelected).ToList();
             if (selected.Count == 0) return "Select items to clean";
             var totalSize = selected.Sum(i => i.SizeBytes);
-            return $"CLEAN {selected.Count} FILES \u00b7 {FormatHelper.FormatBytes(totalSize)}";
+            var prefix = IsAdvancedMode ? "CLEAN" : "CLEAN SAFE ITEMS";
+            return $"{prefix} {selected.Count} FILES \u00b7 {FormatHelper.FormatBytes(totalSize)}";
         }
     }
 
@@ -132,7 +133,7 @@ public partial class CleanerViewModel : ObservableObject
             var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(progress);
 
             ProgressValue = 30;
-            var abandonedTask = settings.RunHeuristicScan
+            var abandonedTask = IsAdvancedMode && settings.RunHeuristicScan
                 ? HeuristicScannerService.ScanForAbandonedFilesAsync(
                     settings.AbandonedFileDaysThreshold,
                     progress)
@@ -148,7 +149,15 @@ public partial class CleanerViewModel : ObservableObject
             var allItems = systemJunk.Concat(abandoned)
                 .Where(i => !FileCleanerService.IsProtectedUserMediaFile(i.Path))
                 .ToList();
-            ApplyDefaultSelections(allItems, settings);
+
+            if (!IsAdvancedMode)
+            {
+                allItems = allItems
+                    .Where(i => CleanupModePolicy.IsNormalModeJunkType(i.Type))
+                    .ToList();
+            }
+
+            ApplyDefaultSelections(allItems, settings, IsAdvancedMode);
 
             // Group by category — build all data off-thread then assign once
             var grouped = allItems.GroupBy(i => i.Category)
@@ -171,8 +180,10 @@ public partial class CleanerViewModel : ObservableObject
             HasResults = allItems.Count > 0;
             ProgressValue = 100;
 
-            StatusMessage = allItems.Count > 0
+            StatusMessage = allItems.Count > 0 && IsAdvancedMode
                 ? $"Found {TotalJunkCount} items ({FormattedTotalSize}) of reclaimable space."
+                : allItems.Count > 0
+                    ? $"Found {TotalJunkCount} low-risk cleanup item(s) ({FormattedTotalSize}). Advanced mode shows review-only categories."
                 : "No unnecessary files found.";
         }
         catch (Exception ex)
@@ -221,8 +232,11 @@ public partial class CleanerViewModel : ObservableObject
                 return;
             }
 
-            if (!SafetyPromptService.ConfirmDestructiveAction(
-                    $"Clean {selectedItems.Count} selected item(s)? This can permanently remove files."))
+            var confirmMessage = IsAdvancedMode
+                ? $"Clean {selectedItems.Count} selected item(s)? This can permanently remove files."
+                : $"Clean {selectedItems.Count} low-risk selected item(s)?";
+
+            if (!SafetyPromptService.ConfirmDestructiveAction(confirmMessage))
             {
                 StatusMessage = "Cleanup cancelled.";
                 return;
@@ -320,10 +334,16 @@ public partial class CleanerViewModel : ObservableObject
         }
     }
 
-    private static void ApplyDefaultSelections(IEnumerable<JunkItem> items, AppSettings settings)
+    private static void ApplyDefaultSelections(IEnumerable<JunkItem> items, AppSettings settings, bool isAdvancedMode)
     {
         foreach (var item in items)
         {
+            if (!isAdvancedMode)
+            {
+                item.IsSelected = CleanupModePolicy.IsNormalModeJunkType(item.Type);
+                continue;
+            }
+
             item.IsSelected = item.Type switch
             {
                 JunkType.TempFile => settings.CleanTempFiles,

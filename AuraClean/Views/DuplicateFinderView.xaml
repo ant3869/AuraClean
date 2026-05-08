@@ -80,7 +80,8 @@
                 </Grid>
 
                 <!-- Options row -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center"
+                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <CheckBox Content="Recursive" IsChecked="{Binding Recursive}"
                               AutomationProperties.Name="Scan Recursively"
                               Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,20,0" />
@@ -106,6 +107,12 @@
                              Width="180"
                              Foreground="{DynamicResource AuraTextPrimary}" />
                 </StackPanel>
+
+                <TextBlock Grid.Row="1"
+                           Text="Normal mode reviews duplicates without selecting anything for deletion."
+                           Foreground="{DynamicResource AuraTextSecondary}"
+                           FontSize="12"
+                           Visibility="{Binding IsNormalMode, Converter={StaticResource BoolToVis}}" />
             </Grid>
         </Border>
 
@@ -213,7 +220,8 @@
                 </WrapPanel>
 
                 <!-- Action buttons -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8"
+                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <Button Content="Select All Duplicates"
                             Style="{StaticResource AuraGhostButton}"
                             Foreground="{StaticResource AuraAccentTeal}"
@@ -308,6 +316,7 @@
                                                             <CheckBox Grid.Column="0"
                                                                       IsChecked="{Binding IsSelected}"
                                                                       AutomationProperties.Name="Select Duplicate File"
+                                                                      Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                                       Margin="0,0,8,0" VerticalAlignment="Center" />
 
                                                             <!-- Keep badge -->

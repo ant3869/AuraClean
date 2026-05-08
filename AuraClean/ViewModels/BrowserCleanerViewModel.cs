@@ -140,8 +140,8 @@ public partial class BrowserCleanerViewModel : ObservableObject
             var result = await BrowserCleanerService.CleanBrowserAsync(
                 entry.ScanResult,
                 cleanCache: CleanCache,
-                vacuumDatabases: VacuumDatabases,
-                cleanTracking: CleanTracking,
+                vacuumDatabases: IsAdvancedMode && VacuumDatabases,
+                cleanTracking: IsAdvancedMode && CleanTracking,
                 dryRun: IsDryRun,
                 progress: progress);
 
@@ -163,7 +163,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
               (allErrors.Count > 0 ? $" {allErrors.Count} error(s)." : "");
 
         // Flush DNS cache if enabled
-        if (FlushDns && !IsDryRun)
+        if (IsAdvancedMode && FlushDns && !IsDryRun)
         {
             StatusMessage += " Flushing DNS cache...";
             var (dnsOk, dnsMsg) = await BrowserCleanerService.FlushDnsCacheAsync();

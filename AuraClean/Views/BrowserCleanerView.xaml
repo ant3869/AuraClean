@@ -48,17 +48,27 @@
                               Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,20,0" />
                     <CheckBox Content="SQLite Vacuum" IsChecked="{Binding VacuumDatabases}"
                               AutomationProperties.Name="Vacuum Databases"
+                              Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                               Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,20,0" />
                     <CheckBox Content="Tracking Data" IsChecked="{Binding CleanTracking}"
                               AutomationProperties.Name="Clean Tracking Data"
+                              Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                               Foreground="{DynamicResource AuraTextPrimary}" Margin="0,0,20,0" />
 
-                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,0" />
+                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,0"
+                               Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}" />
 
                     <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
                                   AutomationProperties.Name="Dry Run"
+                                  Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                                   IsChecked="{Binding IsDryRun}" Margin="8,0" />
                     <TextBlock Text="Dry Run" Foreground="{DynamicResource AuraTextSecondary}"
+                               Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="Normal mode clears browser cache only."
+                               Foreground="{DynamicResource AuraTextSecondary}"
+                               FontSize="12"
+                               Visibility="{Binding IsNormalMode, Converter={StaticResource BoolToVis}}"
                                VerticalAlignment="Center" />
                 </StackPanel>
 

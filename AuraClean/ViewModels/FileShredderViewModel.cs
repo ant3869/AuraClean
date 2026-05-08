@@ -218,6 +218,12 @@ public partial class FileShredderViewModel : ObservableObject
     [RelayCommand]
     private async Task ShredAllAsync()
     {
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to permanently shred files. Normal mode avoids irreversible deletion.";
+            return;
+        }
+
         if (Files.Count == 0)
         {
             StatusMessage = "No files to shred. Add files first.";

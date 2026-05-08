@@ -174,6 +174,12 @@ public partial class UninstallerViewModel : ObservableObject
     [RelayCommand]
     private async Task DeepScanAsync()
     {
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to scan and clean leftover files.";
+            return;
+        }
+
         if (SelectedProgram == null) return;
 
         IsScanning = true;
@@ -208,6 +214,12 @@ public partial class UninstallerViewModel : ObservableObject
     [RelayCommand]
     private async Task CleanLeftoversAsync()
     {
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to clean leftover files and registry entries.";
+            return;
+        }
+
         if (PostUninstallJunk.Count == 0) return;
 
         var selectedItems = PostUninstallJunk.Where(j => j.IsSelected).ToList();
@@ -306,6 +318,12 @@ public partial class UninstallerViewModel : ObservableObject
     [RelayCommand]
     private async Task ForceUninstallAsync()
     {
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to force uninstall broken programs.";
+            return;
+        }
+
         if (SelectedProgram == null) return;
 
         var settings = SettingsService.Load();

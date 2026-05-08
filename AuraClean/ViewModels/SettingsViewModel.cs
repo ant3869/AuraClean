@@ -8,9 +8,10 @@ namespace AuraClean.ViewModels;
 /// ViewModel for the Settings page.
 /// Provides two-way binding to all AppSettings properties with save/reset support.
 /// </summary>
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
 {
     // ── General ──
+    [ObservableProperty] private bool _isAdvancedMode;
     [ObservableProperty] private bool _createRestorePointBeforeClean;
     [ObservableProperty] private bool _dryRunMode;
     [ObservableProperty] private bool _showConfirmationDialogs;
@@ -55,6 +56,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _hasUnsavedChanges;
     [ObservableProperty] private string _settingsPath = string.Empty;
 
+    private bool _suppressModeChangeTracking;
+
     public string[] ShredAlgorithms { get; } =
         ["QuickZero", "Random", "DoD3Pass", "Enhanced7Pass"];
 
@@ -84,6 +87,9 @@ public partial class SettingsViewModel : ObservableObject
     {
         var s = SettingsService.Load();
 
+        _suppressModeChangeTracking = true;
+        IsAdvancedMode = s.ExperienceMode == ExperienceMode.Advanced;
+        _suppressModeChangeTracking = false;
         CreateRestorePointBeforeClean = s.CreateRestorePointBeforeClean;
         DryRunMode = s.DryRunMode;
         ShowConfirmationDialogs = s.ShowConfirmationDialogs;
@@ -131,6 +137,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         var s = new AppSettings
         {
+            ExperienceMode = IsAdvancedMode ? ExperienceMode.Advanced : ExperienceMode.Normal,
             CreateRestorePointBeforeClean = CreateRestorePointBeforeClean,
             DryRunMode = DryRunMode,
             ShowConfirmationDialogs = ShowConfirmationDialogs,
@@ -197,6 +204,14 @@ public partial class SettingsViewModel : ObservableObject
     // ── Track changes for the "unsaved" indicator ──
 
     partial void OnCreateRestorePointBeforeCleanChanged(bool value) => HasUnsavedChanges = true;
+    partial void OnIsAdvancedModeChanged(bool value)
+    {
+        if (_suppressModeChangeTracking)
+            return;
+
+        ExperienceModeService.SaveMode(value);
+        HasUnsavedChanges = true;
+    }
     partial void OnDryRunModeChanged(bool value) => HasUnsavedChanges = true;
     partial void OnShowConfirmationDialogsChanged(bool value) => HasUnsavedChanges = true;
     partial void OnMinimizeToTrayChanged(bool value) => HasUnsavedChanges = true;
@@ -231,5 +246,12 @@ public partial class SettingsViewModel : ObservableObject
     {
         ScheduledCleanupDayOfWeek = value + 1;
         HasUnsavedChanges = true;
+    }
+
+    public void SetExperienceMode(bool isAdvancedMode)
+    {
+        _suppressModeChangeTracking = true;
+        IsAdvancedMode = isAdvancedMode;
+        _suppressModeChangeTracking = false;
     }
 }

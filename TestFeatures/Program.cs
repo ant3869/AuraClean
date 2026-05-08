@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AuraClean.Services;
 using AuraClean.Models;
+using AuraClean.ViewModels;
 
 namespace TestFeatures;
 
@@ -44,6 +45,7 @@ class Program
         await TestProtectedImageCleanup();
         TestUninstallerSafeMatching();
         await TestEmptyFolderFinder();
+        TestExperienceModePolicy();
 
         Console.WriteLine("\n════════════════════════════════════════");
         Console.ForegroundColor = _fail == 0 ? ConsoleColor.Green : ConsoleColor.Red;
@@ -494,6 +496,88 @@ class Program
 
     static string NormalizeRoot(string path) =>
         Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    static void TestExperienceModePolicy()
+    {
+        Console.WriteLine("═══ TEST SUITE 8: Experience Mode Policy ═══");
+
+        try
+        {
+            var defaults = new AppSettings();
+            Assert(defaults.ExperienceMode == ExperienceMode.Normal,
+                $"Default experience mode is Normal ({defaults.ExperienceMode})");
+
+            var normalSafe = new[]
+            {
+                JunkType.TempFile,
+                JunkType.WindowsUpdateCache,
+                JunkType.Prefetch,
+                JunkType.CrashDump,
+                JunkType.BrowserCache,
+                JunkType.ThumbnailCache,
+                JunkType.LogFile
+            };
+
+            foreach (var junkType in normalSafe)
+            {
+                Assert(CleanupModePolicy.IsNormalModeJunkType(junkType),
+                    $"{junkType} is allowed in Normal mode cleanup");
+            }
+
+            var reviewOnly = new[]
+            {
+                JunkType.RecycleBin,
+                JunkType.WindowsOld,
+                JunkType.WinSxS,
+                JunkType.AbandonedFile,
+                JunkType.OrphanedRegistryKey,
+                JunkType.RemnantDirectory
+            };
+
+            foreach (var junkType in reviewOnly)
+            {
+                Assert(!CleanupModePolicy.IsNormalModeJunkType(junkType),
+                    $"{junkType} is hidden from Normal mode cleanup");
+            }
+
+            var duplicateGroup = new DuplicateFinderService.DuplicateGroup
+            {
+                Hash = "abc",
+                FileSize = 100,
+                Files =
+                [
+                    new DuplicateFinderService.DuplicateFileEntry
+                    {
+                        FullPath = @"C:\test\a.txt",
+                        IsKeep = true,
+                        IsSelected = false
+                    },
+                    new DuplicateFinderService.DuplicateFileEntry
+                    {
+                        FullPath = @"C:\test\b.txt",
+                        IsKeep = false,
+                        IsSelected = true
+                    }
+                ]
+            };
+
+            DuplicateFinderViewModel.ApplyNormalModeReviewDefaults([duplicateGroup]);
+
+            Assert(duplicateGroup.Files.All(f => !f.IsSelected),
+                "Normal mode clears duplicate delete selections");
+            Assert(duplicateGroup.Files.All(f => !f.IsKeep),
+                "Normal mode does not mark an automatic keep/delete winner");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"  EXCEPTION: {ex.Message}");
+            Console.ResetColor();
+            _fail++;
+        }
+
+        Console.WriteLine();
+    }
 
     static async Task TestProtectedImageCleanup()
     {

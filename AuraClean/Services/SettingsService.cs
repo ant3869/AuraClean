@@ -149,6 +149,7 @@ public static class SettingsService
 public class AppSettings
 {
     // ── General ──
+    public ExperienceMode ExperienceMode { get; set; } = ExperienceMode.Normal;
     public bool CreateRestorePointBeforeClean { get; set; } = true;
     public bool DryRunMode { get; set; } = false;
     public bool ShowConfirmationDialogs { get; set; } = true;
@@ -196,4 +197,28 @@ public class AppSettings
 
     // ── Metadata ──
     public DateTime LastModified { get; set; } = DateTime.Now;
+}
+
+public enum ExperienceMode
+{
+    Normal,
+    Advanced
+}
+
+public static class ExperienceModeService
+{
+    public static event Action<bool>? ModeChanged;
+
+    public static ExperienceMode GetMode() => SettingsService.Load().ExperienceMode;
+
+    public static bool IsAdvancedMode() => GetMode() == ExperienceMode.Advanced;
+
+    public static void SaveMode(bool isAdvancedMode)
+    {
+        var settings = SettingsService.Load();
+        settings.ExperienceMode = isAdvancedMode ? ExperienceMode.Advanced : ExperienceMode.Normal;
+        settings.LastModified = DateTime.Now;
+        SettingsService.Save(settings);
+        ModeChanged?.Invoke(isAdvancedMode);
+    }
 }

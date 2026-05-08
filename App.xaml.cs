@@ -64,6 +64,13 @@ public partial class App : Application
         // Select items matching user's cleanup preferences
         foreach (var item in items)
         {
+            if (settings.ExperienceMode == ExperienceMode.Normal &&
+                !CleanupModePolicy.IsNormalModeJunkType(item.Type))
+            {
+                item.IsSelected = false;
+                continue;
+            }
+
             item.IsSelected = item.Type switch
             {
                 JunkType.TempFile => settings.CleanTempFiles,

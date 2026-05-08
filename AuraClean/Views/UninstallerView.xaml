@@ -70,12 +70,13 @@
                     Content="Deep Scan"
                     Style="{StaticResource AuraPrimaryButton}"
                     Padding="16,8"
-                    Command="{Binding DeepScanCommand}" />
+                    Command="{Binding DeepScanCommand}"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}" />
 
             <!-- Selection count badge -->
             <Border Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center"
                     HorizontalAlignment="Right"
-                    Visibility="{Binding HasCheckedItems, Converter={StaticResource BoolToVis}}">
+                    Visibility="{Binding ShowProgramSelectionBadge, Converter={StaticResource BoolToVis}}">
                 <Border Background="{StaticResource AuraAccentPurple}" CornerRadius="10"
                         Padding="10,3">
                     <TextBlock Foreground="White" FontSize="11" FontWeight="SemiBold">
@@ -114,11 +115,14 @@
                             <GridViewColumn Width="40">
                                 <GridViewColumn.Header>
                                     <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                              Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                               ToolTip="Select All" />
                                 </GridViewColumn.Header>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
-                                        <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                  Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                                                  VerticalAlignment="Center" />
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
@@ -199,7 +203,7 @@
         <!-- Post-Uninstall Scan Results -->
         <Expander Grid.Row="3"
                   Header="{Binding PostUninstallJunk.Count, StringFormat='Leftovers Found ({0} items)'}"
-                  Visibility="{Binding HasPostUninstallResults, Converter={StaticResource BoolToVis}}"
+                  Visibility="{Binding ShowPostUninstallResults, Converter={StaticResource BoolToVis}}"
                   IsExpanded="True"
                   Foreground="{DynamicResource AuraTextPrimary}"
                   Margin="0,0,0,12">
@@ -260,7 +264,8 @@
                     Style="{StaticResource AuraPrimaryButton}"
                     Padding="16,8"
                     Command="{Binding CleanLeftoversCommand}"
-                    Visibility="{Binding HasPostUninstallResults, Converter={StaticResource BoolToVis}}" />
+                    IsEnabled="{Binding HasPostUninstallResults}"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}" />
         </Grid>
     </Grid>
 </UserControl>

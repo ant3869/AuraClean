@@ -142,12 +142,22 @@ public partial class StartupManagerViewModel : ObservableObject
             checkedEntries = [SelectedEntry];
         if (checkedEntries.Count == 0) return;
 
+        if (!IsAdvancedMode)
+        {
+            checkedEntries = checkedEntries.Where(e => e.IsEnabled).ToList();
+            if (checkedEntries.Count == 0)
+            {
+                StatusMessage = "Normal mode only disables startup items. Turn on Advanced mode to re-enable or delete entries.";
+                return;
+            }
+        }
+
         IsBusy = true;
         int toggled = 0;
 
         foreach (var entry in checkedEntries)
         {
-            bool newState = !entry.IsEnabled;
+            bool newState = IsAdvancedMode ? !entry.IsEnabled : false;
             StatusMessage = newState
                 ? $"Enabling {entry.Name}..."
                 : $"Disabling {entry.Name}...";
@@ -173,6 +183,12 @@ public partial class StartupManagerViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to delete startup entries. Normal mode can disable them instead.";
+            return;
+        }
+
         var checkedEntries = FilteredEntries.Where(e => e.IsSelected).ToList();
         if (checkedEntries.Count == 0 && SelectedEntry != null)
             checkedEntries = [SelectedEntry];

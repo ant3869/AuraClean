@@ -99,6 +99,9 @@
                                    Text="Core application behavior and safety settings." />
 
                         <CheckBox Style="{StaticResource AuraToggle}"
+                                  IsChecked="{Binding IsAdvancedMode}"
+                                  Content="Advanced mode (show expert controls and review-only cleanup categories)" />
+                        <CheckBox Style="{StaticResource AuraToggle}"
                                   IsChecked="{Binding CreateRestorePointBeforeClean}"
                                   Content="Create system restore point before cleaning" />
                         <CheckBox Style="{StaticResource AuraToggle}"
@@ -120,7 +123,8 @@
                 </Border>
 
                 <!-- ═══ CLEANER DEFAULTS ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="Broom" Width="20" Height="20"
@@ -176,7 +180,8 @@
                 </Border>
 
                 <!-- ═══ TOOLS ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="Toolbox" Width="20" Height="20"
@@ -230,7 +235,8 @@
                 </Border>
 
                 <!-- ═══ QUARANTINE ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="ShieldOff" Width="20" Height="20"
@@ -263,7 +269,8 @@
                 </Border>
 
                 <!-- ═══ HISTORY ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="ClipboardTextClock" Width="20" Height="20"
@@ -295,7 +302,8 @@
                 <!-- Storage path info -->
 
                 <!-- ═══ SCHEDULED CLEANUP ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="ClockOutline" Width="20" Height="20"

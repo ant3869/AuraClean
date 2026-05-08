@@ -108,6 +108,7 @@
             <Button Grid.Column="1" Margin="6,0,6,0"
                     Command="{Binding SelectScanModeCommand}" CommandParameter="Full"
                     AutomationProperties.Name="Full Scan"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     FocusVisualStyle="{StaticResource AuraFocusVisual}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -142,6 +143,7 @@
             <Button Grid.Column="2" Margin="6,0,6,0"
                     Command="{Binding SelectScanModeCommand}" CommandParameter="Custom"
                     AutomationProperties.Name="Custom Scan"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     FocusVisualStyle="{StaticResource AuraFocusVisual}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -176,6 +178,7 @@
             <Button Grid.Column="3" Margin="6,0,0,0"
                     Command="{Binding SelectScanModeCommand}" CommandParameter="BrowserOnly"
                     AutomationProperties.Name="Browser Scan"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     FocusVisualStyle="{StaticResource AuraFocusVisual}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -271,6 +274,7 @@
             <!-- Whitelist toggle -->
             <Button Grid.Column="3" Style="{StaticResource AuraGhostButton}"
                     Command="{Binding ToggleWhitelistCommand}"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     Margin="0,0,8,0" Padding="8,4">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16" Margin="0,0,4,0" />
@@ -282,12 +286,12 @@
             <Button Grid.Column="4" Style="{StaticResource AuraGhostButton}"
                     Content="Select All" FontSize="11"
                     Command="{Binding SelectAllCommand}"
-                    Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     Margin="0,0,4,0" Padding="8,4" />
             <Button Grid.Column="5" Style="{StaticResource AuraGhostButton}"
                     Content="Deselect" FontSize="11"
                     Command="{Binding DeselectAllCommand}"
-                    Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     Padding="8,4" />
         </Grid>
 
@@ -537,6 +541,7 @@
 
                                                 <CheckBox Grid.Column="0"
                                                           IsChecked="{Binding IsAllSelected}"
+                                                          Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                           Margin="0,0,12,0"
                                                           VerticalAlignment="Center" />
 
@@ -580,6 +585,7 @@
 
                                                             <CheckBox Grid.Column="0"
                                                                       IsChecked="{Binding IsSelected}"
+                                                                      Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                                       Margin="0,0,8,0"
                                                                       VerticalAlignment="Center" />
 
@@ -816,12 +822,14 @@
 
                 <!-- Separator -->
                 <Border Grid.Column="4" Width="1" Height="20"
-                        Background="{DynamicResource AuraBorder}" Margin="0,0,12,0" />
+                        Background="{DynamicResource AuraBorder}" Margin="0,0,12,0"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}" />
 
                 <Button Grid.Column="5"
                         Style="{StaticResource AuraGhostButton}"
                         Command="{Binding DeleteSelectedCommand}"
                         Foreground="{StaticResource AuraWarning}"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                         Padding="10,5" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"
@@ -834,6 +842,7 @@
                         Style="{StaticResource AuraGhostButton}"
                         Command="{Binding DeleteAllCommand}"
                         Foreground="{StaticResource AuraWarning}"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                         Padding="10,5">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"

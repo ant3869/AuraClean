@@ -97,6 +97,9 @@ public partial class DuplicateFinderViewModel : ObservableObject
                 progress: progress,
                 ct: _scanCts.Token);
 
+            if (!IsAdvancedMode)
+                ApplyNormalModeReviewDefaults(result.Groups);
+
             DuplicateGroups = new ObservableCollection<DuplicateFinderService.DuplicateGroup>(result.Groups);
             TotalGroupCount = result.Groups.Count;
             TotalDuplicateCount = result.TotalDuplicateFiles;
@@ -137,6 +140,12 @@ public partial class DuplicateFinderViewModel : ObservableObject
     private async Task DeleteSelectedAsync()
     {
         if (!HasResults) return;
+
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to delete duplicate files. Normal mode is review-only for personal files.";
+            return;
+        }
 
         var selectedCount = DuplicateGroups.SelectMany(g => g.Files)
             .Count(f => f.IsSelected && !f.IsKeep);
@@ -206,6 +215,12 @@ public partial class DuplicateFinderViewModel : ObservableObject
     [RelayCommand]
     private void SelectAllDuplicates()
     {
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to auto-select duplicate files for deletion.";
+            return;
+        }
+
         foreach (var group in DuplicateGroups)
         {
             bool first = true;
@@ -239,6 +254,18 @@ public partial class DuplicateFinderViewModel : ObservableObject
         catch (Exception ex)
         {
             DiagnosticLogger.Warn("DuplicateFinderVM", "Failed to open in Explorer", ex);
+        }
+    }
+
+    public static void ApplyNormalModeReviewDefaults(IEnumerable<DuplicateFinderService.DuplicateGroup> groups)
+    {
+        foreach (var group in groups)
+        {
+            foreach (var file in group.Files)
+            {
+                file.IsKeep = false;
+                file.IsSelected = false;
+            }
         }
     }
 }
