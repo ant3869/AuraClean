@@ -3,6 +3,7 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.IO;
 
 namespace AuraClean.ViewModels;
 
@@ -37,12 +38,8 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(SelectedPath)) return;
 
-        var path = SelectedPath.Trim();
-        if (System.IO.Directory.Exists(path) && !ScanPaths.Contains(path))
-        {
-            ScanPaths.Add(path);
+        if (TryAddScanPath(SelectedPath.Trim()))
             SelectedPath = string.Empty;
-        }
     }
 
     [RelayCommand]
@@ -54,24 +51,55 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
     [RelayCommand]
     private void BrowseFolder()
     {
-        using var dialog = new System.Windows.Forms.FolderBrowserDialog
+        var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Description = "Select folder to scan for empty subfolders",
-            UseDescriptionForTitle = true,
-            ShowNewFolderButton = false
+            Title = "Select folder to scan for empty subfolders",
+            Multiselect = false
         };
 
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
+            TryAddScanPath(dialog.FolderName);
+    }
+
+    private bool TryAddScanPath(string path)
+    {
+        var normalized = PathSafety.Normalize(path);
+        if (normalized == null || !Directory.Exists(normalized))
         {
-            if (!ScanPaths.Contains(dialog.SelectedPath))
-                ScanPaths.Add(dialog.SelectedPath);
+            StatusMessage = "That folder doesn't exist.";
+            return false;
         }
+
+        if (PathSafety.IsSystemCriticalLocation(normalized) && !EmptyFolderFinderService.GetDefaultScanPaths()
+                .Any(d => PathSafety.IsSameOrUnder(normalized, d)))
+        {
+            StatusMessage = "Windows and Program Files folders can't be scanned — their empty folders are required.";
+            return false;
+        }
+
+        if (ScanPaths.Any(p => p.Equals(normalized, StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusMessage = "That folder is already in the list.";
+            return false;
+        }
+
+        ScanPaths.Add(normalized);
+        StatusMessage = $"Added {normalized}.";
+        return true;
     }
 
     [RelayCommand]
     private async Task ScanAsync()
     {
-        if (ScanPaths.Count == 0)
+        if (IsBusy) return;
+
+        // Normal mode always uses the built-in low-risk locations, even if custom folders
+        // were added earlier in Advanced mode.
+        var roots = IsAdvancedMode
+            ? ScanPaths.ToList()
+            : EmptyFolderFinderService.GetDefaultScanPaths();
+
+        if (roots.Count == 0)
         {
             StatusMessage = "Add at least one folder to scan.";
             return;
@@ -79,27 +107,27 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
 
         IsBusy = true;
         IsScanning = true;
-        EmptyFolders.Clear();
+        EmptyFolders = [];
         HasResults = false;
         TotalFound = 0;
+        SelectAll = false;
         StatusMessage = "Scanning for empty folders...";
 
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
 
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
-            var results = await EmptyFolderFinderService.ScanAsync(
-                ScanPaths, progress, _cts.Token);
+            var results = await EmptyFolderFinderService.ScanAsync(roots, progress, _cts.Token);
 
-            EmptyFolders = new ObservableCollection<EmptyFolderItem>(
-                results.OrderBy(r => r.Path));
+            EmptyFolders = new ObservableCollection<EmptyFolderItem>(results.OrderBy(r => r.Path));
 
             TotalFound = results.Count;
             HasResults = results.Count > 0;
 
             StatusMessage = results.Count > 0
-                ? $"Found {results.Count} empty folder(s) ready to clean."
+                ? $"Found {results.Count} empty folder(s). Select the ones to remove."
                 : "No empty folders found.";
         }
         catch (OperationCanceledException)
@@ -129,6 +157,8 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
+        if (IsBusy) return;
+
         var selectedCount = EmptyFolders.Count(f => f.IsSelected);
         if (selectedCount == 0)
         {
@@ -143,7 +173,7 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
         }
 
         if (!SafetyPromptService.ConfirmDestructiveAction(
-                $"Delete {selectedCount} selected empty folder(s)?"))
+                $"Delete {selectedCount} selected empty folder(s)? Folders that are no longer empty are skipped."))
         {
             StatusMessage = "Empty folder deletion cancelled.";
             return;
@@ -155,21 +185,23 @@ public partial class EmptyFolderFinderViewModel : ObservableObject
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
-            var (deleted, failed) = await EmptyFolderFinderService.DeleteAsync(
-                EmptyFolders, progress);
+            var (deleted, failed) = await EmptyFolderFinderService.DeleteAsync(EmptyFolders, progress);
 
-            // Remove deleted items from the list
-            var deletedItems = EmptyFolders.Where(f => f.IsSelected && System.IO.Directory.Exists(f.Path) == false).ToList();
-            foreach (var item in deletedItems)
+            foreach (var item in EmptyFolders.Where(f => f.IsDeleted).ToList())
                 EmptyFolders.Remove(item);
 
             TotalFound = EmptyFolders.Count;
             HasResults = EmptyFolders.Count > 0;
 
-            StatusMessage = $"Deleted {deleted} empty folder(s). {(failed > 0 ? $"{failed} failed." : "")}";
+            StatusMessage = $"Deleted {deleted} empty folder(s)." +
+                            (failed > 0 ? $" {failed} skipped (no longer empty, in use, or protected)." : string.Empty);
 
-            NotificationService.ShowSuccess("Empty Folders Cleaned",
-                $"Removed {deleted} empty folder(s).");
+            if (deleted > 0)
+            {
+                NotificationService.ShowSuccess("Empty Folders Cleaned", $"Removed {deleted} empty folder(s).");
+                CleanupHistoryService.Record(CleanupOperationType.EmptyFolderRemoval, deleted, 0,
+                    $"Removed {deleted} empty folder(s)");
+            }
         }
         catch (Exception ex)
         {

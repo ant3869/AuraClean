@@ -60,9 +60,17 @@ public partial class DuplicateFinderViewModel : ObservableObject
     [RelayCommand]
     private async Task ScanAsync()
     {
+        if (IsBusy) return;
+
         if (string.IsNullOrWhiteSpace(SelectedPath) || !Directory.Exists(SelectedPath))
         {
             StatusMessage = "Please select a valid folder.";
+            return;
+        }
+
+        if (PathSafety.IsSystemCriticalLocation(SelectedPath))
+        {
+            StatusMessage = "Windows and Program Files folders can't be scanned — duplicate files there are required by installed software.";
             return;
         }
 
@@ -90,8 +98,8 @@ public partial class DuplicateFinderViewModel : ObservableObject
 
             var result = await DuplicateFinderService.ScanForDuplicatesAsync(
                 SelectedPath,
-                minSizeBytes: MinSizeKB * 1024L,
-                maxSizeMB: MaxSizeMB,
+                minSizeBytes: Math.Max(1, MinSizeKB) * 1024L,
+                maxSizeMB: Math.Max(1, MaxSizeMB),
                 fileExtensions: extensions,
                 recursive: Recursive,
                 progress: progress,
@@ -139,7 +147,7 @@ public partial class DuplicateFinderViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
-        if (!HasResults) return;
+        if (!HasResults || IsBusy) return;
 
         if (!IsAdvancedMode)
         {
@@ -182,18 +190,20 @@ public partial class DuplicateFinderViewModel : ObservableObject
                 DuplicateGroups, progress: progress);
 
             StatusMessage = $"Deleted {deleted} files ({FormatHelper.FormatBytes(bytesFreed)} freed). " +
-                           (failed > 0 ? $"{failed} failed." : "");
+                           (failed > 0 ? $"{failed} skipped (in use, changed since the scan, or protected)." : "");
 
-            // Refresh results — remove deleted files from groups
-            foreach (var group in DuplicateGroups.ToList())
+            CleanupHistoryService.Record(CleanupOperationType.DuplicateRemoval, deleted, bytesFreed,
+                $"Duplicates in {SelectedPath}");
+
+            // Rebuild results so the (non-observable) group lists refresh in the UI.
+            var remaining = new List<DuplicateFinderService.DuplicateGroup>();
+            foreach (var group in DuplicateGroups)
             {
-                var toRemove = group.Files.Where(f => f.IsSelected && !f.IsKeep && !System.IO.File.Exists(f.FullPath)).ToList();
-                foreach (var file in toRemove)
-                    group.Files.Remove(file);
-
-                if (group.Files.Count <= 1)
-                    DuplicateGroups.Remove(group);
+                group.Files.RemoveAll(f => !File.Exists(f.FullPath));
+                if (group.Files.Count > 1)
+                    remaining.Add(group);
             }
+            DuplicateGroups = new ObservableCollection<DuplicateFinderService.DuplicateGroup>(remaining);
 
             TotalGroupCount = DuplicateGroups.Count;
             TotalDuplicateCount = DuplicateGroups.Sum(g => g.Count - 1);
@@ -223,11 +233,12 @@ public partial class DuplicateFinderViewModel : ObservableObject
 
         foreach (var group in DuplicateGroups)
         {
-            bool first = true;
+            var keep = group.Files.FirstOrDefault(f => f.IsKeep)
+                       ?? group.Files.OrderBy(f => f.LastModified).First();
             foreach (var file in group.Files)
             {
-                if (first) { file.IsKeep = true; file.IsSelected = false; first = false; }
-                else { file.IsKeep = false; file.IsSelected = true; }
+                file.IsKeep = ReferenceEquals(file, keep);
+                file.IsSelected = !file.IsKeep;
             }
         }
     }
@@ -244,17 +255,7 @@ public partial class DuplicateFinderViewModel : ObservableObject
     private void OpenInExplorer(string? path)
     {
         if (string.IsNullOrEmpty(path)) return;
-        try
-        {
-            if (System.IO.File.Exists(path))
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
-            else if (Directory.Exists(path))
-                System.Diagnostics.Process.Start("explorer.exe", path);
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("DuplicateFinderVM", "Failed to open in Explorer", ex);
-        }
+        ShellHelper.RevealInExplorer(path);
     }
 
     public static void ApplyNormalModeReviewDefaults(IEnumerable<DuplicateFinderService.DuplicateGroup> groups)

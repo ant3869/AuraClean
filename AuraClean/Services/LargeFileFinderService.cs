@@ -133,6 +133,10 @@ public static class LargeFileFinderService
                         try
                         {
                             var info = new FileInfo(filePath);
+                            // pagefile.sys, hiberfil.sys, swapfile.sys and other OS-owned files.
+                            if (!includeSystemDirs && info.Attributes.HasFlag(FileAttributes.System))
+                                continue;
+
                             if (info.Length >= minimumSizeBytes)
                             {
                                 results.Add(new LargeFileEntry
@@ -225,6 +229,9 @@ public static class LargeFileFinderService
         {
             if (!File.Exists(path))
                 return (false, "File not found.");
+
+            if (!PathSafety.IsSafeToDeleteFile(path, out var reason))
+                return (false, reason);
 
             var info = new FileInfo(path);
             if (info.IsReadOnly)

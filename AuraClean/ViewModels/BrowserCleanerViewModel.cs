@@ -50,10 +50,15 @@ public partial class BrowserCleanerViewModel : ObservableObject
     [RelayCommand]
     private async Task ScanBrowsersAsync()
     {
+        if (IsBusy) return;
+
         IsBusy = true;
         StatusMessage = "Detecting installed browsers...";
         BrowserResults.Clear();
         HasResults = false;
+        TotalSizeBytes = 0;
+        TotalSavingsBytes = 0;
+        TotalItemCount = 0;
 
         try
         {
@@ -61,7 +66,6 @@ public partial class BrowserCleanerViewModel : ObservableObject
             if (browsers.Count == 0)
             {
                 StatusMessage = "No supported browsers found. Chromium and Firefox-based browsers are supported.";
-                IsBusy = false;
                 return;
             }
 
@@ -74,7 +78,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
                 var progress = new Progress<string>(msg => StatusMessage = msg);
                 var result = await BrowserCleanerService.ScanBrowserAsync(browser, progress: progress);
 
-                var entry = new BrowserResultEntry
+                BrowserResults.Add(new BrowserResultEntry
                 {
                     BrowserName = result.BrowserName,
                     ProfilePath = result.ProfilePath,
@@ -84,13 +88,12 @@ public partial class BrowserCleanerViewModel : ObservableObject
                     VacuumTargetCount = result.VacuumTargets.Count,
                     TrackingItemCount = result.TrackingItems.Count,
                     IsSelected = true
-                };
-
-                BrowserResults.Add(entry);
+                });
 
                 totalSize += result.TotalSizeBytes;
-                totalSavings += result.PotentialSavingsBytes;
-                totalItems += result.CacheItems.Count + result.TrackingItems.Count;
+                totalSavings += result.CacheItems.Sum(i => i.SizeBytes) +
+                                (IsAdvancedMode ? result.TrackingItems.Sum(i => i.SizeBytes) : 0);
+                totalItems += result.CacheItems.Count + (IsAdvancedMode ? result.TrackingItems.Count : 0);
             }
 
             TotalSizeBytes = totalSize;
@@ -117,68 +120,110 @@ public partial class BrowserCleanerViewModel : ObservableObject
     [RelayCommand]
     private async Task CleanSelectedAsync()
     {
-        if (!HasResults) return;
+        if (!HasResults || IsBusy) return;
 
-        IsBusy = true;
         var selectedBrowsers = BrowserResults.Where(b => b.IsSelected).ToList();
         if (selectedBrowsers.Count == 0)
         {
             StatusMessage = "No browsers selected for cleaning.";
-            IsBusy = false;
             return;
         }
 
-        long totalFreed = 0;
-        int totalDeleted = 0;
-        var allErrors = new List<string>();
+        bool dryRun = IsDryRun || SafetyPromptService.IsDryRunEnabled();
+        bool cleanTracking = IsAdvancedMode && CleanTracking;
+        bool vacuum = IsAdvancedMode && VacuumDatabases;
 
-        foreach (var entry in selectedBrowsers)
+        if (!dryRun)
         {
-            var progress = new Progress<string>(msg => StatusMessage = msg);
-            StatusMessage = $"Cleaning {entry.BrowserName}...";
-
-            var result = await BrowserCleanerService.CleanBrowserAsync(
-                entry.ScanResult,
-                cleanCache: CleanCache,
-                vacuumDatabases: IsAdvancedMode && VacuumDatabases,
-                cleanTracking: IsAdvancedMode && CleanTracking,
-                dryRun: IsDryRun,
-                progress: progress);
-
-            totalFreed += result.BytesFreed;
-            totalDeleted += result.Deleted;
-            allErrors.AddRange(result.Errors);
-
-            if (!result.Success)
+            var scope = cleanTracking
+                ? "caches and site data (you will be signed out of websites)"
+                : "caches";
+            if (!SafetyPromptService.ConfirmDestructiveAction(
+                    $"Clean {scope} for {selectedBrowsers.Count} browser(s)? Close the browsers first.",
+                    "Confirm browser cleanup"))
             {
-                StatusMessage = result.Message;
-                IsBusy = false;
+                StatusMessage = "Browser cleanup cancelled.";
                 return;
             }
         }
 
-        StatusMessage = IsDryRun
-            ? $"[Preview] Would free {FormatHelper.FormatBytes(totalFreed)} across {selectedBrowsers.Count} browser(s)."
-            : $"Cleaned {totalDeleted} items, freed {FormatHelper.FormatBytes(totalFreed)} across {selectedBrowsers.Count} browser(s)." +
-              (allErrors.Count > 0 ? $" {allErrors.Count} error(s)." : "");
+        IsBusy = true;
+        long totalFreed = 0;
+        int totalDeleted = 0, cleanedBrowsers = 0;
+        var allErrors = new List<string>();
+        var blocked = new List<string>();
 
-        // Flush DNS cache if enabled
-        if (IsAdvancedMode && FlushDns && !IsDryRun)
+        try
         {
-            StatusMessage += " Flushing DNS cache...";
-            var (dnsOk, dnsMsg) = await BrowserCleanerService.FlushDnsCacheAsync();
-            StatusMessage = StatusMessage.Replace(" Flushing DNS cache...", "") +
-                            (dnsOk ? " Network cache cleared." : $" DNS: {dnsMsg}");
+            foreach (var entry in selectedBrowsers)
+            {
+                var progress = new Progress<string>(msg => StatusMessage = msg);
+                StatusMessage = $"Cleaning {entry.BrowserName}...";
+
+                var result = await BrowserCleanerService.CleanBrowserAsync(
+                    entry.ScanResult,
+                    cleanCache: CleanCache,
+                    vacuumDatabases: vacuum,
+                    cleanTracking: cleanTracking,
+                    dryRun: dryRun,
+                    progress: progress);
+
+                if (!result.Success)
+                {
+                    blocked.Add(result.Message);
+                    continue;
+                }
+
+                cleanedBrowsers++;
+                totalFreed += result.BytesFreed;
+                totalDeleted += result.Deleted;
+                allErrors.AddRange(result.Errors);
+            }
+
+            StatusMessage = dryRun
+                ? $"[Preview] Would free {FormatHelper.FormatBytes(totalFreed)} across {cleanedBrowsers} browser(s)."
+                : $"Cleaned {totalDeleted} items, freed {FormatHelper.FormatBytes(totalFreed)} across {cleanedBrowsers} browser(s)." +
+                  (allErrors.Count > 0 ? $" {allErrors.Count} item(s) were in use." : "");
+
+            if (blocked.Count > 0)
+                StatusMessage += " " + string.Join(" ", blocked);
+
+            if (IsAdvancedMode && FlushDns && !dryRun)
+            {
+                var (dnsOk, dnsMsg) = await BrowserCleanerService.FlushDnsCacheAsync();
+                StatusMessage += dnsOk ? " Network cache cleared." : $" DNS: {dnsMsg}";
+            }
+
+            if (!dryRun && totalFreed > 0)
+            {
+                NotificationService.ShowSuccess("Browser Cleanup Complete",
+                    $"Freed {FormatHelper.FormatBytes(totalFreed)} across {cleanedBrowsers} browser(s).");
+                CleanupHistoryService.Record(CleanupOperationType.BrowserClean, totalDeleted, totalFreed,
+                    string.Join(", ", selectedBrowsers.Select(b => b.BrowserName)) +
+                    (cleanTracking ? " (including site data)" : string.Empty));
+            }
+
+            foreach (var error in allErrors.Take(20))
+                DiagnosticLogger.Warn("BrowserCleanerVM", error);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Something went wrong during browser cleanup. Some items may not have been removed.";
+            DiagnosticLogger.Error("BrowserCleanerVM", "Browser cleanup failed", ex);
+        }
+        finally
+        {
+            IsBusy = false;
         }
 
-        if (!IsDryRun && totalFreed > 0)
-            NotificationService.ShowSuccess("Browser Cleanup Complete",
-                $"Freed {FormatHelper.FormatBytes(totalFreed)} across {selectedBrowsers.Count} browser(s).");
-
-        IsBusy = false;
+        // Sizes are stale after cleaning — rescan so the numbers are accurate.
+        if (!dryRun && cleanedBrowsers > 0)
+        {
+            var summary = StatusMessage;
+            await ScanBrowsersAsync();
+            StatusMessage = summary;
+        }
     }
-
-
 }
 
 /// <summary>

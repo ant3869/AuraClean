@@ -1,4 +1,5 @@
 using AuraClean.Helpers;
+using CommunityToolkit.Mvvm.ComponentModel;
 using System.IO;
 using System.Security.Cryptography;
 
@@ -11,7 +12,7 @@ namespace AuraClean.Services;
 ///   3. Full SHA-256 hash for final confirmation
 /// Memory-efficient: streams files rather than loading into RAM.
 /// </summary>
-public static class DuplicateFinderService
+public static partial class DuplicateFinderService
 {
     /// <summary>
     /// Represents a group of duplicate files sharing the same content.
@@ -22,7 +23,7 @@ public static class DuplicateFinderService
         public long FileSize { get; set; }
         public List<DuplicateFileEntry> Files { get; set; } = [];
         public int Count => Files.Count;
-        public long WastedBytes => FileSize * (Count - 1); // All copies except one are "wasted"
+        public long WastedBytes => FileSize * Math.Max(0, Count - 1); // All copies except one are "wasted"
         public string FormattedSize => FormatHelper.FormatBytes(FileSize);
         public string FormattedWasted => FormatHelper.FormatBytes(WastedBytes);
     }
@@ -30,16 +31,33 @@ public static class DuplicateFinderService
     /// <summary>
     /// Represents a single file within a duplicate group.
     /// </summary>
-    public class DuplicateFileEntry
+    public partial class DuplicateFileEntry : ObservableObject
     {
         public string FullPath { get; set; } = string.Empty;
         public string FileName { get; set; } = string.Empty;
         public string Directory { get; set; } = string.Empty;
         public long SizeBytes { get; set; }
         public DateTime LastModified { get; set; }
-        public bool IsSelected { get; set; }
-        public bool IsKeep { get; set; } // Mark as the "keep" copy
+
+        /// <summary>Marked for deletion.</summary>
+        [ObservableProperty] private bool _isSelected;
+
+        /// <summary>The copy that will be kept.</summary>
+        [ObservableProperty] private bool _isKeep;
+
         public string FormattedSize => FormatHelper.FormatBytes(SizeBytes);
+
+        partial void OnIsKeepChanged(bool value)
+        {
+            if (value && IsSelected)
+                IsSelected = false;
+        }
+
+        partial void OnIsSelectedChanged(bool value)
+        {
+            if (value && IsKeep)
+                IsKeep = false;
+        }
     }
 
     /// <summary>
@@ -195,34 +213,42 @@ public static class DuplicateFinderService
                 // Build final result groups
                 foreach (var (hash, files) in fullHashGroups.Where(g => g.Value.Count >= 2))
                 {
-                    var group = new DuplicateGroup
-                    {
-                        Hash = hash[..16], // Truncated for display
-                        FileSize = new FileInfo(files[0]).Length
-                    };
-
-                    bool first = true;
+                    var entries = new List<DuplicateFileEntry>();
                     foreach (var file in files)
                     {
                         try
                         {
                             var fi = new FileInfo(file);
-                            group.Files.Add(new DuplicateFileEntry
+                            entries.Add(new DuplicateFileEntry
                             {
                                 FullPath = file,
                                 FileName = fi.Name,
                                 Directory = fi.DirectoryName ?? "",
                                 SizeBytes = fi.Length,
-                                LastModified = fi.LastWriteTime,
-                                IsKeep = first, // First file is "keep" by default
-                                IsSelected = !first // Others are selected for deletion
+                                LastModified = fi.LastWriteTime
                             });
-                            first = false;
                         }
-                        catch { }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            // File vanished between hashing and reporting.
+                        }
                     }
 
-                    result.Groups.Add(group);
+                    if (entries.Count < 2)
+                        continue;
+
+                    // Keep the oldest copy (most likely the original); the rest are selected.
+                    var ordered = entries.OrderBy(e => e.LastModified).ThenBy(e => e.FullPath.Length).ToList();
+                    ordered[0].IsKeep = true;
+                    foreach (var dup in ordered.Skip(1))
+                        dup.IsSelected = true;
+
+                    result.Groups.Add(new DuplicateGroup
+                    {
+                        Hash = hash[..16], // Truncated for display
+                        FileSize = ordered[0].SizeBytes,
+                        Files = ordered
+                    });
                 }
 
                 // Sort by wasted bytes (most wasted first)
@@ -248,32 +274,67 @@ public static class DuplicateFinderService
     /// </summary>
     public static async Task<(int Deleted, int Failed, long BytesFreed)> DeleteDuplicatesAsync(
         IEnumerable<DuplicateGroup> groups,
-        bool moveToRecycleBin = false,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
         int deleted = 0, failed = 0;
         long bytesFreed = 0;
+        var groupList = groups.ToList();
 
         await Task.Run(() =>
         {
-            foreach (var group in groups)
+            foreach (var group in groupList)
             {
-                foreach (var file in group.Files.Where(f => f.IsSelected && !f.IsKeep))
+                var toDelete = group.Files.Where(f => f.IsSelected && !f.IsKeep).ToList();
+                if (toDelete.Count == 0)
+                    continue;
+
+                // Invariant: at least one copy of every group must survive. If the user
+                // selected every file, keep the first unselected-or-oldest copy.
+                var survivors = group.Files.Except(toDelete).Where(f => File.Exists(f.FullPath)).ToList();
+                if (survivors.Count == 0)
+                {
+                    var keep = toDelete.OrderBy(f => f.LastModified).First();
+                    toDelete.Remove(keep);
+                    keep.IsSelected = false;
+                    keep.IsKeep = true;
+                    DiagnosticLogger.Warn("DuplicateFinderService",
+                        $"Every copy was selected; keeping {keep.FullPath}");
+                }
+
+                foreach (var file in toDelete)
                 {
                     ct.ThrowIfCancellationRequested();
                     progress?.Report($"Deleting: {file.FileName}...");
 
                     try
                     {
-                        if (File.Exists(file.FullPath))
+                        var info = new FileInfo(file.FullPath);
+                        if (!info.Exists)
+                            continue;
+
+                        // The file changed since it was hashed — it may no longer be a duplicate.
+                        if (info.Length != file.SizeBytes || info.LastWriteTime != file.LastModified)
                         {
-                            File.Delete(file.FullPath);
-                            bytesFreed += file.SizeBytes;
-                            deleted++;
+                            failed++;
+                            DiagnosticLogger.Warn("DuplicateFinderService", $"Skipped modified file: {file.FullPath}");
+                            continue;
                         }
+
+                        if (!PathSafety.IsSafeToDeleteFile(file.FullPath, out var reason))
+                        {
+                            failed++;
+                            DiagnosticLogger.Warn("DuplicateFinderService", $"Skipped {file.FullPath}: {reason}");
+                            continue;
+                        }
+
+                        if (info.IsReadOnly)
+                            info.IsReadOnly = false;
+                        info.Delete();
+                        bytesFreed += file.SizeBytes;
+                        deleted++;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
                         DiagnosticLogger.Warn("DuplicateFinderService", $"Failed to delete duplicate: {file.FullPath}", ex);
                         failed++;
@@ -323,9 +384,14 @@ public static class DuplicateFinderService
                     {
                         var attrs = File.GetAttributes(subDir);
                         if (attrs.HasFlag(FileAttributes.ReparsePoint)) continue;
+
+                        // Duplicate DLLs/assets inside Windows or Program Files are required
+                        // copies — never offer them for deletion.
+                        if (PathSafety.IsSystemCriticalLocation(subDir)) continue;
+
                         stack.Push(subDir);
                     }
-                    catch { }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
                 }
             }
             catch { }

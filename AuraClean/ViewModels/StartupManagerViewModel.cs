@@ -264,16 +264,7 @@ public partial class StartupManagerViewModel : ObservableObject
     {
         if (SelectedEntry == null || string.IsNullOrEmpty(SelectedEntry.FilePath)) return;
 
-        try
-        {
-            if (System.IO.File.Exists(SelectedEntry.FilePath))
-            {
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{SelectedEntry.FilePath}\"");
-            }
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("StartupManagerVM", "Failed to open file location", ex);
-        }
+        if (!ShellHelper.RevealInExplorer(SelectedEntry.FilePath))
+            StatusMessage = "The program file could not be found.";
     }
 }

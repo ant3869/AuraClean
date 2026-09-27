@@ -67,17 +67,31 @@ public static class FileShredderService
                     continue;
                 }
 
+                if (!PathSafety.IsSafeToDeleteFile(path, out var reason))
+                {
+                    errors.Add($"{path}: {reason}");
+                    failed++;
+                    continue;
+                }
+
                 var fileInfo = new FileInfo(path);
+                if (fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    // Overwriting through a symlink would destroy the link target instead.
+                    errors.Add($"{path}: symbolic links are not shredded.");
+                    failed++;
+                    continue;
+                }
+
                 long fileSize = fileInfo.Length;
 
-                // Remove read-only attribute if set
                 if (fileInfo.IsReadOnly)
                     fileInfo.IsReadOnly = false;
 
                 await OverwriteFileAsync(path, fileSize, algorithm, ct);
                 totalBytes += fileSize;
 
-                // Rename to random name before deleting to obscure original filename
+                // Rename to a random name before deleting to obscure the original file name.
                 string randomName = Path.Combine(
                     Path.GetDirectoryName(path)!,
                     Path.GetRandomFileName());
@@ -86,10 +100,9 @@ public static class FileShredderService
                     File.Move(path, randomName);
                     File.Delete(randomName);
                 }
-                catch
+                catch (Exception renameEx) when (renameEx is IOException or UnauthorizedAccessException)
                 {
-                    // Fallback: delete with original name
-                    File.Delete(path);
+                    File.Delete(File.Exists(randomName) ? randomName : path);
                 }
 
                 shredded++;
@@ -113,33 +126,44 @@ public static class FileShredderService
         string path, long fileSize, ShredAlgorithm algorithm, CancellationToken ct)
     {
         var passes = GetOverwritePasses(algorithm);
-        const int bufferSize = 64 * 1024; // 64 KB write buffer
+        const int bufferSize = 1024 * 1024; // 1 MB write buffer
 
-        foreach (var pass in passes)
+        // WriteThrough + Flush(true) push every pass to the device instead of letting the
+        // OS cache coalesce the passes so that only the last one reaches the disk.
+        await using var fs = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None,
+            bufferSize: 4096, FileOptions.WriteThrough | FileOptions.Asynchronous);
+
+        var buffer = new byte[(int)Math.Min(bufferSize, Math.Max(fileSize, 1))];
+
+        foreach (var (type, pattern) in passes)
         {
             ct.ThrowIfCancellationRequested();
 
-            using var fs = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None);
-            long remaining = fileSize;
+            switch (type)
+            {
+                case PassType.Zeros: Array.Clear(buffer); break;
+                case PassType.Ones: Array.Fill(buffer, (byte)0xFF); break;
+                case PassType.Pattern: Array.Fill(buffer, pattern); break;
+            }
 
+            fs.Position = 0;
+            long remaining = fileSize;
             while (remaining > 0)
             {
-                int chunkSize = (int)Math.Min(bufferSize, remaining);
-                byte[] buffer = pass.type switch
-                {
-                    PassType.Zeros => new byte[chunkSize],
-                    PassType.Ones => CreateFilledBuffer(chunkSize, 0xFF),
-                    PassType.Pattern => CreateFilledBuffer(chunkSize, pass.pattern),
-                    PassType.Random => CreateRandomBuffer(chunkSize),
-                    _ => new byte[chunkSize]
-                };
+                int chunkSize = (int)Math.Min(buffer.Length, remaining);
+                if (type == PassType.Random)
+                    RandomNumberGenerator.Fill(buffer.AsSpan(0, chunkSize));
 
-                await fs.WriteAsync(buffer, ct);
+                await fs.WriteAsync(buffer.AsMemory(0, chunkSize), ct);
                 remaining -= chunkSize;
             }
 
-            await fs.FlushAsync(ct);
+            fs.Flush(flushToDisk: true);
         }
+
+        // Hide the original size before the file is renamed and deleted.
+        fs.SetLength(0);
+        fs.Flush(flushToDisk: true);
     }
 
     private enum PassType { Zeros, Ones, Random, Pattern }
@@ -176,20 +200,6 @@ public static class FileShredderService
         };
     }
 
-    private static byte[] CreateFilledBuffer(int size, byte value)
-    {
-        var buffer = new byte[size];
-        Array.Fill(buffer, value);
-        return buffer;
-    }
-
-    private static byte[] CreateRandomBuffer(int size)
-    {
-        var buffer = new byte[size];
-        RandomNumberGenerator.Fill(buffer);
-        return buffer;
-    }
-
     /// <summary>
     /// Gets the number of overwrite passes for a given algorithm.
     /// </summary>
@@ -207,7 +217,7 @@ public static class FileShredderService
     /// </summary>
     public static string GetAlgorithmDescription(ShredAlgorithm algorithm) => algorithm switch
     {
-        ShredAlgorithm.QuickZero => "Quick Zero (1 pass) — Overwrites with zeros. Fast, suitable for SSDs.",
+        ShredAlgorithm.QuickZero => "Quick Zero (1 pass) — Overwrites with zeros. On SSDs no overwrite method can guarantee erasure; use full-disk encryption.",
         ShredAlgorithm.Random => "Random (1 pass) — Overwrites with cryptographic random data.",
         ShredAlgorithm.DoD3Pass => "DoD 5220.22-M (3 passes) — US Department of Defense standard.",
         ShredAlgorithm.Enhanced7Pass => "Enhanced (7 passes) — Maximum security with alternating patterns.",

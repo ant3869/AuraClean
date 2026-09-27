@@ -217,15 +217,7 @@ public partial class DiskAnalyzerViewModel : ObservableObject
     private void OpenInExplorer(string? path)
     {
         if (string.IsNullOrEmpty(path)) return;
-        try
-        {
-            System.Diagnostics.Process.Start("explorer.exe",
-                Directory.Exists(path) ? path : $"/select,\"{path}\"");
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("DiskAnalyzerVM", "Failed to open in Explorer", ex);
-        }
+        ShellHelper.RevealInExplorer(path);
     }
 
     private void BuildTreemapData(DiskAnalyzerService.DiskNode node)

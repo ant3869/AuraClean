@@ -328,19 +328,11 @@ public partial class QuarantineViewModel : ObservableObject
     [RelayCommand]
     private void OpenQuarantineFolder()
     {
-        try
-        {
-            var path = QuarantineService.GetQuarantineDirectory();
-            if (Directory.Exists(path))
-                System.Diagnostics.Process.Start("explorer.exe", path);
-            else
-                StatusMessage = "Quarantine folder does not exist yet.";
-        }
-        catch (Exception ex)
-        {
+        var path = QuarantineService.GetQuarantineDirectory();
+        if (!Directory.Exists(path))
+            StatusMessage = "Quarantine folder does not exist yet.";
+        else if (!ShellHelper.RevealInExplorer(path))
             StatusMessage = "Couldn't open the quarantine folder.";
-            DiagnosticLogger.Error("QuarantineVM", "OpenQuarantineFolder failed", ex);
-        }
     }
 }
 

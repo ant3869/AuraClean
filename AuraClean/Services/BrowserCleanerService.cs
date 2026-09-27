@@ -42,23 +42,33 @@ public static class BrowserCleanerService
     public enum BrowserEngine { Chromium, Firefox }
 
     /// <summary>
-    /// Subdirectories/files within a Chromium profile that should be cleaned.
+    /// Pure caches within a Chromium profile: regenerated automatically, no user data.
     /// </summary>
     private static readonly string[] CleanableSubPaths =
     [
         "Cache",
         "Code Cache",
         "GPUCache",
-        "Service Worker",
         "ShaderCache",
         "GrShaderCache",
         "DawnCache",
-        "Storage\\ext",
-        "blob_storage",
+        "DawnGraphiteCache",
+        "DawnWebGPUCache",
+        "Service Worker\\CacheStorage",
+        "Service Worker\\ScriptCache",
+    ];
+
+    /// <summary>
+    /// Site data (logins, offline documents, web-app state, extension storage). Removing it signs
+    /// the user out of websites, so it is only offered as "tracking data" in Advanced mode.
+    /// </summary>
+    private static readonly string[] SiteDataSubPaths =
+    [
         "IndexedDB",
-        "Session Storage",
         "Local Storage\\leveldb",
-        "Crashpad",
+        "Session Storage",
+        "blob_storage",
+        "Service Worker\\Database",
     ];
 
     /// <summary>
@@ -102,11 +112,16 @@ public static class BrowserCleanerService
         "thumbnails",
         "startupCache",
         "shader-cache",
-        "storage\\default",
         "crashes",
         "minidumps",
         "datareporting",
         "saved-telemetry-pings",
+    ];
+
+    /// <summary>Firefox site storage (IndexedDB / localStorage for every site).</summary>
+    private static readonly string[] FirefoxSiteDataSubPaths =
+    [
+        "storage\\default",
     ];
 
     /// <summary>
@@ -187,6 +202,7 @@ public static class BrowserCleanerService
             var profiles = GetProfileDirectories(browser);
 
             var cleanPaths = browser.Engine == BrowserEngine.Firefox ? FirefoxCleanableSubPaths : CleanableSubPaths;
+            var siteDataPaths = browser.Engine == BrowserEngine.Firefox ? FirefoxSiteDataSubPaths : SiteDataSubPaths;
             var vacuumFiles = browser.Engine == BrowserEngine.Firefox ? FirefoxVacuumableDbFiles : VacuumableDbFiles;
             var trackPatterns = browser.Engine == BrowserEngine.Firefox ? FirefoxTrackingPatterns : TrackingPatterns;
 
@@ -195,11 +211,20 @@ public static class BrowserCleanerService
                 ct.ThrowIfCancellationRequested();
                 progress?.Report($"Scanning {browser.Name}: {Path.GetFileName(profileDir)}...");
 
-                // 1. Cache directories
+                // 1. Cache directories (Firefox keeps its disk cache under %LocalAppData%)
+                var cacheRoots = new List<string> { profileDir };
+                if (browser.Engine == BrowserEngine.Firefox)
+                {
+                    var localProfile = GetFirefoxLocalProfileDirectory(profileDir);
+                    if (localProfile != null)
+                        cacheRoots.Add(localProfile);
+                }
+
+                foreach (var cacheRoot in cacheRoots)
                 foreach (var subPath in cleanPaths)
                 {
-                    var fullPath = Path.Combine(profileDir, subPath);
-                    if (Directory.Exists(fullPath))
+                    var fullPath = Path.Combine(cacheRoot, subPath);
+                    if (Directory.Exists(fullPath) && cacheItems.All(c => !c.Path.Equals(fullPath, StringComparison.OrdinalIgnoreCase)))
                     {
                         long size = GetDirectorySize(fullPath);
                         if (size > 0)
@@ -240,7 +265,31 @@ public static class BrowserCleanerService
                     }
                 }
 
-                // 3. Tracking blobs
+                // 3. Site data (Advanced "tracking" category — signs you out of websites)
+                foreach (var subPath in siteDataPaths)
+                {
+                    var fullPath = Path.Combine(profileDir, subPath);
+                    if (!Directory.Exists(fullPath))
+                        continue;
+
+                    long size = GetDirectorySize(fullPath);
+                    if (size <= 0)
+                        continue;
+
+                    trackingItems.Add(new JunkItem
+                    {
+                        Path = fullPath,
+                        Description = $"{browser.Name} Site Data — {subPath} (signs you out of websites)",
+                        Type = JunkType.BrowserTracking,
+                        SizeBytes = size,
+                        LastModified = Directory.GetLastWriteTime(fullPath),
+                        Category = "Browser Tracking Data"
+                    });
+                    totalSize += size;
+                    savings += size;
+                }
+
+                // 4. Tracking blobs
                 foreach (var pattern in trackPatterns)
                 {
                     try
@@ -343,9 +392,7 @@ public static class BrowserCleanerService
                     {
                         if (Directory.Exists(item.Path))
                         {
-                            var size = item.SizeBytes;
-                            Directory.Delete(item.Path, recursive: true);
-                            bytesFreed += size;
+                            bytesFreed += DeleteBrowserFolder(item.Path, out _);
                             deleted++;
                         }
                     }
@@ -371,7 +418,13 @@ public static class BrowserCleanerService
                     {
                         if (File.Exists(target.DbPath) && !FileLockDetector.IsLocked(target.DbPath))
                         {
-                            var connStr = $"Data Source={target.DbPath};Version=3;";
+                            var connStr = new SQLiteConnectionStringBuilder
+                            {
+                                DataSource = target.DbPath,
+                                Version = 3,
+                                Pooling = false,
+                                FailIfMissing = true
+                            }.ToString();
                             using var conn = new SQLiteConnection(connStr);
                             conn.Open();
                             using var cmd = conn.CreateCommand();
@@ -405,9 +458,7 @@ public static class BrowserCleanerService
                     {
                         if (Directory.Exists(item.Path))
                         {
-                            var size = item.SizeBytes;
-                            Directory.Delete(item.Path, recursive: true);
-                            bytesFreed += size;
+                            bytesFreed += DeleteBrowserFolder(item.Path, out _);
                             deleted++;
                         }
                         else if (File.Exists(item.Path))
@@ -482,6 +533,19 @@ public static class BrowserCleanerService
         return profiles;
     }
 
+    /// <summary>
+    /// Maps a roaming Firefox profile (…\\Roaming\\Mozilla\\Firefox\\Profiles\\x.default) to its local
+    /// cache twin (…\\Local\\Mozilla\\Firefox\\Profiles\\x.default), if it exists.
+    /// </summary>
+    private static string? GetFirefoxLocalProfileDirectory(string roamingProfileDir)
+    {
+        var localRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            @"Mozilla\Firefox\Profiles");
+        var candidate = Path.Combine(localRoot, Path.GetFileName(roamingProfileDir));
+        return Directory.Exists(candidate) ? candidate : null;
+    }
+
     private static bool IsBrowserRunning(string browserName)
     {
         var processNames = browserName.ToLowerInvariant() switch
@@ -509,14 +573,40 @@ public static class BrowserCleanerService
         long size = 0;
         try
         {
-            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            foreach (var file in new DirectoryInfo(path).EnumerateFiles("*", PathSafety.RecursiveNoReparse))
             {
-                try { size += new FileInfo(file).Length; }
-                catch { }
+                try { size += file.Length; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             }
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("BrowserCleaner", $"Could not measure {path}", ex);
+        }
         return size;
+    }
+
+    /// <summary>
+    /// Deletes a browser data folder's contents without following links, then the folder itself.
+    /// Returns bytes freed; locked files are left in place.
+    /// </summary>
+    private static long DeleteBrowserFolder(string path, out bool fullyRemoved)
+    {
+        var (_, skipped, bytes, _) = FileCleanerService.CleanDirectoryBestEffort(path);
+        fullyRemoved = false;
+        if (skipped == 0)
+        {
+            try
+            {
+                Directory.Delete(path, recursive: false);
+                fullyRemoved = true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Directory still in use; contents are gone which is what matters.
+            }
+        }
+        return bytes;
     }
 
 
@@ -528,24 +618,12 @@ public static class BrowserCleanerService
     {
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "ipconfig",
-                Arguments = "/flushdns",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            using var proc = System.Diagnostics.Process.Start(psi);
-            if (proc == null) return (false, "Failed to start ipconfig.");
+            var result = await ProcessRunner.RunAsync(
+                ProcessRunner.SystemTool("ipconfig.exe"), "/flushdns", timeout: TimeSpan.FromSeconds(30));
 
-            var output = await proc.StandardOutput.ReadToEndAsync();
-            await proc.WaitForExitAsync();
-
-            return proc.ExitCode == 0
+            return result.Succeeded
                 ? (true, "DNS cache flushed successfully.")
-                : (false, $"ipconfig exited with code {proc.ExitCode}.");
+                : (false, $"ipconfig exited with code {result.ExitCode}.");
         }
         catch (Exception ex)
         {
