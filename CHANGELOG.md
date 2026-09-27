@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] — 2026-09-27
+
+### Fixed
+
+- **App startup** — `App.xaml.cs` lived outside the project and was never compiled: crash handlers, theme-on-start, and the scheduled `/autoclean` mode now work. Single-instance activation, `--minimized`, and Explorer `--deep-uninstall` are handled.
+- **Scheduled cleanup & launch at login** — now registered as Task Scheduler tasks with the highest run level (the elevated app could not start from a limited task or the Run key).
+- **Force uninstall** — validates the program's install location before deleting and no longer auto-deletes every name-matched leftover; leftovers are listed for review.
+- **Registry leftovers** — only keys named after the product are flagged (a single matching value used to flag whole shared keys such as `…\Run`); deletion requires a successful backup.
+- **Threat scanner** — removed an "Emotet" signature that was the hash of an empty file and two "malicious" extension IDs that were Adobe Acrobat and AdBlock; hosts threats no longer quarantine the whole hosts file; browser hijacks no longer move the browser's Preferences file; Browser Scan mode is selectable again.
+- **Browser cleaner** — IndexedDB, Local/Session Storage and other site data are no longer deleted as "cache" in Normal mode.
+- **File recovery** — restores never overwrite a file that now exists at the original location.
+- **Duplicate finder** — at least one copy of every group always survives; checkbox state reflects what will be deleted.
+- **Settings** — saving no longer resets onboarding; values are validated.
+- **Quick Clean** — only records a clean when something was actually cleaned.
+- DISM output pipe deadlock, orphaned defrag on cancel, winget hanging on its first-run prompt, and many unguarded exceptions.
+
+### Changed
+
+- Temp files younger than 24 hours and logs younger than 7 days are kept during cleanup.
+- Only the current user's Recycle Bin is cleaned.
+- Heuristic threat findings start unselected; each item explains how it will be handled.
+- Quarantined files are stored with a non-executable suffix; the manifest is written atomically.
+- Downloaded installers must pass Authenticode verification.
+- All destructive tools record their results in Cleanup History; the history page refreshes live.
+- Sidebar selection follows keyboard shortcuts; dashboard scrolls and wraps at small window sizes.
+
+---
+
 ## [1.5.0] — 2026-03-21
 
 ### Added

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AuraClean.Helpers;
 using AuraClean.Services;
 using AuraClean.Models;
 using AuraClean.ViewModels;
@@ -46,6 +47,11 @@ class Program
         TestUninstallerSafeMatching();
         await TestEmptyFolderFinder();
         TestExperienceModePolicy();
+        await TestSafetyGuards();
+
+        var (logicPass, logicFail) = LogicTests.RunAll();
+        _pass += logicPass;
+        _fail += logicFail;
 
         Console.WriteLine("\n════════════════════════════════════════");
         Console.ForegroundColor = _fail == 0 ? ConsoleColor.Green : ConsoleColor.Red;
@@ -574,6 +580,83 @@ class Program
             Console.WriteLine($"  EXCEPTION: {ex.Message}");
             Console.ResetColor();
             _fail++;
+        }
+
+        Console.WriteLine();
+    }
+
+    static async Task TestSafetyGuards()
+    {
+        Console.WriteLine("═══ TEST SUITE 9: Safety Guards ═══");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AuraClean_Safety_Test");
+        try
+        {
+            var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var systemDrive = Path.GetPathRoot(windows)!;
+
+            Assert(PathSafety.IsProtectedRoot(systemDrive), $"Drive root {systemDrive} is protected");
+            Assert(PathSafety.IsProtectedRoot(windows), "Windows directory is protected");
+            Assert(PathSafety.IsProtectedRoot(profile), "User profile is protected");
+            Assert(PathSafety.IsProtectedRoot(Path.GetDirectoryName(profile)!), "Users folder (ancestor of a profile) is protected");
+            Assert(PathSafety.IsProtectedRoot(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)),
+                "Program Files is protected");
+            Assert(!PathSafety.IsSafeToDeleteDirectory(Path.Combine(windows, "System32"), out _),
+                "System32 cannot be deleted");
+            Assert(!PathSafety.IsSafeToDeleteDirectory(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), out _),
+                "Documents folder cannot be deleted");
+            Assert(PathSafety.IsSafeToDeleteDirectory(Path.Combine(Path.GetTempPath(), "SomeAppLeftover"), out _),
+                "A folder inside Temp can be deleted");
+            Assert(!PathSafety.IsSafeToDeleteDirectory("relative\\path", out _), "Relative paths are rejected");
+            Assert(!PathSafety.IsSafeToDeleteFile(Path.Combine(windows, "System32", "kernel32.dll"), out _),
+                "Windows system files are refused");
+
+            // Temp files younger than 24 hours are never removed.
+            if (Directory.Exists(testRoot)) Directory.Delete(testRoot, true);
+            Directory.CreateDirectory(testRoot);
+            var oldFile = Path.Combine(testRoot, "old.tmp");
+            var newFile = Path.Combine(testRoot, "new.tmp");
+            File.WriteAllText(oldFile, "old");
+            File.WriteAllText(newFile, "new");
+            File.SetLastWriteTimeUtc(oldFile, DateTime.UtcNow.AddDays(-3));
+
+            var tempItem = new JunkItem { Path = testRoot, Type = JunkType.TempFile, IsSelected = true };
+            var (deleted, skipped, _, _) = await FileCleanerService.CleanItemsAsync([tempItem]);
+            Assert(!File.Exists(oldFile), "Old temp file removed");
+            Assert(File.Exists(newFile), "Recent temp file kept");
+            Assert(deleted == 1 && skipped == 1, $"Counts reflect the age guard (deleted={deleted}, skipped={skipped})");
+
+            // The empty-folder scan never offers the scanned folder itself.
+            var emptyRoot = Path.Combine(testRoot, "emptyRoot");
+            Directory.CreateDirectory(emptyRoot);
+            var emptyResults = await EmptyFolderFinderService.ScanAsync([emptyRoot]);
+            Assert(emptyResults.All(r => !r.Path.Equals(emptyRoot, StringComparison.OrdinalIgnoreCase)),
+                "Scan root is never reported as an empty folder");
+
+            // Duplicate deletion always keeps one copy even if every file is selected.
+            var dupDir = Path.Combine(testRoot, "dups");
+            Directory.CreateDirectory(dupDir);
+            var a = Path.Combine(dupDir, "a.bin");
+            var b = Path.Combine(dupDir, "b.bin");
+            File.WriteAllBytes(a, new byte[4096]);
+            File.WriteAllBytes(b, new byte[4096]);
+            var scan = await DuplicateFinderService.ScanForDuplicatesAsync(dupDir, minSizeBytes: 1);
+            foreach (var file in scan.Groups.SelectMany(g => g.Files))
+                file.IsSelected = true;
+            await DuplicateFinderService.DeleteDuplicatesAsync(scan.Groups);
+            Assert(File.Exists(a) || File.Exists(b), "At least one duplicate copy survives when all are selected");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"  EXCEPTION: {ex.Message}");
+            Console.ResetColor();
+            _fail++;
+        }
+        finally
+        {
+            try { if (Directory.Exists(testRoot)) Directory.Delete(testRoot, true); } catch { }
         }
 
         Console.WriteLine();

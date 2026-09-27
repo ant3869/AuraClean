@@ -1,3 +1,0 @@
-HasExited=
-Title=
-CrashLog=False
