@@ -26,16 +26,21 @@ public partial class CleanupHistoryViewModel : ObservableObject
     [ObservableProperty] private string _lastOperationDate = "Never";
     [ObservableProperty] private string _totalBytesFreedDisplay = "0 B";
 
-    public ObservableCollection<string> FilterTypes { get; } =
-    [
-        "All", "System Cleanup", "Browser Privacy Clean",
-        "Registry Cleanup", "Program Uninstall", "Duplicate Removal",
-        "Large File Removal", "RAM Boost", "Secure Shred", "Quarantine Purge"
-    ];
+    public ObservableCollection<string> FilterTypes { get; } = new(
+        new[] { "All" }.Concat(Enum.GetValues<CleanupOperationType>().Select(t => t.ToDisplayString())));
 
     public CleanupHistoryViewModel()
     {
         LoadHistory();
+
+        // Keep the page current when other features log operations while it is open.
+        CleanupHistoryService.HistoryChanged += () =>
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted)
+                return;
+            dispatcher.BeginInvoke(LoadHistory);
+        };
     }
 
     partial void OnFilterTypeChanged(string value) => ApplyFilter();
@@ -51,7 +56,7 @@ public partial class CleanupHistoryViewModel : ObservableObject
             var history = CleanupHistoryService.LoadHistory();
             Records = new ObservableCollection<CleanupRecord>(history.Records);
 
-            var summary = CleanupHistoryService.GetSummary();
+            var summary = CleanupHistoryService.BuildSummary(history.Records);
             TotalOperations = summary.TotalOperations;
             TotalBytesFreed = summary.TotalBytesFreed;
             TotalBytesFreedDisplay = FormatHelper.FormatBytes(summary.TotalBytesFreed);
@@ -75,7 +80,19 @@ public partial class CleanupHistoryViewModel : ObservableObject
     [RelayCommand]
     private void ClearHistory()
     {
-        CleanupHistoryService.ClearHistory();
+        if (Records.Count == 0)
+            return;
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Delete all {Records.Count} cleanup history record(s)? This cannot be undone.", "Clear history"))
+            return;
+
+        if (!CleanupHistoryService.ClearHistory())
+        {
+            StatusMessage = "Couldn't clear the history file. Please try again.";
+            return;
+        }
+
         Records.Clear();
         FilteredRecords.Clear();
         TotalOperations = 0;
@@ -146,9 +163,10 @@ public partial class CleanupHistoryViewModel : ObservableObject
 
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
+            var query = SearchText.Trim();
             filtered = filtered.Where(r =>
-                r.Summary.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                r.Details.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+                r.Summary.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                (r.Details ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase));
         }
 
         FilteredRecords = new ObservableCollection<CleanupRecord>(filtered);

@@ -43,7 +43,17 @@ public partial class MemoryViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshStatsAsync()
     {
-        var snapshot = await MemoryManagerService.GetMemorySnapshotAsync();
+        MemoryManagerService.MemorySnapshot snapshot;
+        try
+        {
+            snapshot = await MemoryManagerService.GetMemorySnapshotAsync();
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MemoryVM", "Memory snapshot failed", ex);
+            return;
+        }
+
         TotalRamBytes = snapshot.TotalPhysicalBytes;
         UsedRamBytes = snapshot.UsedBytes;
         AvailableRamBytes = snapshot.AvailableBytes;
@@ -57,6 +67,8 @@ public partial class MemoryViewModel : ObservableObject
     [RelayCommand]
     private async Task BoostMemoryAsync()
     {
+        if (IsBusy) return;
+
         IsBusy = true;
         StatusMessage = IsDryRun ? "[Preview] Analyzing memory..." : "Boosting memory...";
         HasBoostResult = false;
@@ -82,6 +94,10 @@ public partial class MemoryViewModel : ObservableObject
                   (result.StandbyListPurged ? ", cleared cached memory." : ".");
 
             OnPropertyChanged(nameof(FormattedFreed));
+
+            if (!IsDryRun)
+                CleanupHistoryService.Record(CleanupOperationType.MemoryBoost, result.ProcessesTrimmed,
+                    result.MemoryFreedBytes, result.StandbyListPurged ? "Working sets trimmed, standby list purged" : "Working sets trimmed");
         }
         catch (Exception ex)
         {

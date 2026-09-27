@@ -1,3 +1,4 @@
+using AuraClean.Helpers;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -57,6 +58,7 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     [ObservableProperty] private string _settingsPath = string.Empty;
 
     private bool _suppressModeChangeTracking;
+    private bool _suppressThemePreview;
 
     public string[] ShredAlgorithms { get; } =
         ["QuickZero", "Random", "DoD3Pass", "Enhanced7Pass"];
@@ -95,7 +97,9 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
         ShowConfirmationDialogs = s.ShowConfirmationDialogs;
         MinimizeToTray = s.MinimizeToTray;
         LaunchAtStartup = s.LaunchAtStartup;
+        _suppressThemePreview = true;
         IsLightTheme = s.IsLightTheme;
+        _suppressThemePreview = false;
 
         CleanTempFiles = s.CleanTempFiles;
         CleanWindowsUpdate = s.CleanWindowsUpdate;
@@ -135,6 +139,13 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     [RelayCommand]
     private async Task SaveSettingsAsync()
     {
+        if (ScheduledCleanupEnabled && !AppSettings.TryParseScheduleTime(ScheduledCleanupTime, out _))
+        {
+            StatusMessage = $"'{ScheduledCleanupTime}' isn't a valid time. Use 24-hour HH:mm, for example 03:00.";
+            return;
+        }
+
+        var previous = SettingsService.Load();
         var s = new AppSettings
         {
             ExperienceMode = IsAdvancedMode ? ExperienceMode.Advanced : ExperienceMode.Normal,
@@ -171,24 +182,55 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
             ScheduledCleanupTime = ScheduledCleanupTime,
             ScheduledCleanupDayOfWeek = ScheduledCleanupDayIndex + 1,
 
+            // Not edited on this page — carry over so saving never re-triggers onboarding.
+            HasCompletedOnboarding = previous.HasCompletedOnboarding,
+
             LastModified = DateTime.Now
         };
 
-        SettingsService.Save(s);
+        var saved = await Task.Run(() => SettingsService.Save(s));
+        if (!saved)
+        {
+            StatusMessage = "Settings could not be written to disk. Check that the settings folder is writable.";
+            return;
+        }
 
-        // Apply scheduled cleanup task
-        try { await ScheduledCleanupService.ApplyScheduleAsync(); }
-        catch { /* non-critical */ }
+        // Reflect any values that were clamped into range during save.
+        LoadFromDisk();
+
+        string scheduleMessage;
+        try
+        {
+            var (ok, message) = await ScheduledCleanupService.ApplyScheduleAsync();
+            scheduleMessage = ok ? string.Empty : $" Scheduled cleanup: {message}";
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("SettingsVM", "Applying the cleanup schedule failed", ex);
+            scheduleMessage = " The cleanup schedule could not be updated.";
+        }
 
         HasUnsavedChanges = false;
-        StatusMessage = $"Settings saved at {DateTime.Now:HH:mm:ss}.";
+        StatusMessage = $"Settings saved at {DateTime.Now:HH:mm:ss}.{scheduleMessage}";
     }
 
     [RelayCommand]
     private void ResetToDefaults()
     {
-        SettingsService.ResetToDefaults();
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                "Reset every setting to its default value? This also switches back to Normal mode.",
+                "Reset settings"))
+            return;
+
+        var onboardingDone = SettingsService.Load().HasCompletedOnboarding;
+        var defaults = new AppSettings { HasCompletedOnboarding = onboardingDone };
+        SettingsService.Save(defaults);
+
         LoadFromDisk();
+        ThemeService.ApplyTheme(IsLightTheme);
+        ExperienceModeService.NotifyModeChanged();
+        _ = ScheduledCleanupService.ApplyScheduleAsync();
+
         HasUnsavedChanges = false;
         StatusMessage = "Settings reset to defaults.";
     }
@@ -198,6 +240,8 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     {
         SettingsService.InvalidateCache();
         LoadFromDisk();
+        ThemeService.ApplyTheme(IsLightTheme);
+        ExperienceModeService.NotifyModeChanged();
         StatusMessage = "Settings reloaded from disk.";
     }
 
@@ -218,8 +262,11 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     partial void OnLaunchAtStartupChanged(bool value) => HasUnsavedChanges = true;
     partial void OnIsLightThemeChanged(bool value)
     {
+        if (_suppressThemePreview)
+            return;
+
         HasUnsavedChanges = true;
-        ThemeService.ApplyTheme(value);
+        ThemeService.ApplyTheme(value); // Live preview; persisted on Save.
     }
     partial void OnCleanTempFilesChanged(bool value) => HasUnsavedChanges = true;
     partial void OnCleanWindowsUpdateChanged(bool value) => HasUnsavedChanges = true;

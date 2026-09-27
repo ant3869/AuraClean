@@ -12,13 +12,27 @@ namespace AuraClean.Services;
 /// </summary>
 public static class AppInstallerService
 {
-    private static readonly HttpClient Http = new()
-    {
-        Timeout = TimeSpan.FromMinutes(10)
-    };
+    private static readonly HttpClient Http = CreateHttpClient();
 
-    private static readonly string DownloadDir = Path.Combine(
-        Path.GetTempPath(), "AuraClean_AppInstaller");
+    private static readonly string DownloadRoot = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AuraClean", "Downloads");
+
+    /// <summary>Exit codes that installers use to report success (optionally needing a reboot).</summary>
+    private static readonly HashSet<int> SuccessExitCodes = [0, 1641, 3010];
+
+    private static HttpClient CreateHttpClient()
+    {
+        var handler = new SocketsHttpHandler
+        {
+            AllowAutoRedirect = true,
+            MaxAutomaticRedirections = 10,
+            AutomaticDecompression = System.Net.DecompressionMethods.All
+        };
+        var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(20) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("AuraClean/1.5 (+https://github.com/ant3869/AuraClean)");
+        return client;
+    }
 
     /// <summary>
     /// Returns the curated catalog of popular free/open-source applications.
@@ -221,7 +235,7 @@ public static class AppInstallerService
                 Category = "File Management",
                 IconKind = "FileSearch",
                 DownloadUrl = "https://www.voidtools.com/Everything-1.4.1.1026.x64-Setup.exe",
-                InstallerArgs = "/S /D",
+                InstallerArgs = "/S",
                 Website = "https://www.voidtools.com/",
                 License = "MIT"
             },
@@ -433,22 +447,33 @@ public static class AppInstallerService
 
     /// <summary>
     /// Downloads and installs a single application, reporting progress.
+    /// Installers must carry a valid Authenticode signature; unsigned or tampered files are only
+    /// run if <paramref name="confirmUntrusted"/> approves them.
     /// </summary>
     public static async Task InstallAppAsync(
         BundleApp app,
         IProgress<(int percent, string message)>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Func<string, bool>? confirmUntrusted = null)
     {
-        Directory.CreateDirectory(DownloadDir);
+        if (!Uri.TryCreate(app.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException($"{app.Name} has no secure (https) download URL.");
+
+        // A fresh, private folder per install: an attacker can't pre-plant DLLs next to the
+        // installer (DLL search-order hijacking) or swap the file between download and launch.
+        var workDir = Path.Combine(DownloadRoot, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
 
         var fileName = SanitizeFileName(app.Name) + GetExtension(app.DownloadUrl);
-        var filePath = Path.Combine(DownloadDir, fileName);
+        var filePath = Path.Combine(workDir, fileName);
 
         try
         {
-            // Download
             progress?.Report((5, $"Downloading {app.Name}..."));
             await DownloadFileAsync(app.DownloadUrl, filePath, progress, ct);
+
+            if (!app.IsPortable || Path.GetExtension(filePath).Equals(".exe", StringComparison.OrdinalIgnoreCase))
+                VerifySignature(app, filePath, confirmUntrusted);
 
             if (app.IsPortable)
             {
@@ -456,19 +481,50 @@ public static class AppInstallerService
             }
             else
             {
-                // Install
                 progress?.Report((80, $"Installing {app.Name}..."));
-                await RunInstallerAsync(filePath, app.InstallerArgs, ct);
+                var exitCode = await RunInstallerAsync(filePath, app.InstallerArgs, ct);
+                if (!SuccessExitCodes.Contains(exitCode))
+                    throw new InvalidOperationException($"The installer exited with code {exitCode}.");
+                if (exitCode != 0)
+                    progress?.Report((95, $"{app.Name} installed — restart Windows to finish."));
             }
 
             progress?.Report((100, $"{app.Name} installed successfully!"));
         }
         finally
         {
-            // Cleanup downloaded file
-            try { if (File.Exists(filePath)) File.Delete(filePath); }
-            catch { /* ignore cleanup errors */ }
+            try { Directory.Delete(workDir, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                DiagnosticLogger.Warn("AppInstaller", $"Could not remove download folder {workDir}", ex);
+            }
         }
+    }
+
+    private static void VerifySignature(BundleApp app, string filePath, Func<string, bool>? confirmUntrusted)
+    {
+        var status = AuthenticodeHelper.Verify(filePath);
+        if (status == AuthenticodeHelper.SignatureStatus.Valid)
+            return;
+
+        var description = status switch
+        {
+            AuthenticodeHelper.SignatureStatus.Unsigned => "is not digitally signed",
+            AuthenticodeHelper.SignatureStatus.Invalid => "has an INVALID or tampered digital signature",
+            _ => "could not be verified"
+        };
+
+        DiagnosticLogger.Warn("AppInstaller", $"{app.Name} download {description}: {app.DownloadUrl}");
+
+        if (status == AuthenticodeHelper.SignatureStatus.Invalid)
+            throw new InvalidOperationException($"The downloaded file {description}. It was not run.");
+
+        var approved = confirmUntrusted?.Invoke(
+            $"The {app.Name} download {description}.\n\nSource: {app.DownloadUrl}\n\n" +
+            "Only continue if you trust this source. Run it with administrator rights?") ?? false;
+
+        if (!approved)
+            throw new OperationCanceledException($"{app.Name} was skipped because its download {description}.");
     }
 
     private static async Task DownloadFileAsync(
@@ -479,6 +535,10 @@ public static class AppInstallerService
     {
         using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
+
+        // Refuse a redirect chain that downgraded to plain HTTP.
+        if (response.RequestMessage?.RequestUri is { } finalUri && finalUri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException($"Download was redirected to an insecure location ({finalUri.Host}).");
 
         var totalBytes = response.Content.Headers.ContentLength ?? -1;
         await using var contentStream = await response.Content.ReadAsStreamAsync(ct);
@@ -505,7 +565,7 @@ public static class AppInstallerService
         progress?.Report((75, "Download complete."));
     }
 
-    private static async Task RunInstallerAsync(
+    private static async Task<int> RunInstallerAsync(
         string installerPath,
         string arguments,
         CancellationToken ct)
@@ -516,7 +576,7 @@ public static class AppInstallerService
 
         if (ext == ".msi")
         {
-            fileName = "msiexec.exe";
+            fileName = ProcessRunner.SystemTool("msiexec.exe");
             args = $"/i \"{installerPath}\" {arguments}";
         }
         else
@@ -532,14 +592,23 @@ public static class AppInstallerService
             UseShellExecute = true,
             Verb = "runas", // Elevate if needed
             CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden
+            WindowStyle = ProcessWindowStyle.Hidden,
+            WorkingDirectory = Path.GetDirectoryName(installerPath) ?? string.Empty
         };
 
         using var process = Process.Start(psi);
         if (process == null) throw new InvalidOperationException("Failed to start installer process.");
 
-        // Wait up to 10 minutes for install to complete
-        await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromMinutes(10), ct);
+        try
+        {
+            await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromMinutes(20), ct);
+        }
+        catch (TimeoutException)
+        {
+            throw new TimeoutException("The installer did not finish within 20 minutes. It may be waiting for input.");
+        }
+
+        return process.ExitCode;
     }
 
     private static async Task HandlePortableAppAsync(
@@ -569,21 +638,30 @@ public static class AppInstallerService
             var destFile = Path.Combine(portableDir, Path.GetFileName(downloadedFile));
             File.Copy(downloadedFile, destFile, overwrite: true);
         }
+        else
+        {
+            throw new InvalidOperationException($"Unsupported portable package type '{ext}'.");
+        }
 
         progress?.Report((95, $"Extracted to {portableDir}"));
     }
 
     /// <summary>
-    /// Cleans up the temp download directory.
+    /// Removes leftover per-install download folders (e.g. after a crash mid-install).
     /// </summary>
     public static void CleanupDownloads()
     {
         try
         {
-            if (Directory.Exists(DownloadDir))
-                Directory.Delete(DownloadDir, recursive: true);
+            if (Directory.Exists(DownloadRoot))
+                Directory.Delete(DownloadRoot, recursive: true);
+
+            // Folder used by earlier versions.
+            var legacy = Path.Combine(Path.GetTempPath(), "AuraClean_AppInstaller");
+            if (Directory.Exists(legacy))
+                Directory.Delete(legacy, recursive: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             DiagnosticLogger.Warn("AppInstaller", "Cleanup failed", ex);
         }

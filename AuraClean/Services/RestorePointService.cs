@@ -1,3 +1,5 @@
+using AuraClean.Helpers;
+using Microsoft.Win32;
 using System.Management;
 
 namespace AuraClean.Services;
@@ -8,58 +10,66 @@ namespace AuraClean.Services;
 /// </summary>
 public static class RestorePointService
 {
+    private const string SystemRestoreKey = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore";
+    private const string FrequencyValueName = "SystemRestorePointCreationFrequency";
+
     /// <summary>
     /// Creates a system restore point with the given description.
     /// </summary>
     /// <param name="description">Description for the restore point.</param>
     /// <returns>True if the restore point was created successfully.</returns>
-    public static async Task<(bool Success, string Message)> CreateRestorePointAsync(
-        string description = "AuraClean Pre-Cleanup")
+    public static Task<(bool Success, string Message)> CreateRestorePointAsync(
+        string description = "AuraClean Pre-Cleanup") => Task.Run(() =>
     {
-        return await Task.Run(() =>
+        try
         {
+            if (!IsSystemRestoreEnabled())
+            {
+                return (false, "System Restore is disabled on this machine. " +
+                               "Enable it in System Properties → System Protection.");
+            }
+
+            // Windows refuses a second restore point within 24 hours by default. The limit is
+            // lifted only for this call and the user's original setting is put back afterwards.
+            var previousFrequency = AllowFrequentRestorePoints();
             try
             {
-                // Check if System Restore is enabled
-                if (!IsSystemRestoreEnabled())
-                {
-                    return (false, "System Restore is disabled on this machine. " +
-                                   "Enable it in System Properties → System Protection.");
-                }
-
-                // Allow frequent restore point creation (override 24-hour default)
-                AllowFrequentRestorePoints();
-
-                var scope = new ManagementScope(@"\\.\root\default");
-                scope.Connect();
-
-                using var restoreClass = new ManagementClass(scope,
-                    new ManagementPath("SystemRestore"), new ObjectGetOptions());
-
-                using var inParams = restoreClass.GetMethodParameters("CreateRestorePoint");
-                inParams["Description"] = description;
-                inParams["RestorePointType"] = 12;  // MODIFY_SETTINGS
-                inParams["EventType"] = 100;         // BEGIN_SYSTEM_CHANGE
-
-                using var outParams = restoreClass.InvokeMethod("CreateRestorePoint", inParams, null);
-
-                var returnValue = (uint)(outParams?["ReturnValue"] ?? 1u);
-                if (returnValue == 0)
-                {
-                    return (true, $"Restore point '{description}' created successfully.");
-                }
-
-                return (false, $"Failed to create restore point. Return code: {returnValue}");
+                return CreateRestorePointCore(Truncate(description, 256));
             }
-            catch (ManagementException ex)
+            finally
             {
-                return (false, $"WMI error creating restore point: {ex.Message}");
+                RestoreFrequencySetting(previousFrequency);
             }
-            catch (Exception ex)
-            {
-                return (false, $"Error creating restore point: {ex.Message}");
-            }
-        });
+        }
+        catch (ManagementException ex)
+        {
+            return (false, $"WMI error creating restore point: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Error creating restore point: {ex.Message}");
+        }
+    });
+
+    private static (bool Success, string Message) CreateRestorePointCore(string description)
+    {
+        var scope = new ManagementScope(@"\\.\root\default");
+        scope.Connect();
+
+        using var restoreClass = new ManagementClass(scope,
+            new ManagementPath("SystemRestore"), new ObjectGetOptions());
+
+        using var inParams = restoreClass.GetMethodParameters("CreateRestorePoint");
+        inParams["Description"] = description;
+        inParams["RestorePointType"] = 12;  // MODIFY_SETTINGS
+        inParams["EventType"] = 100;         // BEGIN_SYSTEM_CHANGE
+
+        using var outParams = restoreClass.InvokeMethod("CreateRestorePoint", inParams, null);
+
+        var returnValue = Convert.ToUInt32(outParams?["ReturnValue"] ?? 1u);
+        return returnValue == 0
+            ? (true, $"Restore point '{description}' created successfully.")
+            : (false, $"Failed to create restore point. Return code: {returnValue}");
     }
 
     /// <summary>
@@ -69,35 +79,58 @@ public static class RestorePointService
     {
         try
         {
-            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
-                @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore");
+            using var key = Registry.LocalMachine.OpenSubKey(SystemRestoreKey);
             if (key == null) return false;
 
+            // RPSessionInterval is 0 when System Restore is turned off.
             var value = key.GetValue("RPSessionInterval");
-            // If RPSessionInterval is 0, System Restore is disabled
             return value is not int intVal || intVal != 0;
         }
-        catch
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
         {
-            return true; // Assume enabled if we can't check
+            DiagnosticLogger.Warn("RestorePoint", "Could not read System Restore state", ex);
+            return true; // Let WMI report the real state.
         }
     }
 
     /// <summary>
-    /// Sets the registry value to allow creating restore points more frequently than every 24 hours.
+    /// Sets the creation-frequency limit to 0 and returns the previous value (null when unset).
     /// </summary>
-    private static void AllowFrequentRestorePoints()
+    private static object? AllowFrequentRestorePoints()
     {
         try
         {
-            using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(
-                @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore");
-            key?.SetValue("SystemRestorePointCreationFrequency", 0,
-                Microsoft.Win32.RegistryValueKind.DWord);
+            using var key = Registry.LocalMachine.CreateSubKey(SystemRestoreKey);
+            var previous = key?.GetValue(FrequencyValueName);
+            key?.SetValue(FrequencyValueName, 0, RegistryValueKind.DWord);
+            return previous;
         }
-        catch
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
         {
-            // Non-critical — just means we might hit the 24-hour limit
+            DiagnosticLogger.Warn("RestorePoint", "Could not lift the restore point frequency limit", ex);
+            return null;
         }
     }
+
+    private static void RestoreFrequencySetting(object? previous)
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(SystemRestoreKey, writable: true);
+            if (key == null)
+                return;
+
+            if (previous is int previousValue)
+                key.SetValue(FrequencyValueName, previousValue, RegistryValueKind.DWord);
+            else
+                key.DeleteValue(FrequencyValueName, throwOnMissingValue: false);
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
+        {
+            DiagnosticLogger.Warn("RestorePoint", "Could not restore the restore point frequency setting", ex);
+        }
+    }
+
+    private static string Truncate(string value, int max) =>
+        value.Length <= max ? value : value[..max];
 }

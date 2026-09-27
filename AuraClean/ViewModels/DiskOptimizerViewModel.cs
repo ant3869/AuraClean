@@ -53,6 +53,8 @@ public partial class DiskOptimizerViewModel : ObservableObject
     [RelayCommand]
     private async Task AnalyzeDrivesAsync()
     {
+        if (IsBusy) return;
+
         var selected = Drives.Where(d => d.IsSelected).ToList();
         if (selected.Count == 0)
         {
@@ -60,7 +62,7 @@ public partial class DiskOptimizerViewModel : ObservableObject
             return;
         }
 
-        _cts?.Cancel();
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
         IsBusy = true;
         StatusMessage = "Analyzing drives...";
@@ -107,6 +109,8 @@ public partial class DiskOptimizerViewModel : ObservableObject
     [RelayCommand]
     private async Task OptimizeDrivesAsync()
     {
+        if (IsBusy) return;
+
         var selected = Drives.Where(d => d.IsSelected).ToList();
         if (selected.Count == 0)
         {
@@ -114,7 +118,15 @@ public partial class DiskOptimizerViewModel : ObservableObject
             return;
         }
 
-        _cts?.Cancel();
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Optimize {selected.Count} drive(s)? HDDs are defragmented (this can take a long time); SSDs are re-trimmed.",
+                "Confirm optimization"))
+        {
+            StatusMessage = "Optimization cancelled.";
+            return;
+        }
+
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
         IsBusy = true;
 
@@ -147,7 +159,12 @@ public partial class DiskOptimizerViewModel : ObservableObject
                 else
                 {
                     drive.Status = DiskOptimizerService.OptimizeStatus.Failed;
-                    drive.StatusMessage = "Optimization failed — run as Administrator";
+                    var detail = output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(l => l.Trim())
+                        .LastOrDefault(l => l.Length > 0);
+                    drive.StatusMessage = string.IsNullOrEmpty(detail)
+                        ? "Optimization failed"
+                        : $"Failed: {detail}";
                     failed++;
                 }
             }
@@ -189,6 +206,7 @@ public partial class DiskOptimizerViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshDrivesAsync()
     {
+        if (IsBusy) return;
         await LoadDrivesAsync();
         StatusMessage = "Drive list refreshed.";
     }

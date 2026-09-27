@@ -32,6 +32,10 @@ public partial class InstallMonitorViewModel : ObservableObject
 
     public string FormattedNewFileSize => FormatHelper.FormatBytes(NewFileSizeBytes);
 
+    /// <summary>The "Before" snapshot kept in memory (dry-run sessions never write it to disk).</summary>
+    private InstallMonitorService.SystemSnapshot? _activeSnapshot;
+    private bool _activeSessionIsDryRun;
+
     public InstallMonitorViewModel()
     {
         _ = LoadSnapshotsAsync().ContinueWith(t =>
@@ -48,6 +52,8 @@ public partial class InstallMonitorViewModel : ObservableObject
     [RelayCommand]
     private async Task StartMonitoringAsync()
     {
+        if (IsBusy || IsMonitoring) return;
+
         if (string.IsNullOrWhiteSpace(ProgramLabel))
         {
             StatusMessage = "Please enter a program name to monitor.";
@@ -60,10 +66,12 @@ public partial class InstallMonitorViewModel : ObservableObject
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
-            var (snapshotId, _) = await InstallMonitorService.TakeSnapshotAsync(
-                ProgramLabel, dryRun: IsDryRun, progress: progress);
+            var (snapshotId, snapshot) = await InstallMonitorService.TakeSnapshotAsync(
+                ProgramLabel.Trim(), dryRun: IsDryRun, progress: progress);
 
             ActiveSnapshotId = snapshotId;
+            _activeSnapshot = snapshot;
+            _activeSessionIsDryRun = IsDryRun;
             IsMonitoring = true;
             StatusMessage = $"Monitoring active for '{ProgramLabel}'. Install your software now, then click 'Stop Monitoring'.";
         }
@@ -84,7 +92,9 @@ public partial class InstallMonitorViewModel : ObservableObject
     [RelayCommand]
     private async Task StopMonitoringAsync()
     {
-        if (ActiveSnapshotId == null)
+        if (IsBusy) return;
+
+        if (ActiveSnapshotId == null || _activeSnapshot == null)
         {
             StatusMessage = "No active monitoring session.";
             return;
@@ -97,7 +107,7 @@ public partial class InstallMonitorViewModel : ObservableObject
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
             var delta = await InstallMonitorService.CompareAndGenerateDeltaAsync(
-                ActiveSnapshotId, dryRun: IsDryRun, progress: progress);
+                _activeSnapshot, ActiveSnapshotId, dryRun: _activeSessionIsDryRun, progress: progress);
 
             NewRegistryKeysCount = delta.NewRegistryKeys.Count;
             NewFilesCount = delta.NewFiles.Count;
@@ -109,10 +119,12 @@ public partial class InstallMonitorViewModel : ObservableObject
 
             IsMonitoring = false;
             ActiveSnapshotId = null;
+            _activeSnapshot = null;
 
             StatusMessage = $"Installation tracked: {delta.NewRegistryKeys.Count} registry keys, " +
                           $"{delta.NewFiles.Count} files ({FormatHelper.FormatBytes(delta.TotalNewFileSizeBytes)}), " +
-                          $"{delta.NewDirectories.Count} folders. Report saved.";
+                          $"{delta.NewDirectories.Count} folders." +
+                          (_activeSessionIsDryRun ? " (Preview — nothing saved.)" : " Report saved.");
 
             await LoadSnapshotsAsync();
         }
@@ -133,11 +145,15 @@ public partial class InstallMonitorViewModel : ObservableObject
     [RelayCommand]
     private void CancelMonitoring()
     {
+        if (IsBusy) return;
+
         if (ActiveSnapshotId != null)
         {
-            InstallMonitorService.DeleteSnapshot(ActiveSnapshotId);
+            if (!_activeSessionIsDryRun)
+                InstallMonitorService.DeleteSnapshot(ActiveSnapshotId);
             ActiveSnapshotId = null;
         }
+        _activeSnapshot = null;
 
         IsMonitoring = false;
         StatusMessage = "Monitoring cancelled.";
@@ -170,7 +186,17 @@ public partial class InstallMonitorViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteSnapshotAsync()
     {
-        if (SelectedSnapshot == null) return;
+        if (SelectedSnapshot == null || IsBusy) return;
+
+        if (SelectedSnapshot.Id == ActiveSnapshotId)
+        {
+            StatusMessage = "That snapshot belongs to the active monitoring session. Stop or cancel monitoring first.";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Delete the snapshot and report for '{SelectedSnapshot.Label}'?", "Delete snapshot"))
+            return;
 
         InstallMonitorService.DeleteSnapshot(SelectedSnapshot.Id);
         StatusMessage = $"Snapshot '{SelectedSnapshot.Label}' deleted.";
