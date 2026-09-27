@@ -220,7 +220,7 @@
         <!-- Status Bar -->
         <Border Grid.Row="4" Margin="0,12,0,0" Padding="8,8"
                 Background="{DynamicResource AuraSurfaceLight}" CornerRadius="8">
-            <TextBlock Text="{Binding StatusMessage}"
+            <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
                        AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="12" VerticalAlignment="Center" />

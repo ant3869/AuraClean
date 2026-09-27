@@ -96,7 +96,7 @@
             <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                          IsIndeterminate="True" Width="48" Height="48"
                          Foreground="{StaticResource AuraAccentTeal}" />
-            <TextBlock Text="{Binding StatusMessage}"
+            <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
                        AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource AuraTextSecondary}" FontSize="13"
                        HorizontalAlignment="Center" Margin="0,12,0,0" />
@@ -607,7 +607,7 @@
         </ScrollViewer>
 
         <!-- Status Bar -->
-        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
+        <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Grid.Row="2" Text="{Binding StatusMessage}"
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="12" Margin="0,8,0,0" />

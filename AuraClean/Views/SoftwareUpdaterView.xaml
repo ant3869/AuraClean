@@ -129,7 +129,7 @@
 
         <!-- Status Bar -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
-            <TextBlock Text="{Binding StatusMessage}"
+            <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
                        AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="12" VerticalAlignment="Center" />

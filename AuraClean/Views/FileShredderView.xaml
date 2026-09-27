@@ -204,7 +204,7 @@
                                          Foreground="{StaticResource AuraWarning}"
                                          Height="4"
                                          helpers:AnimationHelper.SmoothProgress="True" />
-                            <TextBlock Text="{Binding ProgressText}"
+                            <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding ProgressText}" Text="{Binding ProgressText}"
                                        Foreground="{DynamicResource AuraTextSecondary}"
                                        FontSize="11" Margin="0,6,0,0" />
                         </StackPanel>
@@ -343,7 +343,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
+        <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Grid.Row="2" Text="{Binding StatusMessage}"
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,16,0,0" />

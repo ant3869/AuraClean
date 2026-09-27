@@ -226,12 +226,12 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0"
+                <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Grid.Column="0"
                            Text="{Binding StatusMessage}"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="12" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1"
+                <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding CurrentOperation}" Grid.Column="1"
                            Text="{Binding CurrentOperation}"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{StaticResource AuraAccentTeal}"

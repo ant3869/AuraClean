@@ -149,6 +149,9 @@ public partial class ThreatScannerViewModel : ObservableObject
     [RelayCommand]
     private void SelectScanMode(string mode)
     {
+        if (IsScanning)
+            return;
+
         if (!IsAdvancedMode && mode != "Quick")
         {
             StatusMessage = "Normal mode uses Quick Scan. Turn on Advanced mode for full, custom, and browser-only scans.";
@@ -161,7 +164,7 @@ public partial class ThreatScannerViewModel : ObservableObject
             "Quick" => ScanMode.Quick,
             "Full" => ScanMode.Full,
             "Custom" => ScanMode.Custom,
-            "Browser" => ScanMode.BrowserOnly,
+            "Browser" or "BrowserOnly" => ScanMode.BrowserOnly,
             _ => ScanMode.Quick
         };
     }

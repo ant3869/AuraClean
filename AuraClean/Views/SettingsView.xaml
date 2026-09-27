@@ -387,7 +387,7 @@
         </ScrollViewer>
 
         <!-- Status Bar -->
-        <TextBlock Grid.Row="2"
+        <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Grid.Row="2"
                    Text="{Binding StatusMessage}"
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"

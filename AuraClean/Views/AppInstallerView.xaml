@@ -104,7 +104,7 @@
                     <materialDesign:PackIcon Kind="InformationOutline" Width="16" Height="16"
                                              Foreground="{StaticResource AuraAccentTeal}"
                                              VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding StatusMessage}" FontSize="12"
+                    <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}" FontSize="12"
                                AutomationProperties.LiveSetting="Polite"
                                Foreground="{DynamicResource AuraTextSecondary}"
                                VerticalAlignment="Center" />

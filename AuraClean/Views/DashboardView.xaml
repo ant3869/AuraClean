@@ -7,12 +7,15 @@
 
     <!-- HealthColorConverter and BoolToVis are defined globally in App.xaml -->
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Focusable="False">
     <Grid Margin="36,28,36,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -315,12 +318,13 @@
             </Border>
 
         <!-- ═══ SECONDARY ACTIONS ═══ -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0"
-                    helpers:AnimationHelper.AnimateOnVisible="True"
-                    helpers:AnimationHelper.StaggerIndex="4">
+        <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0"
+                   helpers:AnimationHelper.AnimateOnVisible="True"
+                   helpers:AnimationHelper.StaggerIndex="4">
                 <Button Style="{StaticResource AuraGhostButton}"
                         Command="{Binding QuickCleanCommand}"
-                        Margin="0,0,10,0">
+                        ToolTip="Analyze if needed, then clean the selected low-risk items"
+                        Margin="0,0,10,8">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Broom" Width="16" Height="16"
                                                  Foreground="{StaticResource AuraAccentTeal}"
@@ -331,7 +335,8 @@
 
                 <Button Style="{StaticResource AuraGhostButton}"
                         Command="{Binding RunHealthCheckCommand}"
-                        Margin="0,0,10,0">
+                        ToolTip="Scan junk, threats, startup load and browser caches"
+                        Margin="0,0,10,8">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16"
                                                  Foreground="{StaticResource AuraAccentPurple}"
@@ -342,7 +347,7 @@
 
                 <Button Style="{StaticResource AuraGhostButton}"
                         Command="{Binding BoostMemoryCommand}"
-                        Margin="0,0,10,0">
+                        Margin="0,0,10,8">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="RocketLaunch" Width="16" Height="16"
                                                  Foreground="{StaticResource AuraAmber}"
@@ -354,7 +359,7 @@
                 <Button Style="{StaticResource AuraGhostButton}"
                         Command="{Binding NavigateToCommand}"
                         CommandParameter="StorageMap"
-                        Margin="0,0,10,0">
+                        Margin="0,0,10,8">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16"
                                                  Foreground="{StaticResource AuraWarning}"
@@ -365,6 +370,7 @@
 
                 <Button Style="{StaticResource AuraGhostButton}"
                         Command="{Binding UndoLastCleanCommand}"
+                        Margin="0,0,10,8"
                         Visibility="{Binding Cleaner.CanUndoLastClean, Converter={StaticResource BoolToVis}}"
                         ToolTip="{Binding Cleaner.LastCleanedSummary}">
                     <StackPanel Orientation="Horizontal">
@@ -373,34 +379,49 @@
                         <TextBlock Text="UNDO CLEAN" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-        </StackPanel>
+        </WrapPanel>
 
         <!-- ═══ HEALTH CHECK STATUS ═══ -->
-        <StackPanel Grid.Row="5" HorizontalAlignment="Center" Margin="0,8,0,0"
-                    Visibility="{Binding IsHealthCheckRunning, Converter={StaticResource BoolToVis}}">
-            <ProgressBar IsIndeterminate="True" Width="300" Height="4" Margin="0,0,0,6"
-                         Foreground="{StaticResource AuraAccentPurple}" />
-            <TextBlock Text="{Binding HealthCheckProgress}"
+        <StackPanel Grid.Row="5" HorizontalAlignment="Center" Margin="0,8,0,0">
+            <StackPanel Visibility="{Binding IsHealthCheckRunning, Converter={StaticResource BoolToVis}}">
+                <ProgressBar IsIndeterminate="True" Width="300"
+                             Height="4" Margin="0,0,0,6"
+                             Foreground="{StaticResource AuraAccentPurple}" />
+                <TextBlock Text="{Binding HealthCheckProgress}"
+                           AutomationProperties.LiveSetting="Polite"
+                           Foreground="{DynamicResource AuraTextMuted}" FontSize="11"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding HealthCheckSummary}"
                        AutomationProperties.LiveSetting="Polite"
-                       Foreground="{DynamicResource AuraTextMuted}" FontSize="11"
-                       HorizontalAlignment="Center" />
+                       HorizontalAlignment="Center" TextAlignment="Center" Margin="0,8,0,0"
+                       Foreground="{DynamicResource AuraTextSecondary}" FontSize="12"
+                       FontWeight="Medium" TextWrapping="Wrap" MaxWidth="560"
+                       Visibility="{Binding IsHealthCheckRunning, Converter={StaticResource InverseBoolToVis}}" />
         </StackPanel>
 
-        <TextBlock Grid.Row="5" Text="{Binding HealthCheckSummary}"
-                   AutomationProperties.LiveSetting="Polite"
-                   HorizontalAlignment="Center" Margin="0,8,0,0"
-                   Foreground="{DynamicResource AuraTextSecondary}" FontSize="12"
-                   FontWeight="Medium" TextWrapping="Wrap" MaxWidth="500"/>
-
         <!-- ═══ CONTEXT MENU TOGGLE ═══ -->
-        <StackPanel Grid.Row="6" HorizontalAlignment="Center" Margin="0,16,0,0" Orientation="Horizontal">
-            <TextBlock Text="Explorer Context Menu:"
+        <WrapPanel Grid.Row="6" HorizontalAlignment="Center" Margin="0,16,0,0" Orientation="Horizontal"
+                   Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Explorer &quot;Deep Uninstall&quot; menu:"
                        Foreground="{DynamicResource AuraTextMuted}" FontSize="11"
                        VerticalAlignment="Center" Margin="0,0,8,0" />
             <TextBlock Text="{Binding ContextMenuStatus}"
                        AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource AuraTextSecondary}" FontSize="11"
-                       FontWeight="Medium" VerticalAlignment="Center" />
-        </StackPanel>
+                       FontWeight="Medium" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <Button Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding ToggleContextMenuCommand}"
+                    Content="{Binding ContextMenuToggleLabel}"
+                    AutomationProperties.Name="Install or remove the Explorer context menu entry"
+                    Padding="10,2" FontSize="11" Margin="0,0,6,0" />
+            <Button Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding ExportContextMenuScriptCommand}"
+                    Content="Export .reg"
+                    ToolTip="Save a .reg file to your Desktop that applies the same change"
+                    Padding="10,2" FontSize="11" />
+        </WrapPanel>
     </Grid>
+    </ScrollViewer>
 </UserControl>

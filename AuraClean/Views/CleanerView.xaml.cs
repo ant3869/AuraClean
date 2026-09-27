@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Windows.Controls;
 using AuraClean.Helpers;
 using AuraClean.ViewModels;
@@ -9,41 +8,51 @@ namespace AuraClean.Views;
 public partial class CleanerView : UserControl
 {
     private CleanerViewModel? _subscribedVm;
-    private bool _wasCleanInProgress;
 
     public CleanerView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         Unloaded += (_, _) => UnsubscribeVm();
+        Loaded += (_, _) =>
+        {
+            // Re-attach after an unload/reload cycle (e.g. theme or template refresh).
+            if (_subscribedVm == null && DataContext is CleanerViewModel vm)
+                SubscribeVm(vm);
+        };
     }
 
     private void OnDataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e)
     {
         UnsubscribeVm();
         if (e.NewValue is CleanerViewModel vm)
-        {
-            _subscribedVm = vm;
-            vm.PropertyChanged += OnVmPropertyChanged;
-        }
+            SubscribeVm(vm);
     }
 
-    private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void SubscribeVm(CleanerViewModel vm)
     {
-        if (sender is not CleanerViewModel vm) return;
+        _subscribedVm = vm;
+        vm.CleanupCompleted += OnCleanupCompleted;
+    }
 
-        if (e.PropertyName == nameof(CleanerViewModel.IsBusy))
+    private void OnCleanupCompleted(object? sender, CleanupCompletedEventArgs e)
+    {
+        if (e.WasDryRun)
+            return;
+
+        if (e.ItemsCleaned > 0)
         {
-            if (vm.IsBusy) _wasCleanInProgress = true;
-            else if (_wasCleanInProgress && vm.LastCleanedCount > 0)
-            {
-                _wasCleanInProgress = false;
-                CleanerResultCard.Show(
-                    FormatHelper.FormatBytes(vm.LastCleanedBytes),
-                    $"{vm.LastCleanedCount} items cleaned",
-                    ResultCard.Severity.Success);
-            }
-            else _wasCleanInProgress = false;
+            CleanerResultCard.Show(
+                FormatHelper.FormatBytes(e.BytesFreed),
+                $"{e.ItemsCleaned} items cleaned",
+                ResultCard.Severity.Success);
+        }
+        else
+        {
+            CleanerResultCard.Show(
+                "Nothing removed",
+                "Selected items were in use, recent, or protected",
+                ResultCard.Severity.Warning);
         }
     }
 
@@ -51,7 +60,7 @@ public partial class CleanerView : UserControl
     {
         if (_subscribedVm is not null)
         {
-            _subscribedVm.PropertyChanged -= OnVmPropertyChanged;
+            _subscribedVm.CleanupCompleted -= OnCleanupCompleted;
             _subscribedVm = null;
         }
     }
