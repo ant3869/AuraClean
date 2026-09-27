@@ -86,18 +86,7 @@ public static class ThreatScannerService
         threats.AddRange(regResult.threats);
 
         percentProgress?.Report(100);
-        sw.Stop();
-
-        // Filter out whitelisted items
-        var whitelist = ThreatSignatureDatabase.LoadWhitelist();
-        foreach (var threat in threats)
-        {
-            if (!string.IsNullOrEmpty(threat.Sha256Hash) && whitelist.Contains(threat.Sha256Hash))
-                threat.IsWhitelisted = true;
-        }
-
-        result.Threats = threats.Where(t => !t.IsWhitelisted).ToList();
-        result.ScanDuration = sw.Elapsed;
+        FinalizeResult(result, threats, sw);
 
         DiagnosticLogger.Info("ThreatScanner",
             $"Quick scan complete: {result.Threats.Count} threats in {sw.Elapsed.TotalSeconds:F1}s");
@@ -171,18 +160,7 @@ public static class ThreatScannerService
         ReportStage("Finalizing scan results...");
 
         percentProgress?.Report(100);
-        sw.Stop();
-
-        // Filter out whitelisted items
-        var whitelist = ThreatSignatureDatabase.LoadWhitelist();
-        foreach (var threat in threats)
-        {
-            if (!string.IsNullOrEmpty(threat.Sha256Hash) && whitelist.Contains(threat.Sha256Hash))
-                threat.IsWhitelisted = true;
-        }
-
-        result.Threats = threats.Where(t => !t.IsWhitelisted).ToList();
-        result.ScanDuration = sw.Elapsed;
+        FinalizeResult(result, threats, sw);
 
         DiagnosticLogger.Info("ThreatScanner",
             $"Full scan complete: {result.Threats.Count} threats in {sw.Elapsed.TotalSeconds:F1}s");
@@ -206,18 +184,8 @@ public static class ThreatScannerService
         var fileScanResult = await ScanDirectoriesAsync(directories, maxDepth: 10, progress, ct);
         result.TotalFilesScanned = fileScanResult.scanned;
 
-        var whitelist = ThreatSignatureDatabase.LoadWhitelist();
-        foreach (var threat in fileScanResult.threats)
-        {
-            if (!string.IsNullOrEmpty(threat.Sha256Hash) && whitelist.Contains(threat.Sha256Hash))
-                threat.IsWhitelisted = true;
-        }
-
-        result.Threats = fileScanResult.threats.Where(t => !t.IsWhitelisted).ToList();
-
         percentProgress?.Report(100);
-        sw.Stop();
-        result.ScanDuration = sw.Elapsed;
+        FinalizeResult(result, fileScanResult.threats, sw);
 
         return result;
     }
@@ -249,19 +217,75 @@ public static class ThreatScannerService
         threats.AddRange(await ScanBrowserRegistryAsync(progress, ct));
 
         percentProgress?.Report(100);
-        sw.Stop();
-
-        var whitelist = ThreatSignatureDatabase.LoadWhitelist();
-        foreach (var threat in threats)
-        {
-            if (!string.IsNullOrEmpty(threat.Sha256Hash) && whitelist.Contains(threat.Sha256Hash))
-                threat.IsWhitelisted = true;
-        }
-
-        result.Threats = threats.Where(t => !t.IsWhitelisted).ToList();
-        result.ScanDuration = sw.Elapsed;
+        FinalizeResult(result, threats, sw);
 
         return result;
+    }
+
+    /// <summary>
+    /// Removes whitelisted and duplicate detections and applies the default selection policy:
+    /// only high-confidence findings (signature matches, Critical items, double-extension files)
+    /// start selected. Heuristic hits must be opted in by the user because they can be wrong.
+    /// </summary>
+    private static void FinalizeResult(ThreatScanResult result, List<ThreatItem> threats, Stopwatch sw)
+    {
+        sw.Stop();
+        var whitelist = ThreatSignatureDatabase.LoadWhitelist();
+        var finalThreats = new List<ThreatItem>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var threat in threats)
+        {
+            if (string.IsNullOrEmpty(threat.Sha256Hash))
+                threat.Sha256Hash = ComputeIdentityHash(threat);
+
+            if (whitelist.Contains(threat.Sha256Hash))
+            {
+                threat.IsWhitelisted = true;
+                continue;
+            }
+
+            var dedupeKey = $"{threat.ThreatType}|{threat.Path}|{threat.RegistryValueName}|{threat.HostsEntryHostName}|{threat.TaskPath}";
+            if (!seen.Add(dedupeKey))
+                continue;
+
+            bool highConfidence = threat.DetectionMethod == ThreatDetectionMethod.SignatureMatch ||
+                                  threat.ThreatLevel == ThreatLevel.Critical ||
+                                  threat.ThreatType == ThreatType.DoubleExtension;
+            threat.IsSelected = highConfidence;
+            threat.RemediationNote = DescribeRemediation(threat);
+            if (!highConfidence && string.IsNullOrEmpty(threat.RemediationNote))
+                threat.RemediationNote = "Heuristic finding — review before acting.";
+
+            finalThreats.Add(threat);
+        }
+
+        result.Threats = finalThreats;
+        result.ScanDuration = sw.Elapsed;
+    }
+
+    /// <summary>
+    /// Stable identity used for whitelisting: the file's content hash when the threat is a file,
+    /// otherwise a hash of the entry's location (registry value, task, hosts entry, folder).
+    /// </summary>
+    internal static string ComputeIdentityHash(ThreatItem threat)
+    {
+        if (!string.IsNullOrEmpty(threat.Path) && File.Exists(threat.Path) &&
+            string.IsNullOrEmpty(threat.HostsEntryHostName) && string.IsNullOrEmpty(threat.TaskPath))
+        {
+            try
+            {
+                using var stream = new FileStream(threat.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Fall through to the location-based identity.
+            }
+        }
+
+        var identity = $"{threat.ThreatType}|{threat.Path}|{threat.RegistryKeyPath}|{threat.RegistryValueName}|{threat.HostsEntryHostName}|{threat.TaskPath}";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity.ToLowerInvariant()))).ToLowerInvariant();
     }
 
     // ══════════════════════════════════════════
@@ -343,10 +367,12 @@ public static class ThreatScannerService
                 }
             }
 
-            // Check 5: PE Analysis for executables
-            if (ext.Equals(".exe", StringComparison.OrdinalIgnoreCase) ||
-                ext.Equals(".dll", StringComparison.OrdinalIgnoreCase) ||
-                ext.Equals(".scr", StringComparison.OrdinalIgnoreCase))
+            // Check 5: PE Analysis for executables. Validly signed binaries are skipped:
+            // packers, high entropy, and injection APIs are all common in legitimate signed software.
+            if ((ext.Equals(".exe", StringComparison.OrdinalIgnoreCase) ||
+                 ext.Equals(".dll", StringComparison.OrdinalIgnoreCase) ||
+                 ext.Equals(".scr", StringComparison.OrdinalIgnoreCase)) &&
+                !AuthenticodeHelper.IsSignedAndTrusted(filePath))
             {
                 var peResult = await AnalyzePeFileAsync(filePath, ct);
                 if (peResult.isSuspicious)
@@ -376,11 +402,18 @@ public static class ThreatScannerService
     {
         try
         {
-            var buffer = new byte[Math.Min(new FileInfo(filePath).Length, 65536)];
+            var length = new FileInfo(filePath).Length;
+            if (length < 64)
+                return (false, "", ThreatType.SuspiciousFile, ThreatLevel.Low);
+
+            var buffer = new byte[Math.Min(length, 65536)];
+            int read;
             using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                await fs.ReadAsync(buffer, ct);
+                read = await fs.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false, ct);
             }
+            if (read < buffer.Length)
+                Array.Resize(ref buffer, read);
 
             // Check MZ header
             if (buffer.Length < 64 || buffer[0] != 0x4D || buffer[1] != 0x5A)
@@ -405,11 +438,11 @@ public static class ThreatScannerService
 
             // Check for suspicious string imports
             var suspiciousImports = FindSuspiciousImports(buffer);
-            if (suspiciousImports.Count >= 3) // Multiple suspicious APIs = higher risk
+            if (suspiciousImports.Count >= ThreatSignatureDatabase.SuspiciousImportThreshold)
             {
                 return (true,
-                    $"Multiple suspicious API imports: {string.Join(", ", suspiciousImports.Take(5))}",
-                    ThreatType.Malware, ThreatLevel.High);
+                    $"Unsigned file importing process-injection APIs: {string.Join(", ", suspiciousImports.Take(5))}",
+                    ThreatType.SuspiciousFile, ThreatLevel.High);
             }
 
             return (false, "", ThreatType.SuspiciousFile, ThreatLevel.Low);
@@ -450,7 +483,9 @@ public static class ThreatScannerService
 
         foreach (var import in ThreatSignatureDatabase.SuspiciousImports)
         {
-            if (content.Contains(import, StringComparison.Ordinal))
+            // Import names are NUL-terminated in the import table; requiring the terminator
+            // avoids matching longer, unrelated identifiers.
+            if (content.Contains(import + "\0", StringComparison.Ordinal))
                 found.Add(import);
         }
         return found;
@@ -628,7 +663,7 @@ public static class ThreatScannerService
                     {
                         try
                         {
-                            foreach (var subDir in Directory.EnumerateDirectories(currentDir))
+                            foreach (var subDir in Directory.EnumerateDirectories(currentDir, "*", PathSafety.TopLevelNoReparse))
                             {
                                 var dirName = Path.GetFileName(subDir);
                                 // Skip well-known safe directories and system volume info
@@ -703,8 +738,8 @@ public static class ThreatScannerService
                                 return;
                             }
 
-                            // Signature hash check for executables
-                            if (fileInfo.Length < 50_000_000) // Only hash files < 50MB
+                            // Signature hash check for executables (empty files have no meaningful hash)
+                            if (fileInfo.Length > 0 && fileInfo.Length < 50_000_000)
                             {
                                 var hash = await ComputeSha256Async(filePath, token);
                                 if (!string.IsNullOrEmpty(hash) && CheckSignatureMatch(hash))
@@ -749,19 +784,19 @@ public static class ThreatScannerService
             // Scan Run registry keys
             var runKeys = new[]
             {
-                (RegistryHive.CurrentUser, RegistryView.Default,
+                (RegistryHive.CurrentUser, RegistryView.Default, "HKCU",
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"),
-                (RegistryHive.LocalMachine, RegistryView.Registry64,
+                (RegistryHive.LocalMachine, RegistryView.Registry64, "HKLM (64-bit)",
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"),
-                (RegistryHive.LocalMachine, RegistryView.Registry32,
+                (RegistryHive.LocalMachine, RegistryView.Registry32, "HKLM (32-bit)",
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"),
-                (RegistryHive.CurrentUser, RegistryView.Default,
+                (RegistryHive.CurrentUser, RegistryView.Default, "HKCU",
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"),
-                (RegistryHive.LocalMachine, RegistryView.Registry64,
+                (RegistryHive.LocalMachine, RegistryView.Registry64, "HKLM (64-bit)",
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"),
             };
 
-            foreach (var (hive, view, keyPath) in runKeys)
+            foreach (var (hive, view, hiveLabel, keyPath) in runKeys)
             {
                 ct.ThrowIfCancellationRequested();
                 try
@@ -826,6 +861,8 @@ public static class ThreatScannerService
                                 ThreatType = ThreatType.SuspiciousStartup,
                                 DetectionMethod = ThreatDetectionMethod.RegistryAnalysis,
                                 SizeBytes = TryGetFileSize(exePath),
+                                RegistryKeyPath = $"{hiveLabel}\\{keyPath}",
+                                RegistryValueName = valueName,
                             });
                         }
                     }
@@ -926,6 +963,7 @@ public static class ThreatScannerService
                                 {
                                     Name = task.Name,
                                     Path = execAction.Path ?? command,
+                                    TaskPath = task.Path,
                                     Description = $"Suspicious scheduled task with pattern: {pattern.Trim()}",
                                     ThreatLevel = ThreatLevel.High,
                                     ThreatType = ThreatType.SuspiciousScheduledTask,
@@ -943,12 +981,13 @@ public static class ThreatScannerService
                                 path.Contains(@"\Users\Public\", StringComparison.OrdinalIgnoreCase))
                             {
                                 // Check if not already flagged
-                                if (!threats.Any(t => t.Name == task.Name))
+                                if (!threats.Any(t => t.TaskPath == task.Path))
                                 {
                                     threats.Add(new ThreatItem
                                     {
                                         Name = task.Name,
                                         Path = path,
+                                        TaskPath = task.Path,
                                         Description = "Scheduled task runs from suspicious location",
                                         ThreatLevel = ThreatLevel.Medium,
                                         ThreatType = ThreatType.SuspiciousScheduledTask,
@@ -1177,6 +1216,7 @@ public static class ThreatScannerService
                         {
                             Name = $"Hosts Hijack: {hostname}",
                             Path = hostsPath,
+                            HostsEntryHostName = hostname,
                             Description = $"Protected domain '{hostname}' redirected to {ip} — possible malware blocking security updates",
                             ThreatLevel = ThreatLevel.Critical,
                             ThreatType = ThreatType.HostsFileModification,
@@ -1190,6 +1230,7 @@ public static class ThreatScannerService
                         {
                             Name = $"Hosts Redirect: {hostname}",
                             Path = hostsPath,
+                            HostsEntryHostName = hostname,
                             Description = $"Domain '{hostname}' redirected to suspicious IP: {ip}",
                             ThreatLevel = ThreatLevel.Medium,
                             ThreatType = ThreatType.HostsFileModification,
@@ -1227,12 +1268,12 @@ public static class ThreatScannerService
                 // Check in all registry hives
                 var hives = new[]
                 {
-                    (RegistryHive.CurrentUser, RegistryView.Default),
-                    (RegistryHive.LocalMachine, RegistryView.Registry64),
-                    (RegistryHive.LocalMachine, RegistryView.Registry32),
+                    (RegistryHive.CurrentUser, RegistryView.Default, "HKCU"),
+                    (RegistryHive.LocalMachine, RegistryView.Registry64, "HKLM (64-bit)"),
+                    (RegistryHive.LocalMachine, RegistryView.Registry32, "HKLM (32-bit)"),
                 };
 
-                foreach (var (hive, view) in hives)
+                foreach (var (hive, view, hiveLabel) in hives)
                 {
                     try
                     {
@@ -1244,7 +1285,7 @@ public static class ThreatScannerService
                             threats.Add(new ThreatItem
                             {
                                 Name = $"Adware Registry: {adwareName}",
-                                Path = $"{hive}\\{keyPath}",
+                                Path = $"{hiveLabel}\\{keyPath}",
                                 Description = $"Known adware registry key found: {adwareName}",
                                 ThreatLevel = ThreatLevel.Medium,
                                 ThreatType = ThreatType.Adware,
@@ -1308,7 +1349,7 @@ public static class ThreatScannerService
                                 {
                                     Name = displayName,
                                     Path = !string.IsNullOrEmpty(installLocation) ? installLocation
-                                        : $"{hive}\\{basePath}\\{subKeyName}",
+                                        : $"{(hive == RegistryHive.CurrentUser ? "HKCU" : view == RegistryView.Registry32 ? "HKLM (32-bit)" : "HKLM (64-bit)")}\\{basePath}\\{subKeyName}",
                                     Description = $"Known PUP/Adware: {adwareName} (Publisher: {publisher})",
                                     ThreatLevel = ThreatLevel.Medium,
                                     ThreatType = ThreatType.PotentiallyUnwanted,
@@ -1478,194 +1519,335 @@ public static class ThreatScannerService
     //  THREAT REMOVAL / QUARANTINE
     // ══════════════════════════════════════════
 
-    /// <summary>
-    /// Quarantines detected threats by moving files to quarantine and
-    /// disabling associated startup/registry entries.
-    /// </summary>
-    public static async Task<(int quarantined, int failed, List<string> errors)>
-        QuarantineThreatsAsync(
-            IEnumerable<ThreatItem> threats,
-            IProgress<string>? progress = null,
-            CancellationToken ct = default)
-    {
-        int quarantined = 0, failed = 0;
-        var errors = new List<string>();
+    /// <summary>Outcome of a quarantine or delete request.</summary>
+    public sealed record ThreatActionResult(int Handled, int Failed, int ManualActionRequired, List<string> Messages);
 
-        foreach (var threat in threats.Where(t => t.IsSelected && !t.IsWhitelisted))
+    private enum RemediationKind
+    {
+        DisableScheduledTask,
+        RemoveHostsEntry,
+        RemoveAutorunValue,
+        DeleteRegistryKey,
+        FileTarget,
+        DirectoryTarget,
+        ManualOnly
+    }
+
+    private static RemediationKind Classify(ThreatItem threat, out string manualReason)
+    {
+        manualReason = string.Empty;
+
+        if (threat.ThreatType == ThreatType.SuspiciousScheduledTask)
+            return RemediationKind.DisableScheduledTask;
+
+        if (threat.ThreatType == ThreatType.HostsFileModification)
+        {
+            if (!string.IsNullOrEmpty(threat.HostsEntryHostName))
+                return RemediationKind.RemoveHostsEntry;
+            manualReason = "Edit the hosts file manually to remove the redirect.";
+            return RemediationKind.ManualOnly;
+        }
+
+        if (!string.IsNullOrEmpty(threat.RegistryKeyPath) && !string.IsNullOrEmpty(threat.RegistryValueName))
+            return RemediationKind.RemoveAutorunValue;
+
+        if (threat.ThreatType == ThreatType.BrowserHijacker &&
+            Path.GetFileName(threat.Path).Equals("Preferences", StringComparison.OrdinalIgnoreCase))
+        {
+            manualReason = "Reset the search engine in the browser's settings (the profile file is not modified).";
+            return RemediationKind.ManualOnly;
+        }
+
+        if (threat.Path.StartsWith("HKCU\\", StringComparison.OrdinalIgnoreCase) ||
+            threat.Path.StartsWith("HKLM", StringComparison.OrdinalIgnoreCase))
+        {
+            return threat.ThreatType is ThreatType.Adware or ThreatType.BrowserHijacker
+                ? RemediationKind.DeleteRegistryKey
+                : ManualWith("Remove this registry entry with the Uninstaller or manually.", out manualReason);
+        }
+
+        if (threat.ThreatType == ThreatType.PotentiallyUnwanted)
+        {
+            manualReason = "Remove this program with the Uninstaller so its own uninstaller runs.";
+            return RemediationKind.ManualOnly;
+        }
+
+        if (File.Exists(threat.Path))
+        {
+            if (!PathSafety.IsSafeToDeleteFile(threat.Path, out var reason))
+            {
+                manualReason = $"{reason} It will not be moved.";
+                return RemediationKind.ManualOnly;
+            }
+            return RemediationKind.FileTarget;
+        }
+
+        if (Directory.Exists(threat.Path))
+        {
+            if (!PathSafety.IsSafeToDeleteDirectory(threat.Path, out var reason))
+            {
+                manualReason = reason;
+                return RemediationKind.ManualOnly;
+            }
+            return RemediationKind.DirectoryTarget;
+        }
+
+        manualReason = "The item no longer exists or cannot be removed automatically.";
+        return RemediationKind.ManualOnly;
+
+        static RemediationKind ManualWith(string reason, out string note)
+        {
+            note = reason;
+            return RemediationKind.ManualOnly;
+        }
+    }
+
+    /// <summary>Short explanation of what quarantine/delete will do for this item.</summary>
+    private static string DescribeRemediation(ThreatItem threat) => Classify(threat, out var manual) switch
+    {
+        RemediationKind.DisableScheduledTask => "The scheduled task will be disabled.",
+        RemediationKind.RemoveHostsEntry => "Only this hosts-file line will be removed (a backup is kept).",
+        RemediationKind.RemoveAutorunValue => "The startup entry will be removed; the program file is quarantined when it is not a Windows component.",
+        RemediationKind.DeleteRegistryKey => "The registry key will be deleted after a .reg backup.",
+        RemediationKind.DirectoryTarget => "The folder's files will be moved to quarantine.",
+        RemediationKind.FileTarget => string.Empty,
+        _ => manual
+    };
+
+    /// <summary>
+    /// Quarantines detected threats: files and folders are moved to quarantine, scheduled tasks
+    /// are disabled, hosts redirects and autorun values are removed. Items that cannot be handled
+    /// safely are reported as needing manual action instead of being silently marked handled.
+    /// </summary>
+    public static Task<ThreatActionResult> QuarantineThreatsAsync(
+        IEnumerable<ThreatItem> threats,
+        IProgress<string>? progress = null,
+        CancellationToken ct = default) =>
+        RemediateAsync(threats, permanentDelete: false, progress, ct);
+
+    /// <summary>
+    /// Permanently deletes detected threats. Same safety rules as quarantine; files are removed
+    /// immediately instead of being moved.
+    /// </summary>
+    public static Task<ThreatActionResult> DeleteThreatsAsync(
+        IEnumerable<ThreatItem> threats,
+        IProgress<string>? progress = null,
+        CancellationToken ct = default) =>
+        RemediateAsync(threats, permanentDelete: true, progress, ct);
+
+    private static async Task<ThreatActionResult> RemediateAsync(
+        IEnumerable<ThreatItem> threats, bool permanentDelete,
+        IProgress<string>? progress, CancellationToken ct)
+    {
+        int handled = 0, failed = 0, manual = 0;
+        var messages = new List<string>();
+
+        foreach (var threat in threats.Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined).ToList())
         {
             ct.ThrowIfCancellationRequested();
+            progress?.Report($"{(permanentDelete ? "Removing" : "Quarantining")}: {threat.Name}");
+
             try
             {
-                progress?.Report($"Quarantining: {threat.Name}");
-
-                // Kill process if it's a running process threat
-                if (threat.ProcessId > 0)
+                var kind = Classify(threat, out var manualReason);
+                if (kind == RemediationKind.ManualOnly)
                 {
-                    try
-                    {
-                        var proc = Process.GetProcessById(threat.ProcessId);
-                        if (!proc.HasExited)
-                        {
-                            proc.Kill(entireProcessTree: true);
-                            await Task.Delay(500, ct); // Wait for process to die
-                        }
-                    }
-                    catch { } // Process may already be gone
+                    manual++;
+                    threat.RemediationNote = manualReason;
+                    messages.Add($"{threat.Name}: {manualReason}");
+                    continue;
                 }
 
-                // Quarantine the file if it exists
-                if (File.Exists(threat.Path))
+                if (kind is RemediationKind.FileTarget or RemediationKind.RemoveAutorunValue)
+                    await TerminateThreatProcessAsync(threat, ct);
+
+                var (ok, message) = kind switch
                 {
-                    var reason = $"Threat detected: {threat.ThreatTypeDisplay} [{threat.ThreatLevelDisplay}] — {threat.Description}";
-                    var entry = await QuarantineService.QuarantineFileAsync(threat.Path, reason, progress, ct);
-                    if (entry != null)
-                    {
-                        threat.IsQuarantined = true;
-                        quarantined++;
-                    }
-                    else
-                    {
-                        failed++;
-                        errors.Add($"Failed to quarantine: {threat.Path}");
-                    }
-                }
-                else if (threat.ThreatType == ThreatType.SuspiciousScheduledTask)
+                    RemediationKind.DisableScheduledTask => await DisableScheduledTaskAsync(threat),
+                    RemediationKind.RemoveHostsEntry => await Task.Run(() => HostsFileEditor.RemoveEntries(threat.HostsEntryHostName), ct),
+                    RemediationKind.RemoveAutorunValue => await RemoveAutorunAsync(threat, permanentDelete, progress, ct),
+                    RemediationKind.DeleteRegistryKey => await RegistryScannerService.DeleteRegistryKeyAsync(threat.Path),
+                    RemediationKind.FileTarget => await HandleFileAsync(threat, threat.Path, permanentDelete, progress, ct),
+                    RemediationKind.DirectoryTarget => await HandleDirectoryAsync(threat, permanentDelete, progress, ct),
+                    _ => (false, "Unsupported item.")
+                };
+
+                if (ok)
                 {
-                    // Disable the scheduled task
-                    if (await DisableScheduledTaskAsync(threat.Name))
-                    {
-                        threat.IsQuarantined = true;
-                        quarantined++;
-                    }
-                    else
-                    {
-                        failed++;
-                        errors.Add($"Failed to disable task: {threat.Name}");
-                    }
-                }
-                else if (threat.ThreatType is ThreatType.Adware or ThreatType.BrowserHijacker
-                         && threat.Path.Contains(@"HK", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Registry-based threat — log it but don't auto-delete registry
-                    // (too dangerous for automated removal)
-                    quarantined++;
                     threat.IsQuarantined = true;
-                }
-                else if (Directory.Exists(threat.Path))
-                {
-                    // Directory-based threat (e.g., browser extension folder)
-                    var reason = $"Threat detected: {threat.ThreatTypeDisplay} — {threat.Description}";
-                    // Quarantine individual files within the directory
-                    try
-                    {
-                        var files = Directory.GetFiles(threat.Path, "*", SearchOption.AllDirectories);
-                        foreach (var file in files.Take(50)) // Limit to prevent runaway
-                        {
-                            await QuarantineService.QuarantineFileAsync(file, reason, progress, ct);
-                        }
-                        threat.IsQuarantined = true;
-                        quarantined++;
-                    }
-                    catch (Exception ex)
-                    {
-                        failed++;
-                        errors.Add($"Failed to quarantine directory: {threat.Path} — {ex.Message}");
-                    }
+                    handled++;
                 }
                 else
                 {
-                    quarantined++;
-                    threat.IsQuarantined = true;
+                    failed++;
+                    messages.Add($"{threat.Name}: {message}");
                 }
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 failed++;
-                errors.Add($"Error quarantining {threat.Name}: {ex.Message}");
-                DiagnosticLogger.Warn("ThreatScanner", $"Quarantine failed: {threat.Name}", ex);
+                messages.Add($"{threat.Name}: {ex.Message}");
+                DiagnosticLogger.Warn("ThreatScanner", $"Remediation failed: {threat.Name}", ex);
             }
         }
 
-        return (quarantined, failed, errors);
+        return new ThreatActionResult(handled, failed, manual, messages);
     }
 
     /// <summary>
-    /// Permanently deletes detected threats — files are removed immediately
-    /// without being moved to quarantine.
+    /// Terminates the running process of a threat, but only if the PID still belongs to the same
+    /// executable (PIDs are reused) and the executable is not a Windows component.
     /// </summary>
-    public static async Task<(int deleted, int failed, List<string> errors)>
-        DeleteThreatsAsync(
-            IEnumerable<ThreatItem> threats,
-            IProgress<string>? progress = null,
-            CancellationToken ct = default)
+    private static async Task TerminateThreatProcessAsync(ThreatItem threat, CancellationToken ct)
     {
-        int deleted = 0, failed = 0;
-        var errors = new List<string>();
+        if (threat.ProcessId <= 0 || threat.ProcessId == Environment.ProcessId)
+            return;
 
-        foreach (var threat in threats.Where(t => t.IsSelected && !t.IsWhitelisted))
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            try
-            {
-                progress?.Report($"Deleting: {threat.Name}");
+            using var proc = Process.GetProcessById(threat.ProcessId);
+            if (proc.HasExited)
+                return;
 
-                // Kill process if running
-                if (threat.ProcessId > 0)
-                {
-                    try
-                    {
-                        var proc = Process.GetProcessById(threat.ProcessId);
-                        if (!proc.HasExited)
-                        {
-                            proc.Kill(entireProcessTree: true);
-                            await Task.Delay(500, ct);
-                        }
-                    }
-                    catch { }
-                }
+            string? exePath = null;
+            try { exePath = proc.MainModule?.FileName; }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { }
 
-                if (File.Exists(threat.Path))
-                {
-                    await Task.Run(() => File.Delete(threat.Path), ct);
-                    threat.IsQuarantined = true; // reuse flag to mark as handled
-                    deleted++;
-                }
-                else if (Directory.Exists(threat.Path))
-                {
-                    await Task.Run(() => Directory.Delete(threat.Path, recursive: true), ct);
-                    threat.IsQuarantined = true;
-                    deleted++;
-                }
-                else if (threat.ThreatType == ThreatType.SuspiciousScheduledTask)
-                {
-                    if (await DisableScheduledTaskAsync(threat.Name))
-                    {
-                        threat.IsQuarantined = true;
-                        deleted++;
-                    }
-                    else
-                    {
-                        failed++;
-                        errors.Add($"Failed to disable task: {threat.Name}");
-                    }
-                }
-                else
-                {
-                    // Non-file threat (registry, etc.) — mark handled
-                    threat.IsQuarantined = true;
-                    deleted++;
-                }
-            }
-            catch (Exception ex)
+            bool sameExecutable = exePath != null &&
+                                  string.Equals(exePath, threat.Path, StringComparison.OrdinalIgnoreCase);
+            if (!sameExecutable || PathSafety.IsWithinWindowsDirectory(exePath!))
             {
-                failed++;
-                errors.Add($"Error deleting {threat.Name}: {ex.Message}");
-                DiagnosticLogger.Warn("ThreatScanner", $"Delete failed: {threat.Name}", ex);
+                DiagnosticLogger.Warn("ThreatScanner",
+                    $"Not terminating PID {threat.ProcessId}: it no longer matches {threat.Path} or is a Windows component.");
+                return;
             }
+
+            proc.Kill(entireProcessTree: true);
+            await proc.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(5), ct);
+        }
+        catch (ArgumentException)
+        {
+            // Process already exited.
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or TimeoutException)
+        {
+            DiagnosticLogger.Warn("ThreatScanner", $"Could not terminate PID {threat.ProcessId}", ex);
+        }
+    }
+
+    private static async Task<(bool Ok, string Message)> HandleFileAsync(
+        ThreatItem threat, string path, bool permanentDelete, IProgress<string>? progress, CancellationToken ct)
+    {
+        if (!PathSafety.IsSafeToDeleteFile(path, out var reason))
+            return (false, reason);
+
+        if (permanentDelete)
+        {
+            await Task.Run(() =>
+            {
+                var info = new FileInfo(path);
+                if (info.IsReadOnly) info.IsReadOnly = false;
+                info.Delete();
+            }, ct);
+            return (true, "Deleted.");
         }
 
-        return (deleted, failed, errors);
+        var entry = await QuarantineService.QuarantineFileAsync(path, BuildQuarantineReason(threat), progress, ct);
+        return entry != null ? (true, "Quarantined.") : (false, $"Could not quarantine {path} (it may be in use).");
     }
+
+    private static async Task<(bool Ok, string Message)> HandleDirectoryAsync(
+        ThreatItem threat, bool permanentDelete, IProgress<string>? progress, CancellationToken ct)
+    {
+        if (!PathSafety.IsSafeToDeleteDirectory(threat.Path, out var reason))
+            return (false, reason);
+
+        if (permanentDelete)
+        {
+            await Task.Run(() => Directory.Delete(threat.Path, recursive: true), ct);
+            return (true, "Deleted.");
+        }
+
+        const int maxFiles = 5000;
+        var files = await Task.Run(() =>
+            Directory.EnumerateFiles(threat.Path, "*", PathSafety.RecursiveNoReparse).Take(maxFiles + 1).ToList(), ct);
+        if (files.Count > maxFiles)
+            return (false, $"Folder contains more than {maxFiles:N0} files; remove it manually.");
+
+        int moved = 0;
+        foreach (var file in files)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (await QuarantineService.QuarantineFileAsync(file, BuildQuarantineReason(threat), progress, ct) != null)
+                moved++;
+        }
+
+        if (moved < files.Count)
+            return (false, $"Quarantined {moved} of {files.Count} file(s); the rest are in use.");
+
+        try
+        {
+            RemoveEmptyDirectories(threat.Path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("ThreatScanner", $"Folder emptied but not removed: {threat.Path}", ex);
+        }
+
+        return (true, "Quarantined.");
+    }
+
+    private static void RemoveEmptyDirectories(string root)
+    {
+        foreach (var dir in Directory.EnumerateDirectories(root, "*", PathSafety.RecursiveNoReparse)
+                     .OrderByDescending(d => d.Length).ToList())
+        {
+            if (!Directory.EnumerateFileSystemEntries(dir).Any())
+                Directory.Delete(dir);
+        }
+
+        if (!Directory.EnumerateFileSystemEntries(root).Any())
+            Directory.Delete(root);
+    }
+
+    /// <summary>
+    /// Removes a malicious Run/RunOnce value (after exporting the key) and quarantines or deletes
+    /// the program it launched — unless that program is a Windows component such as powershell.exe.
+    /// </summary>
+    private static async Task<(bool Ok, string Message)> RemoveAutorunAsync(
+        ThreatItem threat, bool permanentDelete, IProgress<string>? progress, CancellationToken ct)
+    {
+        var (hive, view, subKey) = RegistryScannerService.ParseKeyPath(threat.RegistryKeyPath);
+        if (hive == null || subKey == null)
+            return (false, "Invalid startup registry location.");
+
+        var backup = await RegistryScannerService.BackupRegistryKeyAsync(threat.RegistryKeyPath);
+        if (backup == null)
+            return (false, "Could not back up the startup key; nothing was changed.");
+
+        using (var baseKey = RegistryKey.OpenBaseKey(hive.Value, view))
+        using (var runKey = baseKey.OpenSubKey(subKey, writable: true))
+        {
+            runKey?.DeleteValue(threat.RegistryValueName, throwOnMissingValue: false);
+        }
+
+        DiagnosticLogger.Info("ThreatScanner",
+            $"Removed autorun value '{threat.RegistryValueName}' from {threat.RegistryKeyPath} (backup: {backup})");
+
+        if (!string.IsNullOrEmpty(threat.Path) && File.Exists(threat.Path) &&
+            PathSafety.IsSafeToDeleteFile(threat.Path, out _))
+        {
+            var (fileOk, fileMessage) = await HandleFileAsync(threat, threat.Path, permanentDelete, progress, ct);
+            if (!fileOk)
+                return (true, $"Startup entry removed; program file kept: {fileMessage}");
+        }
+
+        return (true, "Startup entry removed.");
+    }
+
+    private static string BuildQuarantineReason(ThreatItem threat) =>
+        $"Threat detected: {threat.ThreatTypeDisplay} [{threat.ThreatLevelDisplay}] — {threat.Description}";
 
     /// <summary>
     /// Adds a detected threat to the whitelist (mark as safe/false positive).
@@ -1673,27 +1855,13 @@ public static class ThreatScannerService
     public static void WhitelistThreat(ThreatItem threat, string reason)
     {
         if (string.IsNullOrEmpty(threat.Sha256Hash))
-        {
-            // Compute hash if not already done
-            if (File.Exists(threat.Path))
-            {
-                using var stream = File.OpenRead(threat.Path);
-                var hash = SHA256.HashData(stream);
-                threat.Sha256Hash = Convert.ToHexString(hash).ToLowerInvariant();
-            }
-            else
-            {
-                // Use path hash as identifier for non-file threats
-                var pathBytes = Encoding.UTF8.GetBytes(threat.Path);
-                threat.Sha256Hash = Convert.ToHexString(SHA256.HashData(pathBytes)).ToLowerInvariant();
-            }
-        }
+            threat.Sha256Hash = ComputeIdentityHash(threat);
 
         ThreatSignatureDatabase.AddToWhitelist(threat.Sha256Hash, threat.Path, reason);
         threat.IsWhitelisted = true;
 
         DiagnosticLogger.Info("ThreatScanner",
-            $"Whitelisted: {threat.Name} ({threat.Sha256Hash[..12]}...) — {reason}");
+            $"Whitelisted: {threat.Name} ({threat.Sha256Hash[..Math.Min(12, threat.Sha256Hash.Length)]}...) — {reason}");
     }
 
     // ══════════════════════════════════════════
@@ -1812,24 +1980,30 @@ public static class ThreatScannerService
         return size;
     }
 
-    private static Task<bool> DisableScheduledTaskAsync(string taskName)
+    private static Task<(bool Ok, string Message)> DisableScheduledTaskAsync(ThreatItem threat) => Task.Run(() =>
     {
         try
         {
             using var ts = new TaskSchedulerLib.TaskService();
-            var task = FindTask(ts.RootFolder, taskName);
-            if (task != null)
+            var task = !string.IsNullOrEmpty(threat.TaskPath)
+                ? ts.GetTask(threat.TaskPath)
+                : FindTask(ts.RootFolder, threat.Name);
+
+            if (task == null)
+                return (false, "Scheduled task not found.");
+
+            using (task)
             {
                 task.Enabled = false;
-                return Task.FromResult(true);
+                return (true, "Scheduled task disabled.");
             }
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Warn("ThreatScanner", $"Failed to disable task: {taskName}", ex);
+            DiagnosticLogger.Warn("ThreatScanner", $"Failed to disable task: {threat.TaskPath}", ex);
+            return (false, $"Could not disable the task: {ex.Message}");
         }
-        return Task.FromResult(false);
-    }
+    });
 
     private static TaskSchedulerLib.Task? FindTask(TaskSchedulerLib.TaskFolder folder, string taskName)
     {

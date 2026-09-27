@@ -52,7 +52,11 @@ public partial class QuarantineViewModel : ObservableObject
         // Listen for external quarantine changes (e.g. from ThreatScanner)
         WeakReferenceMessenger.Default.Register<QuarantineChangedMessage>(this, (_, _) =>
         {
-            System.Windows.Application.Current?.Dispatcher.Invoke(LoadEntries);
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess())
+                LoadEntries();
+            else
+                dispatcher.BeginInvoke(LoadEntries);
         });
     }
 
@@ -88,6 +92,8 @@ public partial class QuarantineViewModel : ObservableObject
     [RelayCommand]
     private async Task AddFilesToQuarantineAsync()
     {
+        if (IsBusy) return;
+
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Multiselect = true,
@@ -97,33 +103,23 @@ public partial class QuarantineViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true) return;
 
+        var blocked = dialog.FileNames.Where(f => !PathSafety.IsSafeToDeleteFile(f, out _)).ToList();
+        var allowed = dialog.FileNames.Except(blocked, StringComparer.OrdinalIgnoreCase).ToList();
+
         IsBusy = true;
         StatusMessage = "Quarantining files...";
 
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
-            var results = await QuarantineService.QuarantineFilesAsync(
-                dialog.FileNames, "Manual quarantine", progress);
+            var results = await QuarantineService.QuarantineFilesAsync(allowed, "Manual quarantine", progress);
 
             LoadEntries();
-            StatusMessage = $"Quarantined {results.Count} file(s).";
+            StatusMessage = $"Quarantined {results.Count} of {dialog.FileNames.Length} file(s)." +
+                            (blocked.Count > 0 ? $" {blocked.Count} Windows/system file(s) were skipped." : string.Empty);
 
-            // Log to history
-            if (results.Count > 0)
-            {
-                var settings = SettingsService.Load();
-                if (settings.LogCleanupOperations)
-                {
-                    CleanupHistoryService.LogOperation(new CleanupRecord
-                    {
-                        OperationType = CleanupOperationType.QuarantinePurge,
-                        ItemCount = results.Count,
-                        BytesFreed = results.Sum(r => r.FileSizeBytes),
-                        Details = $"Manually quarantined {results.Count} file(s)"
-                    });
-                }
-            }
+            CleanupHistoryService.Record(CleanupOperationType.ManualQuarantine, results.Count,
+                results.Sum(r => r.FileSizeBytes), $"Manually quarantined {results.Count} file(s)");
         }
         catch (Exception ex)
         {
@@ -139,6 +135,8 @@ public partial class QuarantineViewModel : ObservableObject
     [RelayCommand]
     private async Task RestoreSelectedAsync()
     {
+        if (IsBusy) return;
+
         var selected = Entries.Where(e => e.IsSelected).ToList();
         if (selected.Count == 0)
         {
@@ -146,36 +144,56 @@ public partial class QuarantineViewModel : ObservableObject
             return;
         }
 
+        var flagged = selected.Count(e => e.Reason.StartsWith("Threat detected", StringComparison.OrdinalIgnoreCase));
+        if (flagged > 0 && !SafetyPromptService.ConfirmDestructiveAction(
+                $"{flagged} of the selected file(s) were quarantined as threats. Restoring them puts them back " +
+                "where they can run again.\n\nRestore anyway?", "Restore flagged files"))
+        {
+            StatusMessage = "Restore cancelled.";
+            return;
+        }
+
         IsBusy = true;
         StatusMessage = "Restoring files...";
 
-        int restored = 0;
-        int failed = 0;
-        var progress = new Progress<string>(msg => StatusMessage = msg);
-
-        foreach (var item in selected)
+        int restored = 0, failed = 0;
+        long restoredBytes = 0;
+        try
         {
-            try
+            var progress = new Progress<string>(msg => StatusMessage = msg);
+            foreach (var item in selected)
             {
                 if (await QuarantineService.RestoreFileAsync(item.Entry.Id, progress))
+                {
                     restored++;
+                    restoredBytes += item.FileSizeBytes;
+                }
                 else
+                {
                     failed++;
+                }
             }
-            catch
-            {
-                failed++;
-            }
-        }
 
-        LoadEntries();
-        StatusMessage = $"Restored {restored} file(s)." + (failed > 0 ? $" {failed} failed." : "");
-        IsBusy = false;
+            CleanupHistoryService.Record(CleanupOperationType.QuarantineRestore, restored, 0,
+                $"Restored {restored} file(s) ({FormatHelper.FormatBytes(restoredBytes)})");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("QuarantineVM", "RestoreSelectedAsync failed", ex);
+        }
+        finally
+        {
+            LoadEntries();
+            StatusMessage = $"Restored {restored} file(s)." + (failed > 0 ? $" {failed} failed." : "");
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
     private async Task PurgeSelectedAsync()
     {
+        if (IsBusy) return;
+
         var selected = Entries.Where(e => e.IsSelected).ToList();
         if (selected.Count == 0)
         {
@@ -190,7 +208,7 @@ public partial class QuarantineViewModel : ObservableObject
         }
 
         if (!SafetyPromptService.ConfirmDestructiveAction(
-                $"Permanently delete {selected.Count} selected quarantined file(s)?"))
+                $"Permanently delete {selected.Count} selected quarantined file(s)? They can no longer be restored."))
         {
             StatusMessage = "Quarantine purge cancelled.";
             return;
@@ -200,29 +218,52 @@ public partial class QuarantineViewModel : ObservableObject
         StatusMessage = "Permanently deleting selected files...";
 
         int purged = 0;
-        var progress = new Progress<string>(msg => StatusMessage = msg);
-
-        foreach (var item in selected)
+        long purgedBytes = 0;
+        try
         {
-            if (await QuarantineService.PurgeFileAsync(item.Entry.Id, progress))
-                purged++;
-        }
+            var progress = new Progress<string>(msg => StatusMessage = msg);
+            foreach (var item in selected)
+            {
+                if (await QuarantineService.PurgeFileAsync(item.Entry.Id, progress))
+                {
+                    purged++;
+                    purgedBytes += item.FileSizeBytes;
+                }
+            }
 
-        LoadEntries();
-        StatusMessage = $"Permanently deleted {purged} file(s).";
-        IsBusy = false;
+            CleanupHistoryService.Record(CleanupOperationType.QuarantinePurge, purged, purgedBytes,
+                $"Permanently deleted {purged} quarantined file(s)");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("QuarantineVM", "PurgeSelectedAsync failed", ex);
+        }
+        finally
+        {
+            LoadEntries();
+            StatusMessage = $"Permanently deleted {purged} file(s).";
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
     private async Task PurgeExpiredAsync()
     {
+        if (IsBusy) return;
+
+        if (ExpiredCount == 0)
+        {
+            StatusMessage = "No expired items to purge.";
+            return;
+        }
+
         if (SafetyPromptService.IsDryRunEnabled())
         {
             StatusMessage = $"Dry run: would purge {ExpiredCount} expired quarantined item(s).";
             return;
         }
 
-        if (ExpiredCount > 0 && !SafetyPromptService.ConfirmDestructiveAction(
+        if (!SafetyPromptService.ConfirmDestructiveAction(
                 $"Permanently delete {ExpiredCount} expired quarantined item(s)?"))
         {
             StatusMessage = "Expired quarantine purge cancelled.";
@@ -232,14 +273,26 @@ public partial class QuarantineViewModel : ObservableObject
         IsBusy = true;
         StatusMessage = "Purging expired items...";
 
-        var progress = new Progress<string>(msg => StatusMessage = msg);
-        int count = await QuarantineService.PurgeExpiredAsync(progress);
-
-        LoadEntries();
-        StatusMessage = count > 0
-            ? $"Purged {count} expired item(s)."
-            : "No expired items to purge.";
-        IsBusy = false;
+        int count = 0;
+        try
+        {
+            var progress = new Progress<string>(msg => StatusMessage = msg);
+            count = await QuarantineService.PurgeExpiredAsync(progress);
+            CleanupHistoryService.Record(CleanupOperationType.QuarantinePurge, count, 0,
+                $"Purged {count} expired quarantined item(s)");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("QuarantineVM", "PurgeExpiredAsync failed", ex);
+        }
+        finally
+        {
+            LoadEntries();
+            StatusMessage = count > 0
+                ? $"Purged {count} expired item(s)."
+                : "No expired items were purged.";
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]

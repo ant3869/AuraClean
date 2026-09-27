@@ -34,44 +34,22 @@ public static class ThreatSignatureDatabase
     //  Sources: MalwareBazaar, VirusTotal, abuse.ch
     // ══════════════════════════════════════════
 
+    /// <summary>
+    /// Publicly documented SHA-256 hashes of well-known samples. Keep this list to verified
+    /// entries only: a wrong hash here produces a pre-selected "Critical" detection.
+    /// (Earlier builds contained the hash of an empty file and placeholder values.)
+    /// </summary>
     public static readonly HashSet<string> KnownMalwareHashes = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Emotet variants
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        // TrickBot
-        "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
         // WannaCry
         "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa",
         "24d004a104d4d54034dbcffc2a4b19a11f39008a575aa614ea04703480b1022c",
         // NotPetya
         "027cc450ef5f8c5f653329641ec1fed91f694e0d229928963b30f6b0d7d3a745",
-        // Ryuk ransomware
-        "23f8aa94ffb3c08a62735fe7fee5799880a8f322ce1d55ec49a13a3f85312db2",
-        // Cobalt Strike beacon
-        "6a0a3d4d853b8b0ff7e1accbdfb8d57e2f57c2d3b3faa5c4e2e7d3c8b2a1d0e9",
-        // Mimikatz variants
-        "b1e2d3c4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0e1",
-        // Agent Tesla
-        "f3e8a5c7d2b9a4e6f1c3d5b7a9e2f4c6d8b0a1e3f5c7d9b2a4e6f8c0d1b3a5",
-        // Remcos RAT
-        "d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d2c3b4a5f6e7d8c9b0a1f2e3d4",
-        // AsyncRAT
-        "a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5",
-        // RedLine Stealer
-        "c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7",
-        // Raccoon Stealer
-        "e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9",
-        // Formbook
-        "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-        // Qakbot/Qbot
-        "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4",
-        // IcedID
-        "f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6",
-        // LockBit ransomware
-        "a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8",
-        // BlackCat/ALPHV ransomware
-        "c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0",
     };
+
+    /// <summary>SHA-256 of zero bytes — never a meaningful signature.</summary>
+    public const string EmptyFileSha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
     // ══════════════════════════════════════════
     //  KNOWN MALWARE FILE NAMES & PATTERNS
@@ -196,10 +174,9 @@ public static class ThreatSignatureDatabase
 
     public static readonly HashSet<string> KnownMaliciousExtensionIds = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Known malicious / deceptive extensions flagged by Google/Microsoft
-        "efaidnbmnnnibpcajpcglclefindmkaj",  // suspicious PDF viewer clone
-        "gighmmpiobklfepjocnamgkkbiglidom",  // known adware injector variants
-        "bfbmjmiodbnnpllbbbfblcplfjjepjdn",  // data harvester
+        // Intentionally empty. Only add IDs that come from an authoritative takedown list
+        // (Chrome Web Store / Edge Add-ons removals). Earlier builds shipped IDs belonging to
+        // Adobe Acrobat and AdBlock, which caused legitimate extensions to be quarantined.
     };
 
     // ══════════════════════════════════════════
@@ -255,28 +232,29 @@ public static class ThreatSignatureDatabase
     //  SUSPICIOUS API IMPORTS for PE Analysis
     // ══════════════════════════════════════════
 
-    public static readonly HashSet<string> SuspiciousImports = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// Process-injection and keylogging APIs. Common, benign APIs (ShellExecute, GetKeyState,
+    /// IsDebuggerPresent, crypto, privilege lookup) are deliberately excluded: nearly every
+    /// native program imports several of them, which produced mass false positives.
+    /// </summary>
+    public static readonly HashSet<string> SuspiciousImports = new(StringComparer.Ordinal)
     {
         "CreateRemoteThread",
         "VirtualAllocEx",
         "WriteProcessMemory",
         "NtUnmapViewOfSection",
+        "ZwUnmapViewOfSection",
         "QueueUserAPC",
-        "SetWindowsHookEx",
+        "SetWindowsHookExA",
+        "SetWindowsHookExW",
         "GetAsyncKeyState",
-        "GetKeyState",
-        "InternetOpenUrl",
-        "URLDownloadToFile",
-        "WinExec",
-        "ShellExecute",
-        "IsDebuggerPresent",
-        "CheckRemoteDebuggerPresent",
-        "NtQueryInformationProcess",
-        "AdjustTokenPrivileges",
-        "LookupPrivilegeValue",
-        "CryptEncrypt",
-        "CryptDecrypt",
+        "URLDownloadToFileA",
+        "URLDownloadToFileW",
+        "NtWriteVirtualMemory",
     };
+
+    /// <summary>Minimum number of distinct <see cref="SuspiciousImports"/> before a file is flagged.</summary>
+    public const int SuspiciousImportThreshold = 4;
 
     // ══════════════════════════════════════════
     //  BYTE SIGNATURE PATTERNS (YARA-like)
@@ -309,13 +287,16 @@ public static class ThreatSignatureDatabase
     //  SUSPICIOUS SCHEDULED TASK PATTERNS
     // ══════════════════════════════════════════
 
+    /// <summary>
+    /// Command-line fragments that indicate a malicious autorun/task. Plain install locations
+    /// such as AppData\Roaming or ProgramData are NOT listed: many legitimate apps (Spotify,
+    /// Zoom, Discord, updaters) start from there.
+    /// </summary>
     public static readonly string[] SuspiciousTaskPatterns =
     [
         @"\AppData\Local\Temp\",
-        @"\AppData\Roaming\",
         @"\Downloads\",
         @"\Users\Public\",
-        @"\ProgramData\",
         "powershell.exe -encodedcommand",
         "powershell.exe -enc ",
         "powershell.exe -e ",
@@ -388,7 +369,7 @@ public static class ThreatSignatureDatabase
             Path.Combine(appData),
             Path.Combine(localAppData),
             Path.Combine(programData),
-            @"C:\Users\Public",
+            Environment.GetEnvironmentVariable("PUBLIC") ?? Path.Combine(Path.GetDirectoryName(user) ?? @"C:\Users", "Public"),
         ];
     }
 

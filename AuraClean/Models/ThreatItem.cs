@@ -64,6 +64,24 @@ public partial class ThreatItem : ObservableObject
     [ObservableProperty] private bool _isQuarantined;
     [ObservableProperty] private DateTime _detectedAt = DateTime.Now;
 
+    /// <summary>
+    /// Registry location of the autorun entry that launches this threat, formatted as
+    /// "HKCU\\…" or "HKLM (32-bit|64-bit)\\…". Empty when not registry-based.
+    /// </summary>
+    public string RegistryKeyPath { get; set; } = string.Empty;
+
+    /// <summary>Registry value name under <see cref="RegistryKeyPath"/> (autorun entries).</summary>
+    public string RegistryValueName { get; set; } = string.Empty;
+
+    /// <summary>Host name of a malicious hosts-file mapping (hosts threats only).</summary>
+    public string HostsEntryHostName { get; set; } = string.Empty;
+
+    /// <summary>Full scheduled-task path (folder + name) for task-based threats.</summary>
+    public string TaskPath { get; set; } = string.Empty;
+
+    /// <summary>Why the item is not selected by default / how it will be handled.</summary>
+    [ObservableProperty] private string _remediationNote = string.Empty;
+
     public string ThreatLevelDisplay => ThreatLevel switch
     {
         ThreatLevel.Low => "Low",

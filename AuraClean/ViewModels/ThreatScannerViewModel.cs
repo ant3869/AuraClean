@@ -187,71 +187,58 @@ public partial class ThreatScannerViewModel : ObservableObject
     [RelayCommand]
     private async Task QuarantineSelectedAsync()
     {
-        if (IsQuarantining) return;
-        IsQuarantining = true;
+        if (IsQuarantining || IsScanning) return;
 
+        var selectedThreats = Categories
+            .SelectMany(c => c.Items)
+            .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined)
+            .ToList();
+
+        if (selectedThreats.Count == 0)
+        {
+            ActionStatusMessage = "No threats selected for quarantine.";
+            return;
+        }
+
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            ActionStatusMessage = $"Dry run: would quarantine {selectedThreats.Count} item(s).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Quarantine {selectedThreats.Count} selected item(s)?\n\n" +
+                "Running threat processes are closed, files are moved to quarantine (restorable), " +
+                "and startup entries or scheduled tasks are disabled.",
+                "Confirm quarantine"))
+        {
+            ActionStatusMessage = "Quarantine cancelled.";
+            return;
+        }
+
+        IsQuarantining = true;
         try
         {
-            var selectedThreats = Categories
-                .SelectMany(c => c.Items)
-                .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined)
-                .ToList();
-
-            if (selectedThreats.Count == 0)
-            {
-                ActionStatusMessage = "No threats selected for quarantine.";
-                return;
-            }
-
             var progress = new Progress<string>(msg => ActionStatusMessage = msg);
-            var (quarantined, failed, errors) = await ThreatScannerService.QuarantineThreatsAsync(
-                selectedThreats, progress, CancellationToken.None);
+            var result = await ThreatScannerService.QuarantineThreatsAsync(selectedThreats, progress);
 
-            // Remove quarantined items from the UI
-            foreach (var cat in Categories.ToList())
+            RemoveHandledItems();
+            ActionStatusMessage = DescribeOutcome("Quarantined", result);
+
+            if (result.Handled > 0)
             {
-                var quarantinedItems = cat.Items.Where(t => t.IsQuarantined).ToList();
-                foreach (var item in quarantinedItems)
-                    cat.Items.Remove(item);
-
-                if (cat.Items.Count == 0)
-                    Categories.Remove(cat);
-            }
-
-            UpdateThreatCounts();
-
-            ActionStatusMessage = $"Quarantined {quarantined} threat(s)." +
-                (failed > 0 ? $" Failed: {failed}." : "") +
-                (Categories.Sum(c => c.Items.Count) == 0 ? " System is clean!" : "");
-
-            if (Categories.Sum(c => c.Items.Count) == 0)
-                IsClean = true;
-
-            // Notify the Quarantine view to refresh
-            if (quarantined > 0)
                 WeakReferenceMessenger.Default.Send(QuarantineChangedMessage.Instance);
+                CleanupHistoryService.Record(CleanupOperationType.ThreatQuarantine, result.Handled,
+                    selectedThreats.Where(t => t.IsQuarantined).Sum(t => t.SizeBytes),
+                    $"Quarantined {result.Handled} threat(s)");
+            }
 
-            // Log to cleanup history
-            try
-            {
-                if (SettingsService.Load().LogCleanupOperations)
-                {
-                    CleanupHistoryService.LogOperation(new CleanupRecord
-                    {
-                        OperationType = CleanupOperationType.ThreatQuarantine,
-                        ItemCount = quarantined,
-                        Details = $"Quarantined {quarantined} threat(s)"
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                DiagnosticLogger.Warn("ThreatScannerVM", "Failed to log quarantine to history", ex);
-            }
+            foreach (var message in result.Messages.Take(20))
+                DiagnosticLogger.Warn("ThreatScannerVM", message);
         }
         catch (Exception ex)
         {
-            ActionStatusMessage = "Couldn't quarantine selected threats. Some files may be in use.";
+            ActionStatusMessage = "Couldn't quarantine the selected items. Some files may be in use.";
             DiagnosticLogger.Error("ThreatScannerVM", "Quarantine failed", ex);
         }
         finally
@@ -261,98 +248,67 @@ public partial class ThreatScannerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void QuarantineAll()
+    private async Task QuarantineAllAsync()
     {
-        // Select all threats first
         foreach (var cat in Categories)
-            foreach (var item in cat.Items)
-                item.IsSelected = true;
+            cat.IsAllSelected = true;
 
-        _ = QuarantineSelectedAsync();
+        await QuarantineSelectedAsync();
     }
 
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
-        if (IsQuarantining) return;
+        if (IsQuarantining || IsScanning) return;
         if (!IsAdvancedMode)
         {
             ActionStatusMessage = "Normal mode uses quarantine instead of permanent deletion. Turn on Advanced mode to delete threats.";
             return;
         }
-        IsQuarantining = true;
 
+        var selectedThreats = Categories
+            .SelectMany(c => c.Items)
+            .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined)
+            .ToList();
+
+        if (selectedThreats.Count == 0)
+        {
+            ActionStatusMessage = "No threats selected for deletion.";
+            return;
+        }
+
+        if (SafetyPromptService.IsDryRunEnabled())
+        {
+            ActionStatusMessage = $"Dry run: would permanently delete {selectedThreats.Count} threat(s).";
+            return;
+        }
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Permanently delete {selectedThreats.Count} selected item(s)? This cannot be undone — quarantine is safer."))
+        {
+            ActionStatusMessage = "Threat deletion cancelled.";
+            return;
+        }
+
+        IsQuarantining = true;
         try
         {
-            var selectedThreats = Categories
-                .SelectMany(c => c.Items)
-                .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined)
-                .ToList();
-
-            if (selectedThreats.Count == 0)
-            {
-                ActionStatusMessage = "No threats selected for deletion.";
-                return;
-            }
-
-            if (SafetyPromptService.IsDryRunEnabled())
-            {
-                ActionStatusMessage = $"Dry run: would permanently delete {selectedThreats.Count} threat(s).";
-                return;
-            }
-
-            if (!SafetyPromptService.ConfirmDestructiveAction(
-                    $"Permanently delete {selectedThreats.Count} selected threat(s)? Quarantine is safer when available."))
-            {
-                ActionStatusMessage = "Threat deletion cancelled.";
-                return;
-            }
-
             var progress = new Progress<string>(msg => ActionStatusMessage = msg);
-            var toDelete = new HashSet<ThreatItem>(selectedThreats);
-            var (deleted, failed, errors) = await ThreatScannerService.DeleteThreatsAsync(
-                selectedThreats, progress, CancellationToken.None);
+            var result = await ThreatScannerService.DeleteThreatsAsync(selectedThreats, progress);
 
-            // Remove only items the service marked as handled.
-            foreach (var cat in Categories.ToList())
-            {
-                var removable = cat.Items.Where(t => toDelete.Contains(t) && t.IsQuarantined).ToList();
-                foreach (var item in removable)
-                    cat.Items.Remove(item);
+            RemoveHandledItems();
+            ActionStatusMessage = DescribeOutcome("Removed", result);
 
-                if (cat.Items.Count == 0)
-                    Categories.Remove(cat);
-            }
+            CleanupHistoryService.Record(CleanupOperationType.ThreatDelete, result.Handled,
+                selectedThreats.Where(t => t.IsQuarantined).Sum(t => t.SizeBytes),
+                $"Permanently removed {result.Handled} threat(s)");
 
-            UpdateThreatCounts();
-
-            ActionStatusMessage = $"Permanently deleted {deleted} threat(s)." +
-                (failed > 0 ? $" Failed: {failed}." : "") +
-                (Categories.Sum(c => c.Items.Count) == 0 ? " System is clean!" : "");
-
-            IsClean = Categories.Sum(c => c.Items.Count) == 0;
-
-            // Log to cleanup history
-            try
-            {
-                if (SettingsService.Load().LogCleanupOperations)
-                {
-                    CleanupHistoryService.LogOperation(new CleanupRecord
-                    {
-                        OperationType = CleanupOperationType.ThreatDelete,
-                        ItemCount = deleted,
-                        Details = $"Permanently deleted {deleted} threat(s)"
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                DiagnosticLogger.Warn("ThreatScannerVM", "Failed to log delete to history", ex);
-            }
+            foreach (var message in result.Messages.Take(20))
+                DiagnosticLogger.Warn("ThreatScannerVM", message);
         }
         catch (Exception ex)
         {
-            ActionStatusMessage = "Couldn't delete selected threats. Some files may be in use.";
+            ActionStatusMessage = "Couldn't delete the selected items. Some files may be in use.";
             DiagnosticLogger.Error("ThreatScannerVM", "Delete failed", ex);
         }
         finally
@@ -362,7 +318,7 @@ public partial class ThreatScannerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void DeleteAll()
+    private async Task DeleteAllAsync()
     {
         if (!IsAdvancedMode)
         {
@@ -371,10 +327,36 @@ public partial class ThreatScannerViewModel : ObservableObject
         }
 
         foreach (var cat in Categories)
-            foreach (var item in cat.Items)
-                item.IsSelected = true;
+            cat.IsAllSelected = true;
 
-        _ = DeleteSelectedAsync();
+        await DeleteSelectedAsync();
+    }
+
+    private void RemoveHandledItems()
+    {
+        foreach (var cat in Categories.ToList())
+        {
+            foreach (var item in cat.Items.Where(t => t.IsQuarantined).ToList())
+                cat.Items.Remove(item);
+
+            if (cat.Items.Count == 0)
+                Categories.Remove(cat);
+        }
+
+        UpdateThreatCounts();
+        IsClean = TotalThreats == 0;
+    }
+
+    private string DescribeOutcome(string verb, ThreatScannerService.ThreatActionResult result)
+    {
+        var text = $"{verb} {result.Handled} item(s).";
+        if (result.Failed > 0)
+            text += $" {result.Failed} failed.";
+        if (result.ManualActionRequired > 0)
+            text += $" {result.ManualActionRequired} need manual action (see each item's note).";
+        if (TotalThreats == 0)
+            text += " System is clean!";
+        return text;
     }
 
     [RelayCommand]
@@ -584,9 +566,30 @@ public partial class ThreatCategory : ObservableObject
 {
     [ObservableProperty] private string _name = string.Empty;
     [ObservableProperty] private bool _isExpanded = true;
-    [ObservableProperty] private bool _isAllSelected = true;
+    [ObservableProperty] private bool _isAllSelected;
 
-    public ObservableCollection<ThreatItem> Items { get; set; } = [];
+    private bool _syncingSelection;
+    private ObservableCollection<ThreatItem> _items = [];
+
+    public ObservableCollection<ThreatItem> Items
+    {
+        get => _items;
+        set
+        {
+            _items.CollectionChanged -= OnItemsChanged;
+            foreach (var item in _items)
+                item.PropertyChanged -= OnItemPropertyChanged;
+
+            _items = value ?? [];
+            _items.CollectionChanged += OnItemsChanged;
+            foreach (var item in _items)
+                item.PropertyChanged += OnItemPropertyChanged;
+
+            OnPropertyChanged();
+            RaiseCountsChanged();
+            SyncSelectionState();
+        }
+    }
 
     public int ItemCount => Items.Count;
     public int CriticalCount => Items.Count(t => t.ThreatLevel == ThreatLevel.Critical);
@@ -607,8 +610,45 @@ public partial class ThreatCategory : ObservableObject
 
     partial void OnIsAllSelectedChanged(bool value)
     {
+        if (_syncingSelection)
+            return;
+
         foreach (var item in Items)
             item.IsSelected = value;
+    }
+
+    private void SyncSelectionState()
+    {
+        _syncingSelection = true;
+        try { IsAllSelected = Items.Count > 0 && Items.All(i => i.IsSelected); }
+        finally { _syncingSelection = false; }
+    }
+
+    private void OnItemsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null)
+            foreach (ThreatItem item in e.OldItems)
+                item.PropertyChanged -= OnItemPropertyChanged;
+        if (e.NewItems != null)
+            foreach (ThreatItem item in e.NewItems)
+                item.PropertyChanged += OnItemPropertyChanged;
+
+        RaiseCountsChanged();
+        SyncSelectionState();
+    }
+
+    private void OnItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ThreatItem.IsSelected))
+            SyncSelectionState();
+    }
+
+    private void RaiseCountsChanged()
+    {
+        OnPropertyChanged(nameof(ItemCount));
+        OnPropertyChanged(nameof(CriticalCount));
+        OnPropertyChanged(nameof(HighCount));
+        OnPropertyChanged(nameof(SeveritySummary));
     }
 }
 
