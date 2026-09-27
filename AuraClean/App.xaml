@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
-             StartupUri="Views/MainWindow.xaml">
+             ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -30,6 +30,7 @@
             <converters:HealthScoreColorConverter x:Key="HealthColorConverter" />
             <converters:TrendArrowColorConverter x:Key="TrendArrowColorConverter" />
             <converters:HealthGlowBrushConverter x:Key="HealthGlowBrushConverter" />
+            <converters:ExpandedChevronAngleConverter x:Key="ExpandedChevronAngle" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

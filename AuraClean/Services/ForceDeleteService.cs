@@ -60,11 +60,27 @@ public static class ForceDeleteService
 
         try
         {
+            var normalized = PathSafety.Normalize(path);
+            if (normalized == null)
+                return new ForceDeleteResult(false, $"Invalid path: {path}", ForceDeleteAction.Failed, killedProcesses);
+            path = normalized;
+
             bool isDirectory = Directory.Exists(path);
             bool isFile = File.Exists(path);
 
             if (!isDirectory && !isFile)
                 return new ForceDeleteResult(false, $"Path not found: {path}", ForceDeleteAction.Failed, killedProcesses);
+
+            // Hard safety gate: never touch OS folders, profile roots, or known folders.
+            string reason;
+            bool allowed = isDirectory
+                ? PathSafety.IsSafeToDeleteDirectory(path, out reason)
+                : PathSafety.IsSafeToDeleteFile(path, out reason);
+            if (!allowed)
+            {
+                DiagnosticLogger.Warn("ForceDelete", $"Blocked deletion of {path}: {reason}");
+                return new ForceDeleteResult(false, $"Blocked for safety: {reason}", ForceDeleteAction.Failed, killedProcesses);
+            }
 
             if (dryRun)
             {
@@ -94,22 +110,24 @@ public static class ForceDeleteService
             if (lockingProcs.Count > 0 && terminateLockers)
             {
                 progress?.Report($"Terminating {lockingProcs.Count} locking process(es)...");
-                foreach (var (pid, name) in lockingProcs)
+                foreach (var (pid, name) in lockingProcs.Where(p => p.Pid > 0))
                 {
                     try
                     {
-                        var proc = Process.GetProcessById(pid);
-                        if (!IsSystemCriticalProcess(proc))
-                        {
-                            proc.Kill();
-                            proc.WaitForExit(5000);
-                            killedProcesses.Add(name);
-                        }
+                        using var proc = Process.GetProcessById(pid);
+                        if (IsSystemCriticalProcess(proc))
+                            continue;
+
+                        proc.Kill(entireProcessTree: true);
+                        proc.WaitForExit(5000);
+                        killedProcesses.Add(name);
                     }
-                    catch { }
+                    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+                    {
+                        DiagnosticLogger.Warn("ForceDelete", $"Could not terminate {name} ({pid})", ex);
+                    }
                 }
 
-                // Retry delete after killing
                 await Task.Delay(500);
                 var retryDeleted = await Task.Run(() => TryDirectDelete(path, isDirectory));
                 if (retryDeleted)
@@ -122,28 +140,20 @@ public static class ForceDeleteService
             if (scheduleBootDelete)
             {
                 progress?.Report("Scheduling for boot-time deletion...");
-                var bootResult = await Task.Run(() =>
-                {
-                    if (isFile)
-                    {
-                        return MoveFileEx(path, null, MOVEFILE_DELAY_UNTIL_REBOOT);
-                    }
-                    else
-                    {
-                        return ScheduleDirectoryForBootDeletion(path);
-                    }
-                });
+                var bootResult = await Task.Run(() => isFile
+                    ? MoveFileEx(path, null, MOVEFILE_DELAY_UNTIL_REBOOT)
+                    : ScheduleDirectoryForBootDeletion(path));
 
                 if (bootResult)
                     return new ForceDeleteResult(true,
                         isFile
                             ? $"Scheduled for deletion on next reboot: {path}"
-                            : $"Entire directory scheduled for boot-time deletion: {path}",
+                            : $"Remaining files scheduled for deletion on next reboot: {path}",
                         ForceDeleteAction.ScheduledForBootDeletion, killedProcesses);
             }
 
             return new ForceDeleteResult(false,
-                $"Unable to delete {path}. Try running as Administrator or reboot first.",
+                $"Unable to delete {path}. Close programs using it or restart Windows and try again.",
                 ForceDeleteAction.Failed, killedProcesses);
         }
         catch (Exception ex)
@@ -153,12 +163,11 @@ public static class ForceDeleteService
     }
 
     /// <summary>
-    /// Force-uninstalls a program by removing its registry entries, files, and directories.
-    /// For programs with broken/missing MSI installers.
+    /// Force-uninstalls a program whose own uninstaller is broken: removes its install directory
+    /// (only when it passes the safety checks) and its Uninstall registry entry.
+    /// Leftover files and registry keys are NOT deleted automatically — the caller should run a
+    /// post-uninstall scan so the user can review them.
     /// </summary>
-    /// <param name="program">The program to force-uninstall.</param>
-    /// <param name="dryRun">If true, just reports what would be removed.</param>
-    /// <param name="progress">Progress reporter.</param>
     public static async Task<ForceUninstallResult> ForceUninstallAsync(
         Models.InstalledProgram program,
         bool dryRun = false,
@@ -169,93 +178,71 @@ public static class ForceDeleteService
 
         try
         {
-            // Step 1: Remove install directory if known
-            if (!string.IsNullOrWhiteSpace(program.InstallLocation) && Directory.Exists(program.InstallLocation))
-            {
-                progress?.Report($"Processing install directory: {program.InstallLocation}...");
-                if (dryRun)
-                {
-                    result.DirectoriesIdentified.Add(program.InstallLocation);
-                    result.TotalSizeBytes += await Task.Run(() =>
-                        UninstallerService.GetDirectorySize(program.InstallLocation));
-                }
-                else
-                {
-                    var delResult = await ForceDeleteAsync(program.InstallLocation,
-                        terminateLockers: true, scheduleBootDelete: true, progress: progress);
-                    result.FilesDeleted += delResult.Success ? 1 : 0;
-                    result.KilledProcesses.AddRange(delResult.KilledProcesses);
-                }
-            }
+            ct.ThrowIfCancellationRequested();
 
-            // Step 2: Scan for and remove remnant directories
-            progress?.Report("Scanning for remnant files...");
-            var remnants = await UninstallerService.PostUninstallScanAsync(program, progress, ct);
-            foreach (var remnant in remnants)
+            // Step 1: Remove install directory if known and safe.
+            var installDir = PathSafety.Normalize(program.InstallLocation);
+            if (installDir != null && Directory.Exists(installDir))
             {
-                ct.ThrowIfCancellationRequested();
-                if (remnant.Type == Models.JunkType.OrphanedRegistryKey)
+                if (!PathSafety.IsSafeToDeleteDirectory(installDir, out var reason))
                 {
-                    if (dryRun)
-                    {
-                        result.RegistryKeysIdentified.Add(remnant.Path);
-                    }
-                    else
-                    {
-                        var (ok, _) = await RegistryScannerService.DeleteRegistryKeyAsync(remnant.Path);
-                        if (ok) result.RegistryKeysRemoved++;
-                    }
+                    result.Warnings.Add($"Install folder skipped: {reason}");
+                    DiagnosticLogger.Warn("ForceDelete", $"Install location of {program.DisplayName} rejected: {reason}");
                 }
                 else
                 {
+                    progress?.Report($"Processing install directory: {installDir}...");
                     if (dryRun)
                     {
-                        result.DirectoriesIdentified.Add(remnant.Path);
-                        result.TotalSizeBytes += remnant.SizeBytes;
+                        result.DirectoriesIdentified.Add(installDir);
+                        result.TotalSizeBytes += await Task.Run(() => UninstallerService.GetDirectorySize(installDir), ct);
                     }
                     else
                     {
-                        var delResult = await ForceDeleteAsync(remnant.Path,
+                        var delResult = await ForceDeleteAsync(installDir,
                             terminateLockers: true, scheduleBootDelete: true, progress: progress);
                         if (delResult.Success) result.FilesDeleted++;
+                        else result.Warnings.Add(delResult.Message);
+                        result.KilledProcesses.AddRange(delResult.KilledProcesses);
                     }
                 }
             }
 
-            // Step 3: Remove the Uninstall registry entry itself
+            ct.ThrowIfCancellationRequested();
+
+            // Step 2: Remove the Uninstall registry entry itself (with a verified backup).
             if (!string.IsNullOrWhiteSpace(program.RegistryKeyPath))
             {
+                var hiveLabel = program.RegistryHive == RegistryHive.CurrentUser
+                    ? "HKCU"
+                    : program.RegistryView == RegistryView.Registry32 ? "HKLM (32-bit)" : "HKLM (64-bit)";
+                var displayKey = $"{hiveLabel}\\{program.RegistryKeyPath}";
+
                 progress?.Report("Removing registry uninstall entry...");
                 if (dryRun)
                 {
-                    result.RegistryKeysIdentified.Add(program.RegistryKeyPath);
+                    result.RegistryKeysIdentified.Add(displayKey);
                 }
                 else
                 {
-                    try
-                    {
-                        using var baseKey = RegistryKey.OpenBaseKey(
-                            program.RegistryHive,
-                            program.RegistryView);
-                        var parentPath = Path.GetDirectoryName(program.RegistryKeyPath)?.Replace('/', '\\');
-                        var keyName = Path.GetFileName(program.RegistryKeyPath);
-                        if (parentPath != null && keyName != null)
-                        {
-                            using var parentKey = baseKey.OpenSubKey(parentPath, writable: true);
-                            parentKey?.DeleteSubKeyTree(keyName, throwOnMissingSubKey: false);
-                            result.RegistryKeysRemoved++;
-                        }
-                    }
-                    catch { }
+                    var (ok, message) = await RegistryScannerService.DeleteRegistryKeyAsync(displayKey);
+                    if (ok) result.RegistryKeysRemoved++;
+                    else result.Warnings.Add($"Uninstall entry not removed: {message}");
                 }
             }
 
-            result.Success = true;
+            result.Success = dryRun || result.FilesDeleted > 0 || result.RegistryKeysRemoved > 0;
             result.Message = dryRun
-                ? $"[DRY RUN] Would remove: {result.DirectoriesIdentified.Count} dirs, " +
-                  $"{result.RegistryKeysIdentified.Count} registry keys ({FormatHelper.FormatBytes(result.TotalSizeBytes)})"
-                : $"Force uninstalled: {result.FilesDeleted} items deleted, " +
-                  $"{result.RegistryKeysRemoved} registry keys removed.";
+                ? $"[DRY RUN] Would remove: {result.DirectoriesIdentified.Count} folder(s), " +
+                  $"{result.RegistryKeysIdentified.Count} registry key(s) ({FormatHelper.FormatBytes(result.TotalSizeBytes)})."
+                : $"Force uninstall: {result.FilesDeleted} folder(s) removed, " +
+                  $"{result.RegistryKeysRemoved} registry key(s) removed." +
+                  (result.Warnings.Count > 0 ? $" {result.Warnings.Count} warning(s): {result.Warnings[0]}" : string.Empty);
+        }
+        catch (OperationCanceledException)
+        {
+            result.Success = false;
+            result.Message = "Force uninstall cancelled.";
         }
         catch (Exception ex)
         {
@@ -326,12 +313,15 @@ public static class ForceDeleteService
         var all = new List<(int Pid, string Name)>();
         try
         {
-            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories).Take(100))
+            foreach (var file in Directory.EnumerateFiles(directory, "*", PathSafety.RecursiveNoReparse).Take(100))
             {
                 all.AddRange(FindLockingProcessDetails(file));
             }
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("ForceDelete", $"Lock scan failed for {directory}", ex);
+        }
         return all.DistinctBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -344,12 +334,19 @@ public static class ForceDeleteService
     {
         try
         {
+            if (proc.Id == Environment.ProcessId || proc.Id <= 4 || proc.SessionId == 0)
+                return true;
+
             var name = proc.ProcessName.ToLowerInvariant();
-            return name is "system" or "idle" or "csrss" or "wininit"
-                or "services" or "lsass" or "svchost" or "dwm"
-                or "winlogon" or "smss" or "explorer";
+            return name is "system" or "idle" or "registry" or "csrss" or "wininit"
+                or "services" or "lsass" or "svchost" or "dwm" or "fontdrvhost"
+                or "winlogon" or "smss" or "explorer" or "msmpeng" or "sihost"
+                or "ctfmon" or "taskhostw" or "runtimebroker";
         }
-        catch { return true; }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return true;
+        }
     }
 
     private static bool ScheduleDirectoryForBootDeletion(string directory)
@@ -357,24 +354,24 @@ public static class ForceDeleteService
         bool allOk = true;
         try
         {
-            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+            // Never descend into junctions/symlinks: their targets are not ours to delete.
+            foreach (var file in Directory.EnumerateFiles(directory, "*", PathSafety.RecursiveNoReparse))
             {
                 if (!MoveFileEx(file, null, MOVEFILE_DELAY_UNTIL_REBOOT))
                     allOk = false;
             }
 
-            // Schedule directories (leaf first)
-            var dirs = Directory.GetDirectories(directory, "*", SearchOption.AllDirectories)
+            // Schedule directories (leaf first); a reparse point itself is removed, not its target.
+            var dirs = Directory.GetDirectories(directory, "*", PathSafety.RecursiveNoReparse)
                 .OrderByDescending(d => d.Length);
             foreach (var dir in dirs)
-            {
                 MoveFileEx(dir, null, MOVEFILE_DELAY_UNTIL_REBOOT);
-            }
 
             MoveFileEx(directory, null, MOVEFILE_DELAY_UNTIL_REBOOT);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            DiagnosticLogger.Warn("ForceDelete", $"Boot-time deletion scheduling failed for {directory}", ex);
             allOk = false;
         }
         return allOk;
@@ -396,5 +393,6 @@ public static class ForceDeleteService
         public List<string> DirectoriesIdentified { get; set; } = [];
         public List<string> RegistryKeysIdentified { get; set; } = [];
         public List<string> KilledProcesses { get; set; } = [];
+        public List<string> Warnings { get; set; } = [];
     }
 }

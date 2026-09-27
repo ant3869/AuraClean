@@ -13,8 +13,19 @@ public class FileSizeConverter : IValueConverter
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is not long bytes) return "0 B";
-        if (bytes == 0) return "0 B";
+        long bytes;
+        try
+        {
+            bytes = value is IConvertible convertible
+                ? convertible.ToInt64(CultureInfo.InvariantCulture)
+                : 0;
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+        {
+            bytes = 0;
+        }
+
+        if (bytes <= 0) return "0 B";
 
         int unitIndex = 0;
         double size = bytes;
@@ -185,6 +196,18 @@ public class HexToBrushConverter : IValueConverter
         }
         return FallbackBrush;
     }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Rotates a section chevron: expanded (true) = 0°, collapsed (false) = -90°.
+/// </summary>
+public class ExpandedChevronAngleConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? 0.0 : -90.0;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

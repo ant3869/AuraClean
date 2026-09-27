@@ -3,7 +3,7 @@ using AuraClean.Models;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.IO;
+using CommunityToolkit.Mvvm.Messaging;
 using System.Management;
 using System.Reflection;
 using System.Security.Principal;
@@ -23,7 +23,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _scoreTrendArrow = string.Empty;
     [ObservableProperty] private string _scoreTrendTooltip = string.Empty;
     [ObservableProperty] private bool _hasScoreTrend;
-    private int? _previousHealthScore;
+    private readonly int? _previousHealthScore;
     [ObservableProperty] private bool _isAdmin;
     [ObservableProperty] private string _statusBarText = "AuraClean — Ready";
     [ObservableProperty] private DateTime _lastCleanedDate;
@@ -34,6 +34,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _healthCheckSummary = string.Empty;
     [ObservableProperty] private bool _isAdvancedMode;
     private bool _isApplyingExternalModeChange;
+
+    /// <summary>Every view name the shell knows how to display.</summary>
+    public static readonly IReadOnlySet<string> KnownViews = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "Dashboard", "Uninstaller", "Cleaner", "Memory", "Browser", "StorageMap", "Monitor",
+        "Startup", "Duplicates", "Shredder", "LargeFiles", "SystemInfo", "Settings", "History",
+        "Quarantine", "ThreatScanner", "SoftwareUpdater", "DiskOptimizer", "FileRecovery",
+        "EmptyFolders", "AppInstaller"
+    };
 
     public string AppVersion { get; } = $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
 
@@ -81,8 +90,8 @@ public partial class MainViewModel : ObservableObject
             return;
 
         _isApplyingExternalModeChange = true;
-        IsAdvancedMode = isAdvancedMode;
-        _isApplyingExternalModeChange = false;
+        try { IsAdvancedMode = isAdvancedMode; }
+        finally { _isApplyingExternalModeChange = false; }
     }
 
     // Child ViewModels
@@ -112,48 +121,77 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isContextMenuInstalled;
     [ObservableProperty] private string _contextMenuStatus = string.Empty;
 
+    public string ContextMenuToggleLabel => IsContextMenuInstalled ? "Remove" : "Install";
+
+    partial void OnIsContextMenuInstalledChanged(bool value) =>
+        OnPropertyChanged(nameof(ContextMenuToggleLabel));
+
     // Navigation section collapse state
     [ObservableProperty] private bool _isCleanupExpanded = true;
     [ObservableProperty] private bool _isAnalyzeExpanded = true;
     [ObservableProperty] private bool _isOptimizeExpanded = true;
     [ObservableProperty] private bool _isUtilitiesExpanded = false;
 
+    /// <summary>
+    /// True while any feature is scanning, cleaning, installing, or otherwise working.
+    /// Used to warn before the window is closed mid-operation.
+    /// </summary>
+    public bool IsAnyOperationRunning =>
+        IsHealthCheckRunning ||
+        Cleaner.IsBusy || Uninstaller.IsBusy || BrowserCleaner.IsBusy || Memory.IsBusy ||
+        ThreatScanner.IsScanning || ThreatScanner.IsQuarantining ||
+        FileShredder.IsBusy || DuplicateFinder.IsBusy || LargeFileFinder.IsBusy ||
+        EmptyFolderFinder.IsBusy || Quarantine.IsBusy || StartupManager.IsBusy ||
+        DiskOptimizer.IsBusy || AppInstaller.IsBusy || SoftwareUpdater.IsBusy ||
+        FileRecovery.IsBusy || InstallMonitor.IsBusy;
+
     public MainViewModel()
     {
-        IsAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent())
-            .IsInRole(WindowsBuiltInRole.Administrator);
+        using (var identity = WindowsIdentity.GetCurrent())
+            IsAdmin = new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
 
         IsContextMenuInstalled = ContextMenuService.IsContextMenuInstalled();
         ContextMenuStatus = IsContextMenuInstalled ? "Installed" : "Not installed";
-        IsAdvancedMode = ExperienceModeService.IsAdvancedMode();
+
+        _isApplyingExternalModeChange = true;
+        try { IsAdvancedMode = ExperienceModeService.IsAdvancedMode(); }
+        finally { _isApplyingExternalModeChange = false; }
         ApplyExperienceModeToChildren(IsAdvancedMode);
         ExperienceModeService.ModeChanged += OnExperienceModeChanged;
+        StatusBarText = "AuraClean — Ready";
 
-        // Load last cleaned date from settings (fallback: never)
-        var settingsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AuraClean");
-        var settingsFile = Path.Combine(settingsDir, "last_cleaned.txt");
-        if (File.Exists(settingsFile) &&
-            DateTime.TryParse(File.ReadAllText(settingsFile), out var lastCleaned))
-        {
-            LastCleanedDate = lastCleaned;
-        }
+        Cleaner.CleanupCompleted += OnCleanupCompleted;
 
-        // Load previous health score for trend indicator
-        var prevScoreFile = Path.Combine(settingsDir, "prev_health_score.txt");
-        if (File.Exists(prevScoreFile) &&
-            int.TryParse(File.ReadAllText(prevScoreFile).Trim(), out var prevScore))
-        {
-            _previousHealthScore = Math.Clamp(prevScore, 0, 100);
-        }
+        LastCleanedDate = LastCleanedStore.Load() ?? default;
+        _previousHealthScore = LastCleanedStore.LoadHealthScore();
 
         UpdateHealthScore();
-        _ = LoadSystemInfoAsync().ContinueWith(t =>
+        _ = LoadSystemInfoAsync();
+    }
+
+    /// <summary>
+    /// Background housekeeping run once after the main window is shown.
+    /// </summary>
+    public async Task RunStartupMaintenanceAsync()
+    {
+        try
         {
-            if (t.Exception != null)
-                DiagnosticLogger.Warn("MainViewModel", "LoadSystemInfoAsync failed", t.Exception.InnerException ?? t.Exception);
-        }, TaskContinuationOptions.OnlyOnFaulted);
+            if (!SettingsService.Load().AutoPurgeExpiredQuarantine)
+                return;
+
+            int purged = await QuarantineService.PurgeExpiredAsync();
+            if (purged > 0)
+            {
+                CleanupHistoryService.Record(CleanupOperationType.QuarantinePurge, purged, 0,
+                    $"Automatically purged {purged} expired quarantine item(s)");
+                WeakReferenceMessenger.Default.Send(QuarantineChangedMessage.Instance);
+                StatusBarText = $"Purged {purged} expired quarantine item(s).";
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Startup maintenance failed", ex);
+        }
     }
 
     /// <summary>
@@ -161,56 +199,69 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private async Task LoadSystemInfoAsync()
     {
-        await Task.Run(() =>
+        try
         {
-            try
+            var (os, cpu, ram, uptime) = await Task.Run(() =>
             {
-                // OS info
-                OsName = $"{Environment.OSVersion.Platform} {Environment.OSVersion.Version}";
+                string osName = $"Windows {Environment.OSVersion.Version}";
                 try
                 {
                     using var mos = new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem");
-                    foreach (var obj in mos.Get())
+                    using var results = mos.Get();
+                    foreach (var obj in results)
                     {
-                        OsName = obj["Caption"]?.ToString()?.Trim() ?? OsName;
+                        using (obj)
+                            osName = obj["Caption"]?.ToString()?.Trim() ?? osName;
                         break;
                     }
                 }
                 catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "WMI OS query failed", ex); }
 
-                // CPU info
+                string cpuName = $"{Environment.ProcessorCount} logical cores";
                 try
                 {
                     using var mos = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor");
-                    foreach (var obj in mos.Get())
+                    using var results = mos.Get();
+                    foreach (var obj in results)
                     {
-                        CpuName = obj["Name"]?.ToString()?.Trim() ?? "Unknown";
+                        using (obj)
+                            cpuName = obj["Name"]?.ToString()?.Trim() ?? cpuName;
                         break;
                     }
                 }
-                catch { CpuName = $"{Environment.ProcessorCount} cores"; }
+                catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "WMI CPU query failed", ex); }
 
-                // RAM
+                string totalRam;
                 try
                 {
-                    var gcInfo = GC.GetGCMemoryInfo();
-                    long totalBytes = gcInfo.TotalAvailableMemoryBytes;
-                    TotalRam = totalBytes switch
-                    {
-                        < 1_073_741_824 => $"{totalBytes / 1_048_576.0:F0} MB",
-                        _ => $"{totalBytes / 1_073_741_824.0:F1} GB"
-                    };
+                    var snapshot = MemoryManagerService.GetMemorySnapshot();
+                    totalRam = snapshot.TotalPhysicalBytes > 0
+                        ? FormatHelper.FormatBytes(snapshot.TotalPhysicalBytes)
+                        : "N/A";
                 }
-                catch { TotalRam = "N/A"; }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("MainViewModel", "Memory query failed", ex);
+                    totalRam = "N/A";
+                }
 
-                // Uptime
-                var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
-                SystemUptime = uptime.Days > 0
-                    ? $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m"
-                    : $"{uptime.Hours}h {uptime.Minutes}m";
-            }
-            catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "LoadSystemInfoAsync failed", ex); }
-        });
+                var up = TimeSpan.FromMilliseconds(Environment.TickCount64);
+                var uptimeText = up.Days > 0
+                    ? $"{up.Days}d {up.Hours}h {up.Minutes}m"
+                    : $"{up.Hours}h {up.Minutes}m";
+
+                return (osName, cpuName, totalRam, uptimeText);
+            });
+
+            OsName = os;
+            CpuName = cpu;
+            TotalRam = ram;
+            SystemUptime = uptime;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "LoadSystemInfoAsync failed", ex);
+        }
     }
 
     partial void OnSystemHealthScoreChanged(int value)
@@ -223,41 +274,31 @@ public partial class MainViewModel : ObservableObject
             _ => "Poor"
         };
 
-        // Trend indicator vs previous score
         if (_previousHealthScore.HasValue)
         {
             int delta = value - _previousHealthScore.Value;
-            if (delta > 0)
+            (ScoreTrendArrow, ScoreTrendTooltip) = delta switch
             {
-                ScoreTrendArrow = "↑";
-                ScoreTrendTooltip = $"Up {delta} point{(delta != 1 ? "s" : "")} since last scan";
-                HasScoreTrend = true;
-            }
-            else if (delta < 0)
-            {
-                ScoreTrendArrow = "↓";
-                ScoreTrendTooltip = $"Down {Math.Abs(delta)} point{(Math.Abs(delta) != 1 ? "s" : "")} since last scan";
-                HasScoreTrend = true;
-            }
-            else
-            {
-                ScoreTrendArrow = "—";
-                ScoreTrendTooltip = "Unchanged since last scan";
-                HasScoreTrend = true;
-            }
+                > 0 => ("↑", $"Up {delta} point{(delta != 1 ? "s" : "")} since last session"),
+                < 0 => ("↓", $"Down {-delta} point{(delta != -1 ? "s" : "")} since last session"),
+                _ => ("—", "Unchanged since last session")
+            };
+            HasScoreTrend = true;
         }
         else
         {
             HasScoreTrend = false;
         }
 
-        // Persist current score as "previous" for next launch
-        SaveHealthScore(value);
+        LastCleanedStore.SaveHealthScore(value);
     }
 
     [RelayCommand]
-    private void NavigateTo(string viewName)
+    private void NavigateTo(string? viewName)
     {
+        if (string.IsNullOrWhiteSpace(viewName) || !KnownViews.Contains(viewName))
+            return;
+
         CurrentViewName = viewName;
     }
 
@@ -273,36 +314,61 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleUtilities() => IsUtilitiesExpanded = !IsUtilitiesExpanded;
 
-    // Legacy alias — kept in case any binding still references it
-    public bool IsToolsExpanded
-    {
-        get => IsUtilitiesExpanded;
-        set => IsUtilitiesExpanded = value;
-    }
-
-    [RelayCommand]
-    private void ToggleTools() => ToggleUtilities();
-
     [RelayCommand]
     private void ToggleExperienceMode() => IsAdvancedMode = !IsAdvancedMode;
 
     [RelayCommand]
     private async Task QuickAnalyzeAsync()
     {
+        if (Cleaner.IsBusy)
+        {
+            StatusBarText = "The System Cleaner is already working — please wait for it to finish.";
+            return;
+        }
+
         StatusBarText = "Running quick analysis...";
         await Cleaner.AnalyzeCommand.ExecuteAsync(null);
         UpdateHealthScore();
-        StatusBarText = "Analysis complete.";
+        StatusBarText = Cleaner.HasResults
+            ? $"Analysis complete — {Cleaner.FormattedTotalSize} can be cleaned. Open System Cleaner to review."
+            : "Analysis complete — nothing to clean.";
     }
 
     [RelayCommand]
     private async Task QuickCleanAsync()
     {
+        if (Cleaner.IsBusy)
+        {
+            StatusBarText = "The System Cleaner is already working — please wait for it to finish.";
+            return;
+        }
+
+        if (!Cleaner.HasResults)
+        {
+            StatusBarText = "Analyzing before cleanup...";
+            await Cleaner.AnalyzeCommand.ExecuteAsync(null);
+            if (!Cleaner.HasResults)
+            {
+                UpdateHealthScore();
+                StatusBarText = "Nothing to clean — your system is already tidy.";
+                return;
+            }
+        }
+
         StatusBarText = "Running cleanup...";
         await Cleaner.CleanSelectedCommand.ExecuteAsync(null);
+        StatusBarText = Cleaner.StatusMessage;
+    }
+
+    private void OnCleanupCompleted(object? sender, CleanupCompletedEventArgs e)
+    {
+        if (!e.WasDryRun && e.ItemsCleaned > 0)
+        {
+            LastCleanedDate = DateTime.Now;
+            LastCleanedStore.Save(LastCleanedDate);
+        }
+
         UpdateHealthScore();
-        SaveLastCleanedDate();
-        StatusBarText = "Cleanup complete.";
     }
 
     [RelayCommand]
@@ -325,7 +391,8 @@ public partial class MainViewModel : ObservableObject
             HealthCheckProgress = "Step 1/4 — Scanning for system junk...";
             try
             {
-                await Cleaner.AnalyzeCommand.ExecuteAsync(null);
+                if (!Cleaner.IsBusy)
+                    await Cleaner.AnalyzeCommand.ExecuteAsync(null);
 
                 if (Cleaner.TotalJunkSize > 0)
                 {
@@ -339,13 +406,18 @@ public partial class MainViewModel : ObservableObject
                 DiagnosticLogger.Error("HealthCheck", "Step 1 (Junk Analysis) failed", ex);
             }
 
-            // Step 2: Threat Scan
+            // Step 2: Threat Scan (always a Quick scan; the user's chosen mode is restored afterwards)
             HealthCheckStep = 2;
             HealthCheckProgress = "Step 2/4 — Scanning for threats...";
             try
             {
-                ThreatScanner.SelectedScanMode = ScanMode.Quick;
-                await ThreatScanner.StartScanCommand.ExecuteAsync(null);
+                if (!ThreatScanner.IsScanning && !ThreatScanner.IsQuarantining)
+                {
+                    var previousMode = ThreatScanner.SelectedScanMode;
+                    ThreatScanner.SelectedScanMode = ScanMode.Quick;
+                    try { await ThreatScanner.StartScanCommand.ExecuteAsync(null); }
+                    finally { ThreatScanner.SelectedScanMode = previousMode; }
+                }
 
                 int criticalThreats = ThreatScanner.CriticalCount + ThreatScanner.HighCount;
                 int mediumThreats = ThreatScanner.MediumCount;
@@ -388,16 +460,17 @@ public partial class MainViewModel : ObservableObject
 
             // Step 4: Browser Privacy
             HealthCheckStep = 4;
-            HealthCheckProgress = "Step 4/4 — Checking browser privacy...";
+            HealthCheckProgress = "Step 4/4 — Checking browser caches...";
             try
             {
-                await BrowserCleaner.ScanBrowsersCommand.ExecuteAsync(null);
+                if (!BrowserCleaner.IsBusy)
+                    await BrowserCleaner.ScanBrowsersCommand.ExecuteAsync(null);
 
-                long browserJunk = BrowserCleaner.TotalSizeBytes;
+                long browserJunk = BrowserCleaner.TotalSavingsBytes;
                 if (browserJunk > 100 * 1024 * 1024) // > 100 MB
                 {
                     score -= Math.Min(10, (int)(browserJunk / (100.0 * 1024 * 1024)) * 3);
-                    issues.Add($"Browser: {FormatHelper.FormatBytes(browserJunk)} of tracking data");
+                    issues.Add($"Browser: {FormatHelper.FormatBytes(browserJunk)} of cache and site data");
                 }
             }
             catch (Exception ex)
@@ -414,15 +487,9 @@ public partial class MainViewModel : ObservableObject
             score = Math.Clamp(score, 0, 100);
             SystemHealthScore = score;
 
-            // Build summary
-            if (issues.Count == 0)
-            {
-                HealthCheckSummary = "Your system is in excellent condition. No issues detected.";
-            }
-            else
-            {
-                HealthCheckSummary = $"Found {issues.Count} area(s) to improve: {string.Join(" | ", issues)}";
-            }
+            HealthCheckSummary = issues.Count == 0
+                ? "Your system is in excellent condition. No issues detected."
+                : $"Found {issues.Count} area(s) to improve: {string.Join(" | ", issues)}";
 
             HealthCheckProgress = "Health check complete.";
             StatusBarText = $"Health check complete — Score: {score}/100";
@@ -432,7 +499,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            HealthCheckProgress = $"Error during health check: {ex.Message}";
+            HealthCheckProgress = "The health check could not finish. Please try again.";
             StatusBarText = "Health check encountered an error.";
             DiagnosticLogger.Error("MainViewModel", "Health check failed", ex);
         }
@@ -445,6 +512,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task BoostMemoryAsync()
     {
+        if (Memory.IsBusy)
+            return;
+
         StatusBarText = "Boosting memory...";
         await Memory.BoostMemoryCommand.ExecuteAsync(null);
         StatusBarText = Memory.StatusMessage;
@@ -461,17 +531,17 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            // Launch Windows System Restore UI so user can revert to the pre-cleanup restore point
-            var psi = new System.Diagnostics.ProcessStartInfo("rstrui.exe")
+            // Launch Windows System Restore UI so the user can revert to the pre-cleanup restore point
+            var psi = new System.Diagnostics.ProcessStartInfo(ProcessRunner.SystemTool("rstrui.exe"))
             {
                 UseShellExecute = true
             };
-            System.Diagnostics.Process.Start(psi);
+            System.Diagnostics.Process.Start(psi)?.Dispose();
             StatusBarText = "System Restore opened — select the AuraClean restore point to undo.";
         }
         catch (Exception ex)
         {
-            StatusBarText = $"Could not open System Restore: {ex.Message}";
+            StatusBarText = "Could not open System Restore. Open it from Control Panel → Recovery.";
             DiagnosticLogger.Warn("MainViewModel", "Failed to launch System Restore", ex);
         }
     }
@@ -479,18 +549,15 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleContextMenu()
     {
-        if (IsContextMenuInstalled)
-        {
-            var (success, msg, _) = ContextMenuService.UninstallContextMenu();
-            ContextMenuStatus = success ? "Removed" : msg;
-        }
-        else
-        {
-            var (success, msg, _) = ContextMenuService.InstallContextMenu();
-            ContextMenuStatus = success ? "Installed" : msg;
-        }
+        var (success, msg, _) = IsContextMenuInstalled
+            ? ContextMenuService.UninstallContextMenu()
+            : ContextMenuService.InstallContextMenu();
+
         IsContextMenuInstalled = ContextMenuService.IsContextMenuInstalled();
-        StatusBarText = ContextMenuStatus;
+        ContextMenuStatus = success
+            ? (IsContextMenuInstalled ? "Installed" : "Not installed")
+            : msg;
+        StatusBarText = msg;
     }
 
     [RelayCommand]
@@ -507,10 +574,8 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private void UpdateHealthScore()
     {
-        // Base score: 100
         int score = 100;
 
-        // Deduct points based on junk found
         if (Cleaner.TotalJunkSize > 0)
         {
             // Every 100MB of junk deducts ~5 points, capped at 50 points
@@ -518,7 +583,6 @@ public partial class MainViewModel : ObservableObject
             score -= junkPenalty;
         }
 
-        // Deduct if not cleaned recently
         if (LastCleanedDate == default)
         {
             score -= 15; // Never cleaned
@@ -533,60 +597,14 @@ public partial class MainViewModel : ObservableObject
         SystemHealthScore = Math.Clamp(score, 0, 100);
     }
 
-    private void SaveHealthScore(int score)
-    {
-        try
-        {
-            var settingsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AuraClean");
-            Directory.CreateDirectory(settingsDir);
-            File.WriteAllText(Path.Combine(settingsDir, "prev_health_score.txt"),
-                score.ToString());
-        }
-        catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "Failed to persist health score", ex); }
-    }
-
-    private void SaveLastCleanedDate()
-    {
-        LastCleanedDate = DateTime.Now;
-        try
-        {
-            var settingsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AuraClean");
-            Directory.CreateDirectory(settingsDir);
-            File.WriteAllText(Path.Combine(settingsDir, "last_cleaned.txt"),
-                DateTime.Now.ToString("o"));
-        }
-        catch (Exception ex) { DiagnosticLogger.Warn("MainViewModel", "Failed to persist last-cleaned date", ex); }
-    }
-
     private void ApplyExperienceModeToChildren(bool isAdvancedMode)
     {
         object?[] children =
         [
-            Uninstaller,
-            Cleaner,
-            Memory,
-            InstallMonitor,
-            BrowserCleaner,
-            DiskAnalyzer,
-            StartupManager,
-            DuplicateFinder,
-            FileShredder,
-            LargeFileFinder,
-            SystemInfo,
-            Settings,
-            CleanupHistory,
-            Quarantine,
-            ThreatScanner,
-            SoftwareUpdater,
-            DiskOptimizer,
-            FileRecovery,
-            EmptyFolderFinder,
-            AppInstaller,
-            Onboarding
+            Uninstaller, Cleaner, Memory, InstallMonitor, BrowserCleaner, DiskAnalyzer,
+            StartupManager, DuplicateFinder, FileShredder, LargeFileFinder, SystemInfo,
+            Settings, CleanupHistory, Quarantine, ThreatScanner, SoftwareUpdater,
+            DiskOptimizer, FileRecovery, EmptyFolderFinder, AppInstaller, Onboarding
         ];
 
         foreach (var child in children)

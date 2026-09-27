@@ -1,3 +1,4 @@
+using AuraClean.Helpers;
 using AuraClean.Models;
 using Microsoft.Win32;
 using System.Diagnostics;
@@ -12,6 +13,11 @@ namespace AuraClean.Services;
 /// </summary>
 public static class UninstallerService
 {
+    private const int MsiUserCancelled = 1602;
+    private const int MsiSuccessRebootInitiated = 1641;
+    private const int MsiSuccessRebootRequired = 3010;
+    private const int ErrorCancelled = 1223;
+
     /// <summary>
     /// Registry paths containing the Uninstall entries for installed programs.
     /// </summary>
@@ -57,8 +63,7 @@ public static class UninstallerService
                             if (appKey == null) continue;
 
                             // Skip system components
-                            var systemComponent = appKey.GetValue("SystemComponent");
-                            if (systemComponent is int sc && sc == 1) continue;
+                            if (ReadInt64(appKey, "SystemComponent") == 1) continue;
 
                             // Skip sub-components
                             var parentKey = appKey.GetValue("ParentKeyName");
@@ -69,16 +74,16 @@ public static class UninstallerService
 
                             var program = new InstalledProgram
                             {
-                                DisplayName = displayName,
-                                DisplayVersion = appKey.GetValue("DisplayVersion") as string ?? "",
-                                Publisher = appKey.GetValue("Publisher") as string ?? "",
-                                InstallLocation = appKey.GetValue("InstallLocation") as string ?? "",
-                                UninstallString = appKey.GetValue("UninstallString") as string ?? "",
-                                QuietUninstallString = appKey.GetValue("QuietUninstallString") as string ?? "",
-                                DisplayIcon = appKey.GetValue("DisplayIcon") as string ?? "",
-                                InstallDate = appKey.GetValue("InstallDate") as string ?? "",
-                                EstimatedSizeKB = Convert.ToInt64(appKey.GetValue("EstimatedSize") ?? 0),
-                                IsWindowsInstaller = (appKey.GetValue("WindowsInstaller") is int wi && wi == 1),
+                                DisplayName = displayName.Trim(),
+                                DisplayVersion = ReadString(appKey, "DisplayVersion"),
+                                Publisher = ReadString(appKey, "Publisher"),
+                                InstallLocation = ReadString(appKey, "InstallLocation").Trim().Trim('"'),
+                                UninstallString = ReadString(appKey, "UninstallString"),
+                                QuietUninstallString = ReadString(appKey, "QuietUninstallString"),
+                                DisplayIcon = ReadString(appKey, "DisplayIcon"),
+                                InstallDate = ReadString(appKey, "InstallDate"),
+                                EstimatedSizeKB = ReadInt64(appKey, "EstimatedSize"),
+                                IsWindowsInstaller = ReadInt64(appKey, "WindowsInstaller") == 1,
                                 RegistryKeyPath = $"{subKey}\\{keyName}",
                                 RegistryHive = hive,
                                 RegistryView = view
@@ -86,12 +91,19 @@ public static class UninstallerService
 
                             programs.Add(program);
                         }
-                        catch (System.Security.SecurityException) { }
-                        catch (UnauthorizedAccessException) { }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            // One malformed entry must never hide every other installed program.
+                            DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable uninstall entry '{keyName}'", ex);
+                        }
                     }
                 }
                 catch (System.Security.SecurityException) { }
                 catch (UnauthorizedAccessException) { }
+                catch (IOException ex)
+                {
+                    DiagnosticLogger.Warn("UninstallerService", $"Could not read {subKey}", ex);
+                }
             }
 
             // Deduplicate by DisplayName (same app can appear in multiple registry views)
@@ -138,10 +150,19 @@ public static class UninstallerService
 
             await process.WaitForExitAsync();
 
-            return process.ExitCode == 0
-                ? (true, $"{program.DisplayName} uninstalled successfully.")
-                : (true, $"Uninstaller exited with code {process.ExitCode}. " +
-                          "The program may have been partially removed.");
+            return process.ExitCode switch
+            {
+                0 => (true, $"{program.DisplayName} uninstalled successfully."),
+                MsiSuccessRebootInitiated or MsiSuccessRebootRequired =>
+                    (true, $"{program.DisplayName} uninstalled. Restart Windows to finish removal."),
+                MsiUserCancelled => (false, $"Uninstall of {program.DisplayName} was cancelled."),
+                _ => (false, $"Uninstaller exited with code {process.ExitCode}. " +
+                             "The program may have been partially removed.")
+            };
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
+        {
+            return (false, "The elevation prompt was declined.");
         }
         catch (Exception ex)
         {
@@ -211,12 +232,13 @@ public static class UninstallerService
 
                 try
                 {
-                    foreach (var dir in Directory.EnumerateDirectories(basePath))
+                    foreach (var dir in Directory.EnumerateDirectories(basePath, "*", PathSafety.TopLevelNoReparse))
                     {
                         ct.ThrowIfCancellationRequested();
                         var dirName = Path.GetFileName(dir);
 
-                        if (IsSafeRemnantDirectoryMatch(dirName, searchTerms))
+                        if (IsSafeRemnantDirectoryMatch(dirName, searchTerms) &&
+                            PathSafety.IsSafeToDeleteDirectory(dir, out _))
                         {
                             long size = GetDirectorySize(dir);
                             results.Add(new JunkItem
@@ -351,13 +373,36 @@ public static class UninstallerService
         long size = 0;
         try
         {
-            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            foreach (var file in new DirectoryInfo(path).EnumerateFiles("*", PathSafety.RecursiveNoReparse))
             {
-                try { size += new FileInfo(file).Length; }
-                catch { }
+                try { size += file.Length; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             }
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("UninstallerService", $"Could not measure {path}", ex);
+        }
         return size;
     }
+
+    private static string ReadString(RegistryKey key, string name) =>
+        key.GetValue(name) switch
+        {
+            string s => s,
+            string[] multi => string.Join(" ", multi),
+            null => string.Empty,
+            var other => other.ToString() ?? string.Empty
+        };
+
+    private static long ReadInt64(RegistryKey key, string name) =>
+        key.GetValue(name) switch
+        {
+            int i => i,
+            long l => l,
+            string s when long.TryParse(s.Trim(), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed) => parsed,
+            byte[] { Length: >= 4 } bytes => BitConverter.ToInt32(bytes, 0),
+            _ => 0
+        };
 }

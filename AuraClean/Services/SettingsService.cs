@@ -1,5 +1,5 @@
 using AuraClean.Helpers;
-using Microsoft.Win32;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -30,7 +30,7 @@ public static class SettingsService
 
     /// <summary>
     /// Loads settings from disk, or returns cached copy if already loaded.
-    /// Falls back to defaults on any read error.
+    /// Falls back to defaults on any read error. Out-of-range values are clamped.
     /// </summary>
     public static AppSettings Load()
     {
@@ -45,6 +45,7 @@ public static class SettingsService
                 {
                     var json = File.ReadAllText(SettingsFile);
                     _cached = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                    _cached.Normalize();
                     DiagnosticLogger.Info("SettingsService", $"Loaded settings from {SettingsFile}");
                     return _cached;
                 }
@@ -52,6 +53,7 @@ public static class SettingsService
             catch (Exception ex)
             {
                 DiagnosticLogger.Warn("SettingsService", "Failed to load settings, using defaults", ex);
+                PreserveCorruptSettingsFile();
             }
 
             _cached = new AppSettings();
@@ -60,60 +62,40 @@ public static class SettingsService
     }
 
     /// <summary>
-    /// Persists the current settings to disk.
+    /// Persists the settings to disk atomically and applies OS-level side effects.
+    /// Returns false when the file could not be written.
     /// </summary>
-    public static void Save(AppSettings settings)
+    public static bool Save(AppSettings settings)
     {
+        bool saved;
+        bool launchAtStartup;
+
         lock (_lock)
         {
+            settings.Normalize();
             _cached = settings;
+            launchAtStartup = settings.LaunchAtStartup;
 
             try
             {
                 Directory.CreateDirectory(SettingsDir);
                 var json = JsonSerializer.Serialize(settings, JsonOptions);
-                File.WriteAllText(SettingsFile, json);
+                var tempFile = SettingsFile + ".tmp";
+                File.WriteAllText(tempFile, json);
+                File.Move(tempFile, SettingsFile, overwrite: true);
                 DiagnosticLogger.Info("SettingsService", "Settings saved successfully");
+                saved = true;
             }
             catch (Exception ex)
             {
                 DiagnosticLogger.Warn("SettingsService", "Failed to save settings", ex);
-            }
-
-            // Apply side-effects
-            ApplyLaunchAtStartup(settings.LaunchAtStartup);
-        }
-    }
-
-    /// <summary>
-    /// Writes or removes the AuraClean entry from the Windows Registry Run key
-    /// so the app auto-starts (or stops auto-starting) with Windows.
-    /// </summary>
-    private static void ApplyLaunchAtStartup(bool enable)
-    {
-        const string keyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-        const string valueName = "AuraClean";
-
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(keyPath, writable: true);
-            if (key == null) return;
-
-            if (enable)
-            {
-                var exePath = Environment.ProcessPath;
-                if (!string.IsNullOrEmpty(exePath))
-                    key.SetValue(valueName, $"\"{exePath}\" --minimized");
-            }
-            else
-            {
-                key.DeleteValue(valueName, throwOnMissingValue: false);
+                saved = false;
             }
         }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("SettingsService", "Failed to apply LaunchAtStartup", ex);
-        }
+
+        // Side effects run outside the lock: they may be slow (Task Scheduler COM calls).
+        LaunchAtLogonService.Apply(launchAtStartup);
+        return saved;
     }
 
     /// <summary>
@@ -141,6 +123,19 @@ public static class SettingsService
             _cached = null;
         }
     }
+
+    private static void PreserveCorruptSettingsFile()
+    {
+        try
+        {
+            if (File.Exists(SettingsFile))
+                File.Copy(SettingsFile, SettingsFile + $".corrupt-{DateTime.Now:yyyyMMddHHmmss}", overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("SettingsService", "Could not back up unreadable settings file", ex);
+        }
+    }
 }
 
 /// <summary>
@@ -148,6 +143,9 @@ public static class SettingsService
 /// </summary>
 public class AppSettings
 {
+    public static readonly string[] ScheduleFrequencies = ["Daily", "Weekly", "Monthly"];
+    public static readonly string[] ShredAlgorithms = ["QuickZero", "Random", "DoD3Pass", "Enhanced7Pass"];
+
     // ── General ──
     public ExperienceMode ExperienceMode { get; set; } = ExperienceMode.Normal;
     public bool CreateRestorePointBeforeClean { get; set; } = true;
@@ -197,6 +195,51 @@ public class AppSettings
 
     // ── Metadata ──
     public DateTime LastModified { get; set; } = DateTime.Now;
+
+    /// <summary>
+    /// Clamps every numeric/enumerated setting into its valid range so hand-edited or
+    /// corrupted settings files can never drive a service with nonsensical values.
+    /// </summary>
+    public void Normalize()
+    {
+        if (!Enum.IsDefined(ExperienceMode))
+            ExperienceMode = ExperienceMode.Normal;
+
+        AbandonedFileDaysThreshold = Math.Clamp(AbandonedFileDaysThreshold, 30, 3650);
+        DefaultLargeFileSizeMb = Math.Clamp(DefaultLargeFileSizeMb, 1, 1024 * 1024);
+        DefaultMinDuplicateSizeMb = Math.Clamp(DefaultMinDuplicateSizeMb, 0, 1024 * 1024);
+        QuarantineRetentionDays = Math.Clamp(QuarantineRetentionDays, 1, 3650);
+        MaxHistoryEntries = Math.Clamp(MaxHistoryEntries, 10, 100_000);
+        ScheduledCleanupDayOfWeek = Math.Clamp(ScheduledCleanupDayOfWeek, 1, 7);
+
+        if (!ShredAlgorithms.Contains(DefaultShredAlgorithm, StringComparer.OrdinalIgnoreCase))
+            DefaultShredAlgorithm = "DoD3Pass";
+
+        var frequency = ScheduleFrequencies.FirstOrDefault(f =>
+            f.Equals(ScheduledCleanupFrequency?.Trim(), StringComparison.OrdinalIgnoreCase));
+        ScheduledCleanupFrequency = frequency ?? "Weekly";
+
+        ScheduledCleanupTime = TryParseScheduleTime(ScheduledCleanupTime, out var time)
+            ? time.ToString(@"hh\:mm", CultureInfo.InvariantCulture)
+            : "03:00";
+    }
+
+    /// <summary>Parses a 24-hour "HH:mm" (or "H:mm") time of day.</summary>
+    public static bool TryParseScheduleTime(string? value, out TimeSpan time)
+    {
+        time = default;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (!TimeSpan.TryParseExact(value.Trim(), [@"h\:mm", @"hh\:mm"], CultureInfo.InvariantCulture, out var parsed))
+            return false;
+
+        if (parsed < TimeSpan.Zero || parsed >= TimeSpan.FromDays(1))
+            return false;
+
+        time = parsed;
+        return true;
+    }
 }
 
 public enum ExperienceMode
@@ -221,4 +264,10 @@ public static class ExperienceModeService
         SettingsService.Save(settings);
         ModeChanged?.Invoke(isAdvancedMode);
     }
+
+    /// <summary>
+    /// Broadcasts the currently persisted mode to every listener (used after settings are
+    /// reset or reloaded from disk without going through <see cref="SaveMode"/>).
+    /// </summary>
+    public static void NotifyModeChanged() => ModeChanged?.Invoke(IsAdvancedMode());
 }

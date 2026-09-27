@@ -1,130 +1,134 @@
 using AuraClean.Helpers;
-using System.Diagnostics;
 using System.IO;
+using System.Security.Principal;
+using TaskSchedulerLib = Microsoft.Win32.TaskScheduler;
 
 namespace AuraClean.Services;
 
 /// <summary>
-/// Manages a Windows Task Scheduler entry for automatic AuraClean cleanups.
-/// Uses schtasks.exe for task creation/deletion (consistent with StartupManagerService).
+/// Manages the Windows Task Scheduler entry for automatic AuraClean cleanups.
+/// The task runs with the highest privileges because AuraClean's manifest requires elevation;
+/// a limited task would fail to start the executable at all.
 /// </summary>
 public static class ScheduledCleanupService
 {
     private const string TaskName = "AuraClean_ScheduledCleanup";
 
+    /// <summary>Command-line switch that runs a headless cleanup and exits.</summary>
+    public const string AutoCleanArgument = "/autoclean";
+
     /// <summary>
-    /// Applies the scheduled cleanup task based on current settings.
-    /// Creates or removes the Windows scheduled task as needed.
+    /// Creates, updates, or removes the scheduled task based on current settings.
     /// </summary>
-    public static async Task ApplyScheduleAsync()
+    public static Task<(bool Success, string Message)> ApplyScheduleAsync()
     {
         var settings = SettingsService.Load();
-
-        if (!settings.ScheduledCleanupEnabled)
-        {
-            await RemoveScheduledTaskAsync();
-            return;
-        }
-
-        await CreateScheduledTaskAsync(
-            settings.ScheduledCleanupFrequency,
-            settings.ScheduledCleanupTime,
-            settings.ScheduledCleanupDayOfWeek);
-    }
-
-    /// <summary>
-    /// Creates a Windows scheduled task that runs AuraClean with /autoclean flag.
-    /// </summary>
-    private static async Task CreateScheduledTaskAsync(string frequency, string time, int dayOfWeek)
-    {
-        // Remove existing task first
-        await RemoveScheduledTaskAsync();
-
-        var exePath = Process.GetCurrentProcess().MainModule?.FileName;
-        if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
-        {
-            DiagnosticLogger.Info("ScheduledCleanup", "Cannot locate AuraClean executable.");
-            return;
-        }
-
-        // Build schtasks arguments based on frequency
-        var schedType = frequency.ToUpperInvariant() switch
-        {
-            "DAILY" => "DAILY",
-            "MONTHLY" => "MONTHLY",
-            _ => "WEEKLY"
-        };
-
-        var args = $"/Create /TN \"{TaskName}\" /TR \"\\\"{exePath}\\\" /autoclean\" /SC {schedType} /ST {time} /F /RL LIMITED";
-
-        // For weekly, add the day
-        if (schedType == "WEEKLY")
-        {
-            var dayName = dayOfWeek switch
-            {
-                1 => "MON",
-                2 => "TUE",
-                3 => "WED",
-                4 => "THU",
-                5 => "FRI",
-                6 => "SAT",
-                7 => "SUN",
-                _ => "MON"
-            };
-            args += $" /D {dayName}";
-        }
-
-        var (success, output) = await RunSchtasksAsync(args);
-        if (success)
-            DiagnosticLogger.Info("ScheduledCleanup", $"Scheduled task created: {frequency} at {time}");
-        else
-            DiagnosticLogger.Info("ScheduledCleanup", $"Failed to create task: {output}");
-    }
-
-    /// <summary>
-    /// Removes the AuraClean scheduled task if it exists.
-    /// </summary>
-    private static async Task RemoveScheduledTaskAsync()
-    {
-        var (success, _) = await RunSchtasksAsync($"/Delete /TN \"{TaskName}\" /F");
-        if (success)
-            DiagnosticLogger.Info("ScheduledCleanup", "Scheduled task removed.");
+        return Task.Run(() => settings.ScheduledCleanupEnabled
+            ? CreateOrUpdateTask(settings)
+            : RemoveTask());
     }
 
     /// <summary>
     /// Checks whether the scheduled task currently exists.
     /// </summary>
-    public static async Task<bool> IsTaskRegisteredAsync()
-    {
-        var (success, _) = await RunSchtasksAsync($"/Query /TN \"{TaskName}\"");
-        return success;
-    }
-
-    private static async Task<(bool Success, string Output)> RunSchtasksAsync(string arguments)
+    public static Task<bool> IsTaskRegisteredAsync() => Task.Run(() =>
     {
         try
         {
-            var psi = new ProcessStartInfo("schtasks.exe", arguments)
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var proc = Process.Start(psi);
-            if (proc == null) return (false, "Failed to start schtasks.exe");
-
-            var output = await proc.StandardOutput.ReadToEndAsync();
-            var error = await proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
-
-            return (proc.ExitCode == 0, string.IsNullOrEmpty(error) ? output : error);
+            using var ts = new TaskSchedulerLib.TaskService();
+            using var task = ts.GetTask(TaskName);
+            return task != null;
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Error("ScheduledCleanup", $"schtasks error: {ex.Message}", ex);
-            return (false, ex.Message);
+            DiagnosticLogger.Warn("ScheduledCleanup", "Failed to query scheduled task", ex);
+            return false;
+        }
+    });
+
+    private static (bool Success, string Message) CreateOrUpdateTask(AppSettings settings)
+    {
+        var exePath = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+        {
+            DiagnosticLogger.Warn("ScheduledCleanup", "Cannot locate AuraClean executable.");
+            return (false, "Could not locate the AuraClean executable.");
+        }
+
+        if (!AppSettings.TryParseScheduleTime(settings.ScheduledCleanupTime, out var timeOfDay))
+            return (false, $"'{settings.ScheduledCleanupTime}' is not a valid 24-hour time (HH:mm).");
+
+        try
+        {
+            using var ts = new TaskSchedulerLib.TaskService();
+            var userId = WindowsIdentity.GetCurrent().Name;
+            var start = DateTime.Today.Add(timeOfDay);
+            if (start <= DateTime.Now)
+                start = start.AddDays(1);
+
+            var td = ts.NewTask();
+            td.RegistrationInfo.Description = "Runs AuraClean's low-risk cleanup categories on a schedule.";
+            td.Principal.UserId = userId;
+            td.Principal.LogonType = TaskSchedulerLib.TaskLogonType.InteractiveToken;
+            td.Principal.RunLevel = TaskSchedulerLib.TaskRunLevel.Highest;
+            td.Triggers.Add(BuildTrigger(settings, start));
+            td.Actions.Add(new TaskSchedulerLib.ExecAction(exePath, AutoCleanArgument, Path.GetDirectoryName(exePath)));
+            td.Settings.StartWhenAvailable = true;
+            td.Settings.DisallowStartIfOnBatteries = true;
+            td.Settings.StopIfGoingOnBatteries = true;
+            td.Settings.ExecutionTimeLimit = TimeSpan.FromHours(2);
+            td.Settings.MultipleInstances = TaskSchedulerLib.TaskInstancesPolicy.IgnoreNew;
+
+            ts.RootFolder.RegisterTaskDefinition(TaskName, td);
+
+            var message = $"Scheduled cleanup set: {settings.ScheduledCleanupFrequency} at {settings.ScheduledCleanupTime}.";
+            DiagnosticLogger.Info("ScheduledCleanup", message);
+            return (true, message);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ScheduledCleanup", "Failed to register scheduled task", ex);
+            return (false, $"Could not create the scheduled task: {ex.Message}");
+        }
+    }
+
+    private static TaskSchedulerLib.Trigger BuildTrigger(AppSettings settings, DateTime start)
+    {
+        switch (settings.ScheduledCleanupFrequency.ToUpperInvariant())
+        {
+            case "DAILY":
+                return new TaskSchedulerLib.DailyTrigger { StartBoundary = start, DaysInterval = 1 };
+
+            case "MONTHLY":
+                return new TaskSchedulerLib.MonthlyTrigger(1) { StartBoundary = start };
+
+            default:
+                var day = settings.ScheduledCleanupDayOfWeek switch
+                {
+                    2 => TaskSchedulerLib.DaysOfTheWeek.Tuesday,
+                    3 => TaskSchedulerLib.DaysOfTheWeek.Wednesday,
+                    4 => TaskSchedulerLib.DaysOfTheWeek.Thursday,
+                    5 => TaskSchedulerLib.DaysOfTheWeek.Friday,
+                    6 => TaskSchedulerLib.DaysOfTheWeek.Saturday,
+                    7 => TaskSchedulerLib.DaysOfTheWeek.Sunday,
+                    _ => TaskSchedulerLib.DaysOfTheWeek.Monday
+                };
+                return new TaskSchedulerLib.WeeklyTrigger(day) { StartBoundary = start };
+        }
+    }
+
+    private static (bool Success, string Message) RemoveTask()
+    {
+        try
+        {
+            using var ts = new TaskSchedulerLib.TaskService();
+            ts.RootFolder.DeleteTask(TaskName, exceptionOnNotExists: false);
+            return (true, "Scheduled cleanup disabled.");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ScheduledCleanup", "Failed to remove scheduled task", ex);
+            return (false, $"Could not remove the scheduled task: {ex.Message}");
         }
     }
 }
