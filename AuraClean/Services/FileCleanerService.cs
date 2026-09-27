@@ -58,9 +58,15 @@ public static class FileCleanerService
     /// <summary>
     /// Analyzes the system for junk files and returns categorized results.
     /// </summary>
+    /// <param name="includeReviewOnlyCategories">
+    /// When false, the slow Windows.old measurement and DISM component-store analysis are skipped.
+    /// Normal mode and scheduled cleanups never offer those categories, so there is no point
+    /// spending minutes computing them.
+    /// </param>
     public static async Task<List<JunkItem>> AnalyzeSystemJunkAsync(
         IProgress<string>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool includeReviewOnlyCategories = true)
     {
         var results = new System.Collections.Concurrent.ConcurrentBag<JunkItem>();
 
@@ -113,6 +119,9 @@ public static class FileCleanerService
                     results.Add(item);
                 return ValueTask.CompletedTask;
             });
+
+        if (!includeReviewOnlyCategories)
+            return results.ToList();
 
         progress?.Report("Checking for Windows.old...");
         var windowsOld = Path.Combine(Path.GetPathRoot(WindowsDir) ?? @"C:\", "Windows.old");

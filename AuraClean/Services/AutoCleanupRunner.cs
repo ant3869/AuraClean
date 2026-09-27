@@ -14,7 +14,7 @@ public static class AutoCleanupRunner
     {
         DiagnosticLogger.Info("AutoCleanup", "Starting scheduled cleanup...");
 
-        var items = await FileCleanerService.AnalyzeSystemJunkAsync(ct: ct);
+        var items = await FileCleanerService.AnalyzeSystemJunkAsync(ct: ct, includeReviewOnlyCategories: false);
         CleanupModePolicy.ApplyDefaultSelection(items, settings, isAdvancedMode: false);
 
         var selected = items.Where(i => i.IsSelected).ToList();

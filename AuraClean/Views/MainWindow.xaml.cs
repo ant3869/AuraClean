@@ -92,6 +92,9 @@ public partial class MainWindow : Window
 
             InitializeTrayIcon();
             ContentRendered += OnFirstContentRendered;
+
+            // Never intercept a Windows logoff/shutdown with the "minimize to tray" behavior.
+            Application.Current.SessionEnding += (_, _) => _forceClose = true;
         }
         catch (Exception ex)
         {
@@ -196,16 +199,29 @@ public partial class MainWindow : Window
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Open AuraClean", null, (_, _) => RestoreFromTray());
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => Dispatcher.BeginInvoke(() =>
-        {
-            if (!ConfirmExitWhileBusy())
-                return;
-            _forceClose = true;
-            Close();
-        }));
+        menu.Items.Add("Exit", null, (_, _) => Dispatcher.BeginInvoke(ExitFromTray));
         _trayIcon.ContextMenuStrip = menu;
 
         NotificationService.RegisterTrayIcon(_trayIcon);
+    }
+
+    private void ExitFromTray()
+    {
+        if (!ConfirmExitWhileBusy())
+            return;
+
+        _forceClose = true;
+
+        // A window that started hidden in the tray was never shown; closing it would not end
+        // the application, so shut down explicitly in that case.
+        if (!IsLoaded)
+        {
+            DisposeTrayIcon();
+            Application.Current.Shutdown();
+            return;
+        }
+
+        Close();
     }
 
     private void DisposeTrayIcon()
@@ -260,9 +276,10 @@ public partial class MainWindow : Window
         if (!_viewModel.IsAnyOperationRunning)
             return true;
 
-        var result = MessageBox.Show(this,
-            "AuraClean is still working. Closing now may leave the current operation unfinished.\n\nExit anyway?",
-            "Operation in progress", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        const string message = "AuraClean is still working. Closing now may leave the current operation unfinished.\n\nExit anyway?";
+        var result = IsVisible
+            ? MessageBox.Show(this, message, "Operation in progress", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+            : MessageBox.Show(message, "Operation in progress", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         return result == MessageBoxResult.Yes;
     }
 

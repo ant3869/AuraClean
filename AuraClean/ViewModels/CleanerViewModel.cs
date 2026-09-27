@@ -183,7 +183,8 @@ public partial class CleanerViewModel : ObservableObject
             var advanced = IsAdvancedMode;
 
             ProgressValue = 10;
-            var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(progress);
+            var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(
+                progress, includeReviewOnlyCategories: advanced);
 
             var abandonedTask = advanced && settings.RunHeuristicScan
                 ? HeuristicScannerService.ScanForAbandonedFilesAsync(settings.AbandonedFileDaysThreshold, progress)

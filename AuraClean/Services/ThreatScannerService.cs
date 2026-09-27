@@ -86,7 +86,7 @@ public static class ThreatScannerService
         threats.AddRange(regResult.threats);
 
         percentProgress?.Report(100);
-        FinalizeResult(result, threats, sw);
+        await Task.Run(() => FinalizeResult(result, threats, sw), ct);
 
         DiagnosticLogger.Info("ThreatScanner",
             $"Quick scan complete: {result.Threats.Count} threats in {sw.Elapsed.TotalSeconds:F1}s");
@@ -160,7 +160,7 @@ public static class ThreatScannerService
         ReportStage("Finalizing scan results...");
 
         percentProgress?.Report(100);
-        FinalizeResult(result, threats, sw);
+        await Task.Run(() => FinalizeResult(result, threats, sw), ct);
 
         DiagnosticLogger.Info("ThreatScanner",
             $"Full scan complete: {result.Threats.Count} threats in {sw.Elapsed.TotalSeconds:F1}s");
@@ -185,7 +185,7 @@ public static class ThreatScannerService
         result.TotalFilesScanned = fileScanResult.scanned;
 
         percentProgress?.Report(100);
-        FinalizeResult(result, fileScanResult.threats, sw);
+        await Task.Run(() => FinalizeResult(result, fileScanResult.threats, sw), ct);
 
         return result;
     }
@@ -217,7 +217,7 @@ public static class ThreatScannerService
         threats.AddRange(await ScanBrowserRegistryAsync(progress, ct));
 
         percentProgress?.Report(100);
-        FinalizeResult(result, threats, sw);
+        await Task.Run(() => FinalizeResult(result, threats, sw), ct);
 
         return result;
     }
@@ -369,13 +369,14 @@ public static class ThreatScannerService
 
             // Check 5: PE Analysis for executables. Validly signed binaries are skipped:
             // packers, high entropy, and injection APIs are all common in legitimate signed software.
-            if ((ext.Equals(".exe", StringComparison.OrdinalIgnoreCase) ||
-                 ext.Equals(".dll", StringComparison.OrdinalIgnoreCase) ||
-                 ext.Equals(".scr", StringComparison.OrdinalIgnoreCase)) &&
-                !AuthenticodeHelper.IsSignedAndTrusted(filePath))
+            if (ext.Equals(".exe", StringComparison.OrdinalIgnoreCase) ||
+                ext.Equals(".dll", StringComparison.OrdinalIgnoreCase) ||
+                ext.Equals(".scr", StringComparison.OrdinalIgnoreCase))
             {
+                // The signature check is comparatively expensive, so it only runs for files the
+                // PE heuristics already consider suspicious.
                 var peResult = await AnalyzePeFileAsync(filePath, ct);
-                if (peResult.isSuspicious)
+                if (peResult.isSuspicious && !AuthenticodeHelper.IsSignedAndTrusted(filePath))
                     return peResult;
             }
 
