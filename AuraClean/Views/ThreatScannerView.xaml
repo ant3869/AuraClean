@@ -66,15 +66,15 @@
             </Grid.ColumnDefinitions>
 
             <!-- Quick Scan Card -->
-            <Button Grid.Column="0" Margin="0,0,6,0"
+            <Button Style="{StaticResource AuraBareButton}" Grid.Column="0" Margin="0,0,6,0"
                     Command="{Binding SelectScanModeCommand}" CommandParameter="Quick"
                     AutomationProperties.Name="Quick Scan"
-                    FocusVisualStyle="{StaticResource AuraFocusVisual}">
+                    >
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" Padding="14,12" CornerRadius="{StaticResource AuraRadiusBase}"
-                                Background="{DynamicResource AuraSurface}"
-                                BorderBrush="{DynamicResource AuraBorder}"
+                                Background="{DynamicResource AuraCardBackground}"
+                                BorderBrush="{DynamicResource AuraCardBorder}"
                                 BorderThickness="1.5" Cursor="Hand">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -90,9 +90,12 @@
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraHoverBorder}" />
+                            </Trigger>
                             <DataTrigger Binding="{Binding SelectedScanMode}" Value="Quick">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAccentTeal}" />
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraAccent}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSelectedBackground}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -100,16 +103,16 @@
             </Button>
 
             <!-- Full Scan Card -->
-            <Button Grid.Column="1" Margin="6,0,6,0"
+            <Button Style="{StaticResource AuraBareButton}" Grid.Column="1" Margin="6,0,6,0"
                     Command="{Binding SelectScanModeCommand}" CommandParameter="Full"
                     AutomationProperties.Name="Full Scan"
                     Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
-                    FocusVisualStyle="{StaticResource AuraFocusVisual}">
+                    >
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" Padding="14,12" CornerRadius="{StaticResource AuraRadiusBase}"
-                                Background="{DynamicResource AuraSurface}"
-                                BorderBrush="{DynamicResource AuraBorder}"
+                                Background="{DynamicResource AuraCardBackground}"
+                                BorderBrush="{DynamicResource AuraCardBorder}"
                                 BorderThickness="1.5" Cursor="Hand">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -125,9 +128,12 @@
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraHoverBorder}" />
+                            </Trigger>
                             <DataTrigger Binding="{Binding SelectedScanMode}" Value="Full">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAccentPurple}" />
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraAccent}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSelectedBackground}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -135,16 +141,16 @@
             </Button>
 
             <!-- Custom Scan Card -->
-            <Button Grid.Column="2" Margin="6,0,6,0"
+            <Button Style="{StaticResource AuraBareButton}" Grid.Column="2" Margin="6,0,6,0"
                     Command="{Binding SelectScanModeCommand}" CommandParameter="Custom"
                     AutomationProperties.Name="Custom Scan"
                     Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
-                    FocusVisualStyle="{StaticResource AuraFocusVisual}">
+                    >
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" Padding="14,12" CornerRadius="{StaticResource AuraRadiusBase}"
-                                Background="{DynamicResource AuraSurface}"
-                                BorderBrush="{DynamicResource AuraBorder}"
+                                Background="{DynamicResource AuraCardBackground}"
+                                BorderBrush="{DynamicResource AuraCardBorder}"
                                 BorderThickness="1.5" Cursor="Hand">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -160,9 +166,12 @@
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraHoverBorder}" />
+                            </Trigger>
                             <DataTrigger Binding="{Binding SelectedScanMode}" Value="Custom">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraWarning}" />
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraAccent}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSelectedBackground}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -170,16 +179,16 @@
             </Button>
 
             <!-- Browser Scan Card -->
-            <Button Grid.Column="3" Margin="6,0,0,0"
+            <Button Style="{StaticResource AuraBareButton}" Grid.Column="3" Margin="6,0,0,0"
                     Command="{Binding SelectScanModeCommand}" CommandParameter="BrowserOnly"
                     AutomationProperties.Name="Browser Scan"
                     Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
-                    FocusVisualStyle="{StaticResource AuraFocusVisual}">
+                    >
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" Padding="14,12" CornerRadius="{StaticResource AuraRadiusBase}"
-                                Background="{DynamicResource AuraSurface}"
-                                BorderBrush="{DynamicResource AuraBorder}"
+                                Background="{DynamicResource AuraCardBackground}"
+                                BorderBrush="{DynamicResource AuraCardBorder}"
                                 BorderThickness="1.5" Cursor="Hand">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -195,9 +204,12 @@
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraHoverBorder}" />
+                            </Trigger>
                             <DataTrigger Binding="{Binding SelectedScanMode}" Value="BrowserOnly">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AuraAmber}" />
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSurfaceLight}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraAccent}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraSelectedBackground}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -472,7 +484,6 @@
                             <Border Grid.Column="1" Style="{StaticResource AuraPillErr}" Margin="6,0"
                                     Visibility="{Binding CriticalCount, Converter={StaticResource IntToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal">
-                                <Ellipse Style="{StaticResource AuraPillDot}" />
                                 <TextBlock VerticalAlignment="Center">
                                     <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding CriticalCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" Critical" />
@@ -483,7 +494,6 @@
                             <Border Grid.Column="2" Style="{StaticResource AuraPillErr}" Margin="6,0"
                                     Visibility="{Binding HighCount, Converter={StaticResource IntToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal">
-                                <Ellipse Style="{StaticResource AuraPillDot}" />
                                 <TextBlock VerticalAlignment="Center">
                                     <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding HighCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" High" />
@@ -494,7 +504,6 @@
                             <Border Grid.Column="3" Style="{StaticResource AuraPillWarn}" Margin="6,0"
                                     Visibility="{Binding MediumCount, Converter={StaticResource IntToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal">
-                                <Ellipse Style="{StaticResource AuraPillDot}" />
                                 <TextBlock VerticalAlignment="Center">
                                     <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding MediumCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" Medium" />
@@ -505,7 +514,6 @@
                             <Border Grid.Column="4" Style="{StaticResource AuraPillInfo}" Margin="6,0"
                                     Visibility="{Binding LowCount, Converter={StaticResource IntToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal">
-                                <Ellipse Style="{StaticResource AuraPillDot}" />
                                 <TextBlock VerticalAlignment="Center">
                                     <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LowCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" Low" />
@@ -653,54 +661,32 @@
                                                             </StackPanel>
 
                                                             <!-- Detection method badge -->
-                                                            <Border Grid.Column="3" CornerRadius="3"
-                                                                    Background="{DynamicResource AuraSurfaceElevated}"
-                                                                    Padding="6,2" Margin="4,0"
-                                                                    VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding DetectionMethodDisplay}"
-                                                                           FontSize="10"
-                                                                           Foreground="{DynamicResource AuraTextMuted}" />
+                                                            <Border Grid.Column="3" Style="{StaticResource AuraPillNeutral}"
+                                                                    Margin="4,0" TextElement.FontSize="10">
+                                                                <TextBlock Text="{Binding DetectionMethodDisplay}" />
                                                             </Border>
 
-                                                            <!-- Threat level badge -->
-                                                            <Border Grid.Column="4" CornerRadius="3"
-                                                                    Padding="6,2" Margin="4,0"
-                                                                    VerticalAlignment="Center">
+                                                            <!-- Threat level tag: Low teal, Medium amber, High/Critical red -->
+                                                            <Border Grid.Column="4" Margin="4,0" TextElement.FontSize="10">
                                                                 <Border.Style>
-                                                                    <Style TargetType="Border">
-                                                                        <Setter Property="Background" Value="{StaticResource AuraSuccessSeverity}" />
+                                                                    <Style TargetType="Border" BasedOn="{StaticResource AuraPillInfo}">
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding ThreatLevel}" Value="Medium">
-                                                                                <Setter Property="Background" Value="{StaticResource AuraAmberSeverity}" />
+                                                                                <Setter Property="Background" Value="{DynamicResource AuraWarnStrong}" />
+                                                                                <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraWarnTagText}" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding ThreatLevel}" Value="High">
-                                                                                <Setter Property="Background" Value="{StaticResource AuraCoralSeverity}" />
+                                                                                <Setter Property="Background" Value="{DynamicResource AuraErrStrong}" />
+                                                                                <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraErrTagText}" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
-                                                                                <Setter Property="Background" Value="{StaticResource AuraCriticalSeverity}" />
+                                                                                <Setter Property="Background" Value="{DynamicResource AuraErrStrong}" />
+                                                                                <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraErrTagText}" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
                                                                     </Style>
                                                                 </Border.Style>
-                                                                <TextBlock Text="{Binding ThreatLevelDisplay}"
-                                                                           FontSize="10" FontWeight="Medium">
-                                                                    <TextBlock.Style>
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Setter Property="Foreground" Value="{StaticResource AuraSuccess}" />
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding ThreatLevel}" Value="Medium">
-                                                                                    <Setter Property="Foreground" Value="{StaticResource AuraAmber}" />
-                                                                                </DataTrigger>
-                                                                                <DataTrigger Binding="{Binding ThreatLevel}" Value="High">
-                                                                                    <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
-                                                                                </DataTrigger>
-                                                                                <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
-                                                                                    <Setter Property="Foreground" Value="{DynamicResource AuraErr}" />
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </TextBlock.Style>
-                                                                </TextBlock>
+                                                                <TextBlock Text="{Binding ThreatLevelDisplay}" />
                                                             </Border>
 
                                                             <!-- File size -->

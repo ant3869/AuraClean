@@ -232,6 +232,14 @@ public static class ThemePalette
             ["AuraErrStrong"] = M(t.Err, 18, t.BgSubtle),
             ["AuraInfoStrong"] = M(t.Info, 18, t.BgSubtle),
 
+            // Tags (status labels): tone text pulled toward the foreground so it stays AA on the
+            // tag's 18% tone fill in both themes.
+            ["AuraAccentTagText"] = M(t.AccentSoft, 78, t.Fg),
+            ["AuraOkTagText"] = M(t.Ok, 78, t.Fg),
+            ["AuraWarnTagText"] = M(t.Warn, 78, t.Fg),
+            ["AuraErrTagText"] = M(t.Err, 78, t.Fg),
+            ["AuraInfoTagText"] = M(t.Info, 78, t.Fg),
+
             ["AuraSegmentBorder"] = M(t.Bd, 86, t.FgDim),
             ["AuraSegmentHoverBorder"] = M(t.Bd, 82, t.FgDim),
             ["AuraSegmentHoverBackground"] = M(t.BgElev, 78, t.BgSubtle),

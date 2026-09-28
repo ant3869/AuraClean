@@ -55,7 +55,6 @@
                 <Border Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BoolToVis}}"
                         Style="{StaticResource AuraPillWarn}" Margin="0,0,12,0">
                     <StackPanel Orientation="Horizontal">
-                        <Ellipse Style="{StaticResource AuraPillDot}" />
                         <TextBlock Text="Unsaved changes" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>

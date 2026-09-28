@@ -368,7 +368,6 @@
                     </Style>
                 </Border.Style>
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse Style="{StaticResource AuraPillDot}" />
                     <TextBlock Text="{Binding ContextMenuStatus}"
                                AutomationProperties.LiveSetting="Polite"
                                VerticalAlignment="Center" />

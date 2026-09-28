@@ -692,14 +692,18 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <Border Style="{StaticResource AuraPillOk}"
-                                    Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}"
-                                    AutomationProperties.Name="Running as administrator">
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Style="{StaticResource AuraPillDot}" />
-                                    <TextBlock Text="Administrator" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Border>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}"
+                                        AutomationProperties.Name="Running as administrator"
+                                        ToolTip="AuraClean is running with administrator rights">
+                                <materialDesign:PackIcon Kind="ShieldCheck" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraOk}"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock Text="Administrator" Margin="6,0,0,0"
+                                           FontSize="11" FontWeight="Medium"
+                                           Foreground="{DynamicResource AuraTextSecondary}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
 
                             <TextBlock Grid.Column="2"
                                        Text="{Binding AppVersion}"

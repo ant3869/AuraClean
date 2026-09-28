@@ -315,6 +315,12 @@ public static class LogicTests
 
         foreach (var (name, palette) in new[] { ("dark", dark), ("light", light) })
         {
+            foreach (var tone in new[] { "Accent", "Ok", "Warn", "Err", "Info" })
+            {
+                var tag = Contrast(palette.Brushes[$"Aura{tone}TagText"], palette.Brushes[$"Aura{tone}Strong"]);
+                Check(tag >= 4.5, $"{tone} tag text meets WCAG AA on its tag fill in {name} ({tag:F2})");
+            }
+
             foreach (var key in new[] { "AuraTextBright", "AuraTextPrimary", "AuraTextSecondary", "AuraTextMuted", "AuraAccentSoft",
                                         "AuraOk", "AuraWarn", "AuraErr", "AuraInfo" })
             {

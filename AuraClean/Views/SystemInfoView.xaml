@@ -25,8 +25,8 @@
 
         <!-- Score badge style -->
         <Style x:Key="ScoreBadge" TargetType="Border">
-            <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusFull}" />
-            <Setter Property="Padding" Value="10,2" />
+            <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusXS}" />
+            <Setter Property="Padding" Value="8,2" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
@@ -236,9 +236,9 @@
 
                                 <!-- Grade pill: tint and outline on their own layers so the letter stays fully opaque -->
                                 <Grid HorizontalAlignment="Right" VerticalAlignment="Center" MinWidth="32">
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.14"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0.18"
                                             Background="{Binding CpuColor, Converter={StaticResource HexToBrush}}" />
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.4" BorderThickness="1"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0" BorderThickness="1"
                                             BorderBrush="{Binding CpuColor, Converter={StaticResource HexToBrush}}" />
                                     <TextBlock Text="{Binding CpuGrade}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{Binding CpuColor, Converter={StaticResource HexToBrush}}"
@@ -293,9 +293,9 @@
 
                                 <!-- Grade pill: tint and outline on their own layers so the letter stays fully opaque -->
                                 <Grid HorizontalAlignment="Right" VerticalAlignment="Center" MinWidth="32">
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.14"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0.18"
                                             Background="{Binding MemoryColor, Converter={StaticResource HexToBrush}}" />
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.4" BorderThickness="1"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0" BorderThickness="1"
                                             BorderBrush="{Binding MemoryColor, Converter={StaticResource HexToBrush}}" />
                                     <TextBlock Text="{Binding MemoryGrade}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{Binding MemoryColor, Converter={StaticResource HexToBrush}}"
@@ -350,9 +350,9 @@
 
                                 <!-- Grade pill: tint and outline on their own layers so the letter stays fully opaque -->
                                 <Grid HorizontalAlignment="Right" VerticalAlignment="Center" MinWidth="32">
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.14"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0.18"
                                             Background="{Binding GpuColor, Converter={StaticResource HexToBrush}}" />
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.4" BorderThickness="1"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0" BorderThickness="1"
                                             BorderBrush="{Binding GpuColor, Converter={StaticResource HexToBrush}}" />
                                     <TextBlock Text="{Binding GpuGrade}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{Binding GpuColor, Converter={StaticResource HexToBrush}}"
@@ -407,9 +407,9 @@
 
                                 <!-- Grade pill: tint and outline on their own layers so the letter stays fully opaque -->
                                 <Grid HorizontalAlignment="Right" VerticalAlignment="Center" MinWidth="32">
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.14"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0.18"
                                             Background="{Binding StorageColor, Converter={StaticResource HexToBrush}}" />
-                                    <Border CornerRadius="{StaticResource AuraRadiusFull}" Opacity="0.4" BorderThickness="1"
+                                    <Border CornerRadius="{StaticResource AuraRadiusXS}" Opacity="0" BorderThickness="1"
                                             BorderBrush="{Binding StorageColor, Converter={StaticResource HexToBrush}}" />
                                     <TextBlock Text="{Binding StorageGrade}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{Binding StorageColor, Converter={StaticResource HexToBrush}}"
@@ -504,7 +504,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button Command="{Binding DataContext.FilterByCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                <Button Style="{StaticResource AuraBareButton}" Command="{Binding DataContext.FilterByCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,4" Cursor="Hand">
                                     <Button.Template>

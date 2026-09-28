@@ -181,7 +181,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button Command="{Binding DataContext.NavigateToNodeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                <Button Style="{StaticResource AuraBareButton}" Command="{Binding DataContext.NavigateToNodeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
                                         Cursor="Hand" Margin="2">
                                     <Button.Template>

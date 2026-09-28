@@ -112,6 +112,13 @@
     <SolidColorBrush x:Key="AuraErrStrong" Color="#3B1D1D" />
     <SolidColorBrush x:Key="AuraInfoStrong" Color="#203232" />
 
+    <!-- Tag text: tone pulled toward fg so it stays AA on the tag's 18% tone fill -->
+    <SolidColorBrush x:Key="AuraAccentTagText" Color="#B59FFA" />
+    <SolidColorBrush x:Key="AuraOkTagText" Color="#64C372" />
+    <SolidColorBrush x:Key="AuraWarnTagText" Color="#D7AA4E" />
+    <SolidColorBrush x:Key="AuraErrTagText" Color="#F4726C" />
+    <SolidColorBrush x:Key="AuraInfoTagText" Color="#81CFC9" />
+
     <!-- Segmented control (tabs / theme picker) -->
     <SolidColorBrush x:Key="AuraSegmentBorder" Color="#333339" />
     <SolidColorBrush x:Key="AuraSegmentHoverBorder" Color="#37373C" />
