@@ -105,7 +105,8 @@
                 </StackPanel>
 
                 <TextBlock Grid.Row="1"
-                           Text="Normal mode reviews duplicates without selecting anything for deletion."
+                           Text="Nothing is selected for you. Tick copies to delete, or click Keep this on the copy you want. Deleted copies go to the Recycle Bin."
+                           TextWrapping="Wrap"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            FontSize="12"
                            Visibility="{Binding IsNormalMode, Converter={StaticResource BoolToVis}}" />
@@ -216,12 +217,13 @@
                 </WrapPanel>
 
                 <!-- Action buttons -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8"
-                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
-                    <Button Content="Select All Duplicates"
-                            Style="{StaticResource AuraGhostButton}"
-                            Foreground="{StaticResource AuraAccentTeal}"
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                    <!-- One-click selection of every duplicate: Advanced only, because blanket-deleting
+                         copies can remove files that apps need (each app ships its own copy). -->
+                    <Button Content="Select All Duplicates (keep oldest)"
+                            Style="{StaticResource AuraAccentToneButton}"
                             Command="{Binding SelectAllDuplicatesCommand}"
+                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                             Margin="0,0,8,0" />
                     <Button Content="Deselect All"
                             Style="{StaticResource AuraGhostButton}"
@@ -232,7 +234,7 @@
                             Command="{Binding DeleteSelectedCommand}">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Delete" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Delete Selected" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding DeleteButtonLabel}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -315,12 +317,14 @@
                                                                 <ColumnDefinition Width="*" />
                                                                 <ColumnDefinition Width="Auto" />
                                                                 <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
 
                                                             <CheckBox Grid.Column="0"
                                                                       IsChecked="{Binding IsSelected}"
-                                                                      AutomationProperties.Name="Select Duplicate File"
-                                                                      Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                                                                      IsEnabled="{Binding IsKeep, Converter={StaticResource InverseBoolConverter}}"
+                                                                      AutomationProperties.Name="{Binding FullPath, StringFormat='Delete {0}'}"
+                                                                      ToolTip="Mark this copy for deletion"
                                                                       Margin="0,0,8,0" VerticalAlignment="Center" />
 
                                                             <!-- Keep badge -->
@@ -332,6 +336,18 @@
                                                                     <TextBlock Text="Keep" FontSize="10" FontWeight="Medium" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                             </Border>
+
+                                                            <!-- Keep this copy, mark the rest of the group -->
+                                                            <Button Grid.Column="1"
+                                                                    Style="{StaticResource AuraOkButton}"
+                                                                    Padding="8,2" FontSize="11" Margin="0,0,8,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Content="Keep this"
+                                                                    ToolTip="Keep this copy and mark the other copies for deletion"
+                                                                    AutomationProperties.Name="{Binding FullPath, StringFormat='Keep {0} and mark the other copies'}"
+                                                                    Command="{Binding DataContext.KeepFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Visibility="{Binding IsKeep, Converter={StaticResource InverseBoolToVis}}" />
 
                                                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding FileName}"
@@ -355,6 +371,16 @@
                                                                        Foreground="{StaticResource AuraAccentTeal}"
                                                                        FontSize="12" VerticalAlignment="Center"
                                                                        MinWidth="60" TextAlignment="Right" />
+
+                                                            <Button Grid.Column="5"
+                                                                    Style="{StaticResource AuraIconButton}"
+                                                                    MinWidth="32" MinHeight="32" Padding="6" Margin="8,0,0,0"
+                                                                    ToolTip="Show in File Explorer"
+                                                                    AutomationProperties.Name="{Binding FullPath, StringFormat='Show {0} in File Explorer'}"
+                                                                    Command="{Binding DataContext.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding FullPath}">
+                                                                <materialDesign:PackIcon Kind="FolderOpenOutline" Width="16" Height="16" />
+                                                            </Button>
                                                         </Grid>
                                                     </Border>
                                                 </DataTemplate>

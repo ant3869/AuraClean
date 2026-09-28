@@ -336,4 +336,34 @@ public static class PathSafety
 
         return [.. dirs.Distinct(StringComparer.OrdinalIgnoreCase)];
     }
+
+    private static readonly HashSet<string> AppBinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".dll", ".exe", ".sys", ".pyd", ".so", ".node", ".jar", ".ocx", ".msi", ".cab", ".dylib", ".lib", ".bin",
+    };
+
+    // Folder segments that mark app installs, environments and package caches.
+    private static readonly string[] AppFolderMarkers =
+    [
+        @"\AppData\", @"\site-packages\", @"\node_modules\", @"\venv\", @"\.venv\", @"\env\Lib\",
+        @"\.cargo\", @"\.nuget\", @"\.gradle\", @"\.m2\", @"\go\pkg\", @"\.git\", @"\Steam\steamapps\",
+    ];
+
+    /// <summary>
+    /// True when a file looks like part of an installed app or development environment (program
+    /// binaries, or anything inside AppData, virtual environments, package caches, …). Identical
+    /// copies of such files are usually required by each app that ships them, so deleting a
+    /// "duplicate" can break that app. Used to warn before deletion; never blocks on its own.
+    /// </summary>
+    public static bool IsLikelyAppDependency(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        if (AppBinaryExtensions.Contains(Path.GetExtension(path)))
+            return true;
+
+        var normalized = path.Replace('/', '\\');
+        return AppFolderMarkers.Any(marker => normalized.Contains(marker, StringComparison.OrdinalIgnoreCase));
+    }
 }

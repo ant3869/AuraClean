@@ -210,19 +210,31 @@
 
             <!-- Right Panel: Algorithm Choice + Shred Button + Results -->
             <StackPanel Grid.Column="2">
-                <Border Style="{StaticResource AuraGlassCard}"
-                        CornerRadius="12" Margin="0,0,0,16"
+                <Border Style="{StaticResource AuraWarningBanner}" Margin="0,0,0,16"
                         Visibility="{Binding IsNormalMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
-                        <TextBlock Text="Advanced Mode Required"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AuraTextPrimary}"
-                                   Margin="0,0,0,8" />
-                        <TextBlock Text="File shredding is permanent and cannot be undone. Switch to Advanced mode when you intentionally need secure deletion."
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <materialDesign:PackIcon Kind="AlertOutline" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraWarn}"
+                                                     VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="Shredding needs Advanced mode"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AuraWarn}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Text="Shredding overwrites files so they can never be recovered — not even from the Recycle Bin. You can add files here now; switch to Advanced mode when you're sure."
                                    FontSize="12"
                                    TextWrapping="Wrap"
                                    Foreground="{DynamicResource AuraTextSecondary}" />
+                        <Button Style="{StaticResource AuraWarnButton}"
+                                Command="{Binding EnableAdvancedModeCommand}"
+                                HorizontalAlignment="Left" Margin="0,10,0,0" Padding="12,6">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Tune" Width="16" Height="16"
+                                                         VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Switch to Advanced mode" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Border>
 

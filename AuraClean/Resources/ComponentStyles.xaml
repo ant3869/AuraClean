@@ -558,6 +558,7 @@
                                       IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                       Content="{TemplateBinding Header}"
                                       ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                      ContentStringFormat="{TemplateBinding HeaderStringFormat}"
                                       FocusVisualStyle="{StaticResource AuraFocusVisual}"
                                       Cursor="Hand"
                                       Foreground="{DynamicResource AuraTextBright}"

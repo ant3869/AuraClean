@@ -161,8 +161,7 @@
                 <!-- Actions -->
                 <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="8,0,0,0">
                     <Border Background="{DynamicResource AuraSurfaceLight}" CornerRadius="8"
-                            Padding="10,4" VerticalAlignment="Center" Margin="0,0,8,0"
-                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
+                            Padding="10,4" VerticalAlignment="Center" Margin="0,0,8,0">
                         <TextBlock FontSize="12" VerticalAlignment="Center">
                             <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding SelectedCount, Mode=OneWay}" Foreground="{StaticResource AuraAccentPurple}" FontWeight="SemiBold" />
                             <Run Text=" checked" Foreground="{DynamicResource AuraTextSecondary}" />
@@ -176,8 +175,9 @@
                             Content="Open Location" Padding="12,6" />
                     <Button Style="{StaticResource AuraDangerButton}"
                             Command="{Binding DeleteSelectedCommand}"
-                            Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
-                            Content="Delete" Padding="12,6" Margin="4,0,0,0" />
+                            Content="{Binding DeleteButtonLabel}"
+                            ToolTip="{Binding DeleteButtonHint}"
+                            Padding="12,6" Margin="4,0,0,0" />
                 </StackPanel>
             </Grid>
 
@@ -211,7 +211,6 @@
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                           AutomationProperties.Name="Select Large File"
-                                          Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=DataGrid}, Converter={StaticResource BoolToVis}}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

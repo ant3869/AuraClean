@@ -221,9 +221,10 @@ public static class LargeFileFinderService
     }
 
     /// <summary>
-    /// Safely deletes a file (non-shredded, normal deletion).
+    /// Safely deletes a file (non-shredded). With <paramref name="useRecycleBin"/> the file goes
+    /// to the Recycle Bin so it can be restored.
     /// </summary>
-    public static (bool success, string message) DeleteFile(string path)
+    public static (bool success, string message) DeleteFile(string path, bool useRecycleBin = false)
     {
         try
         {
@@ -236,6 +237,13 @@ public static class LargeFileFinderService
             var info = new FileInfo(path);
             if (info.IsReadOnly)
                 info.IsReadOnly = false;
+
+            if (useRecycleBin)
+            {
+                return RecycleBinHelper.TrySendToRecycleBin(path, out var error)
+                    ? (true, $"Moved to Recycle Bin: {Path.GetFileName(path)}")
+                    : (false, error);
+            }
 
             File.Delete(path);
             return (true, $"Deleted: {Path.GetFileName(path)}");

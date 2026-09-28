@@ -293,12 +293,10 @@
             <Button Grid.Column="4" Style="{StaticResource AuraGhostButton}"
                     Content="Select All" FontSize="11"
                     Command="{Binding SelectAllCommand}"
-                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     Margin="0,0,4,0" Padding="8,4" />
             <Button Grid.Column="5" Style="{StaticResource AuraGhostButton}"
                     Content="Deselect" FontSize="11"
                     Command="{Binding DeselectAllCommand}"
-                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     Padding="8,4" />
         </Grid>
 
@@ -550,7 +548,6 @@
 
                                                 <CheckBox Grid.Column="0"
                                                           IsChecked="{Binding IsAllSelected}"
-                                                          Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                           Margin="0,0,12,0"
                                                           VerticalAlignment="Center" />
 
@@ -593,7 +590,6 @@
 
                                                             <CheckBox Grid.Column="0"
                                                                       IsChecked="{Binding IsSelected}"
-                                                                      Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                                       Margin="0,0,8,0"
                                                                       VerticalAlignment="Center" />
 

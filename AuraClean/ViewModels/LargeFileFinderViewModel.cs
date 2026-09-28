@@ -248,23 +248,27 @@ public partial class LargeFileFinderViewModel : ObservableObject
             StatusMessage = "Couldn't open the file location.";
     }
 
+    /// <summary>Normal mode removes to the Recycle Bin; Advanced mode deletes permanently.</summary>
+    public string DeleteButtonLabel => IsAdvancedMode ? "Delete" : "Move to Recycle Bin";
+
+    public string DeleteButtonHint => IsAdvancedMode
+        ? "Permanently delete the ticked files"
+        : "Move the ticked files to the Recycle Bin (restorable)";
+
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
         if (IsBusy) return;
 
-        if (!IsAdvancedMode)
-        {
-            StatusMessage = "Turn on Advanced mode to delete large files. Normal mode is review-only for personal files.";
-            return;
-        }
-
         var checkedFiles = FilteredFiles.Where(f => f.IsSelected).ToList();
         if (checkedFiles.Count == 0)
         {
-            StatusMessage = "No files selected for deletion.";
+            StatusMessage = "Tick the files you want to remove first.";
             return;
         }
+
+        // Normal mode never deletes permanently: files go to the Recycle Bin.
+        var useRecycleBin = !IsAdvancedMode;
 
         var blocked = checkedFiles.Where(f => !PathSafety.IsSafeToDeleteFile(f.FullPath, out _)).ToList();
         checkedFiles = checkedFiles.Except(blocked).ToList();
@@ -281,16 +285,31 @@ public partial class LargeFileFinderViewModel : ObservableObject
             return;
         }
 
-        if (!SafetyPromptService.ConfirmDestructiveAction(
-                $"Permanently delete {checkedFiles.Count} selected large file(s) ({FormatHelper.FormatBytes(bytes)})?" +
-                (blocked.Count > 0 ? $"\n\n{blocked.Count} system file(s) will be skipped." : string.Empty)))
+        var risky = checkedFiles.Count(f => PathSafety.IsLikelyAppDependency(f.FullPath));
+        var confirmText =
+            (useRecycleBin
+                ? $"Move {checkedFiles.Count} selected large file(s) ({FormatHelper.FormatBytes(bytes)}) to the Recycle Bin?\n\n" +
+                  "You can restore them from the Recycle Bin; the space is freed when it is emptied."
+                : $"Permanently delete {checkedFiles.Count} selected large file(s) ({FormatHelper.FormatBytes(bytes)})?\n\nThis cannot be undone.") +
+            (blocked.Count > 0 ? $"\n\n{blocked.Count} system file(s) will be skipped." : string.Empty) +
+            (risky > 0
+                ? $"\n\nWarning: {risky} of these look like program files or live inside an app folder " +
+                  "(AppData, virtual environments, package caches). Removing them can break the app that uses them."
+                : string.Empty);
+
+        var confirmed = risky > 0
+            ? SafetyPromptService.ConfirmSecurityDecision(confirmText, "Remove large files")
+            : SafetyPromptService.ConfirmDestructiveAction(confirmText, "Remove large files");
+        if (!confirmed)
         {
-            StatusMessage = "Large file deletion cancelled.";
+            StatusMessage = "Large file removal cancelled.";
             return;
         }
 
         IsBusy = true;
-        StatusMessage = $"Deleting {checkedFiles.Count} file(s)...";
+        StatusMessage = useRecycleBin
+            ? $"Moving {checkedFiles.Count} file(s) to the Recycle Bin..."
+            : $"Deleting {checkedFiles.Count} file(s)...";
 
         int deleted = 0;
         long freedBytes = 0;
@@ -299,7 +318,7 @@ public partial class LargeFileFinderViewModel : ObservableObject
         try
         {
             var outcomes = await Task.Run(() => checkedFiles
-                .Select(file => (File: file, Result: LargeFileFinderService.DeleteFile(file.FullPath)))
+                .Select(file => (File: file, Result: LargeFileFinderService.DeleteFile(file.FullPath, useRecycleBin)))
                 .ToList());
 
             foreach (var (file, (success, message)) in outcomes)
@@ -318,7 +337,7 @@ public partial class LargeFileFinderViewModel : ObservableObject
             }
 
             CleanupHistoryService.Record(CleanupOperationType.LargeFileRemoval, deleted, freedBytes,
-                $"Large files in {ScanPath}");
+                $"Large files in {ScanPath}{(useRecycleBin ? " (Recycle Bin)" : string.Empty)}");
         }
         catch (Exception ex)
         {
@@ -332,7 +351,9 @@ public partial class LargeFileFinderViewModel : ObservableObject
             HasResults = true;
             ApplyFilter();
             SelectedFile = null;
-            StatusMessage = $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}." +
+            StatusMessage = (useRecycleBin
+                    ? $"Moved {deleted} file(s) ({FormatHelper.FormatBytes(freedBytes)}) to the Recycle Bin."
+                    : $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}.") +
                 (failedFiles.Count > 0 ? $" {failedFiles.Count} failed (in use or access denied)." : "") +
                 (blocked.Count > 0 ? $" {blocked.Count} system file(s) skipped." : "");
             IsBusy = false;

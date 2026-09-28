@@ -91,7 +91,11 @@ public partial class LargeFileFinderViewModel : IExperienceModeAware
         set
         {
             if (SetProperty(ref _isAdvancedMode, value))
+            {
                 OnPropertyChanged(nameof(IsNormalMode));
+                OnPropertyChanged(nameof(DeleteButtonLabel));
+                OnPropertyChanged(nameof(DeleteButtonHint));
+            }
         }
     }
     public bool IsNormalMode => !IsAdvancedMode;
@@ -191,8 +195,8 @@ public partial class StartupManagerViewModel : IExperienceModeAware
         }
     }
     public bool IsNormalMode => !IsAdvancedMode;
-    public string StartupToggleLabel => IsAdvancedMode ? "TOGGLE" : "DISABLE";
-    public bool ShowStartupSelectionBadge => IsAdvancedMode && HasCheckedItems;
+    public string StartupToggleLabel => "Enable / Disable";
+    public bool ShowStartupSelectionBadge => HasCheckedItems;
     public void SetExperienceMode(bool isAdvancedMode)
     {
         IsAdvancedMode = isAdvancedMode;

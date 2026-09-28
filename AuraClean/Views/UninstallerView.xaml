@@ -198,7 +198,8 @@
 
         <!-- Post-Uninstall Scan Results -->
         <Expander Grid.Row="3"
-                  Header="{Binding PostUninstallJunk.Count, StringFormat='Leftovers Found ({0} items)'}"
+                  Header="{Binding PostUninstallJunk.Count}"
+                  HeaderStringFormat="Leftovers found ({0} items)"
                   Visibility="{Binding ShowPostUninstallResults, Converter={StaticResource BoolToVis}}"
                   IsExpanded="True"
                   Style="{StaticResource AuraGroupExpander}"

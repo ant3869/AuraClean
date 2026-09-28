@@ -63,14 +63,12 @@
                     Style="{StaticResource AuraGhostButton}"
                     Foreground="{StaticResource AuraAccentTeal}"
                     Command="{Binding SelectAllCommand}"
-                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     Margin="0,0,4,0" />
 
             <Button Grid.Column="3"
                     Content="Deselect All"
                     Style="{StaticResource AuraGhostButton}"
                     Command="{Binding DeselectAllCommand}"
-                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                     Margin="0,0,8,0" />
 
             <Button Grid.Column="4"
@@ -154,7 +152,6 @@
                                         <CheckBox Grid.Column="0"
                                                   IsChecked="{Binding IsAllSelected}"
                                                   AutomationProperties.Name="Select All Cleanup Results"
-                                                  Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                   Margin="0,0,12,0"
                                                   VerticalAlignment="Center" />
 
@@ -214,7 +211,6 @@
                                                     <CheckBox Grid.Column="0"
                                                               IsChecked="{Binding IsSelected}"
                                                               AutomationProperties.Name="Select Cleanup Item"
-                                                              Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                               Margin="0,0,8,0"
                                                               VerticalAlignment="Center" />
 
@@ -236,9 +232,14 @@
                                                                              Kind="Lock"
                                                                              Foreground="{StaticResource AuraWarning}"
                                                                              Visibility="{Binding IsLocked, Converter={StaticResource BoolToVis}}"
-                                                                             ToolTip="{Binding LockingProcess, StringFormat='Locked by: {0}'}"
+                                                                             AutomationProperties.Name="{Binding LockingProcess, StringFormat='Locked by: {0}'}"
                                                                              VerticalAlignment="Center"
-                                                                             Margin="8,0" />
+                                                                             Margin="8,0">
+                                                        <!-- ToolTip is object-typed: StringFormat on it is ignored, so format via the ToolTip's own ContentStringFormat -->
+                                                        <materialDesign:PackIcon.ToolTip>
+                                                            <ToolTip Content="{Binding LockingProcess}" ContentStringFormat="Locked by: {0}" />
+                                                        </materialDesign:PackIcon.ToolTip>
+                                                    </materialDesign:PackIcon>
 
                                                     <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="3"
                                                                Text="{Binding FormattedSize}"
