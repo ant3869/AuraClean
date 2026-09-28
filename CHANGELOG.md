@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Status tags** — badges (severity, dry run, copies, wasted, unsaved changes, detection method) are squared tags with a solid tone fill and bold text instead of outlined ovals with dots; tag text meets WCAG AA in both themes. The sidebar shows administrator status as a shield icon and label.
 - **Sidebar** — each section has its own color for its label and icons (Cleanup violet, Analyze teal, Optimize green, Utilities amber); icons are 18px.
 - **Sidebar (OpenEval shell)** — gradient brand mark with tracked "SYSTEM UTILITY" subtitle, letter-spaced section labels (new `TrackedText` control; screen readers get normal casing), 16px icons that follow the item state, keyboard hints as kbd chips, an Administrator status pill, and version + theme toggle in the footer. Sidebar and status bar use the shell surface.
+- **Normal mode can act on results** — Duplicate Finder and Large File Finder let you tick files and remove them in Normal mode too; removals go to the Recycle Bin (Advanced mode deletes permanently). Duplicate rows get a "Keep this" button (keeps that copy, marks the rest), a show-in-Explorer button and a live "Delete Selected (N)" count; nothing is pre-selected, and one-click "select all duplicates" stays Advanced-only. Confirmations warn when files look like program files or live in app folders (AppData, virtual environments, package caches), since apps need their own copy.
+- Threat Scanner and System Cleaner show their selection checkboxes in Normal mode (quarantine and cleaning were already allowed, but you could not choose items). Startup Manager can re-enable items in Normal mode, not only disable them.
+- File Shredder explains why shredding needs Advanced mode and offers a one-click switch.
 
 ### Fixed
 
@@ -29,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sidebar labels** — the keyboard-shortcut hint no longer draws on top of the item name on hover.
 - **Collapsible group headers** rendered as a tiny centered box with the title missing (MaterialDesign's switch style was applied to the header toggle).
 - **Threat Scanner scan-mode cards** (and history filter chips, storage map tiles, system info filter chips) were cut off at 32px because they picked up MaterialDesign's default button style.
+- **Startup Manager** — the Status column's enabled/disabled icon was bound through a visibility converter, which blocked the icon style; it now shows the right icon.
 - **Uninstaller** — the leftovers header showed a bare number instead of "Leftovers found (N items)", and the System Cleaner lock tooltip omitted "Locked by:" (format strings on object-typed properties are ignored).
 - History and System Info filter chips now show which filter is active.
 - **System info** — the grade letter on each hardware card was drawn at 15% opacity (the badge's fade applied to its text) and was nearly invisible.
