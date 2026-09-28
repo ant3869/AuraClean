@@ -65,7 +65,13 @@ public static class SettingsService
     /// Persists the settings to disk atomically and applies OS-level side effects.
     /// Returns false when the file could not be written.
     /// </summary>
-    public static bool Save(AppSettings settings)
+    public static bool Save(AppSettings settings) => Save(settings, applySideEffects: true);
+
+    /// <summary>
+    /// Persists the settings; <paramref name="applySideEffects"/> = false skips the OS-level
+    /// registration work (used for UI-only preferences such as the theme).
+    /// </summary>
+    public static bool Save(AppSettings settings, bool applySideEffects)
     {
         bool saved;
         bool launchAtStartup;
@@ -94,7 +100,8 @@ public static class SettingsService
         }
 
         // Side effects run outside the lock: they may be slow (Task Scheduler COM calls).
-        LaunchAtLogonService.Apply(launchAtStartup);
+        if (applySideEffects)
+            LaunchAtLogonService.Apply(launchAtStartup);
         return saved;
     }
 
@@ -153,7 +160,14 @@ public class AppSettings
     public bool ShowConfirmationDialogs { get; set; } = true;
     public bool MinimizeToTray { get; set; } = false;
     public bool LaunchAtStartup { get; set; } = false;
-    public bool IsLightTheme { get; set; } = false;
+    public ThemeMode Theme { get; set; } = ThemeModes.Default;
+
+    /// <summary>
+    /// Pre-1.6 theme flag. Read only to migrate old settings files into <see cref="Theme"/>;
+    /// never written back (false is the default and is omitted).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsLightTheme { get; set; }
 
     // ── Cleaner ──
     public bool CleanTempFiles { get; set; } = true;
@@ -204,6 +218,13 @@ public class AppSettings
     {
         if (!Enum.IsDefined(ExperienceMode))
             ExperienceMode = ExperienceMode.Normal;
+
+        if (IsLightTheme)
+        {
+            Theme = ThemeMode.Light;
+            IsLightTheme = false;
+        }
+        Theme = ThemeModes.Normalize(Theme);
 
         AbandonedFileDaysThreshold = Math.Clamp(AbandonedFileDaysThreshold, 30, 3650);
         DefaultLargeFileSizeMb = Math.Clamp(DefaultLargeFileSizeMb, 1, 1024 * 1024);

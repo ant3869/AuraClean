@@ -12,7 +12,7 @@ namespace AuraClean.Views;
 
 public partial class FileShredderView : UserControl
 {
-    private static readonly Color DropHighlightColor = (Color)ColorConverter.ConvertFromString("#E86070");
+    private static readonly Color FallbackHighlightColor = Color.FromRgb(0xF8, 0x51, 0x49);
     private FileShredderViewModel? _subscribedVm;
 
     public FileShredderView()
@@ -84,24 +84,35 @@ public partial class FileShredderView : UserControl
             return;
 
         DropOverlay.Visibility = Visibility.Visible;
-
-        var anim = new ColorAnimation(DropHighlightColor, TimeSpan.FromMilliseconds(200))
+        AnimateDropBorder(new ColorAnimation(HighlightColor, TimeSpan.FromMilliseconds(180))
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-        };
-        DropZoneBorder.BorderBrush = new SolidColorBrush(Colors.Transparent);
-        DropZoneBorder.BorderBrush.BeginAnimation(SolidColorBrush.ColorProperty, anim);
+        });
     }
 
     private void OnDragLeaveZone(object sender, DragEventArgs e)
     {
         DropOverlay.Visibility = Visibility.Collapsed;
-
-        var anim = new ColorAnimation(Colors.Transparent, TimeSpan.FromMilliseconds(250))
+        AnimateDropBorder(new ColorAnimation(Colors.Transparent, TimeSpan.FromMilliseconds(180))
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
-        };
-        DropZoneBorder.BorderBrush?.BeginAnimation(SolidColorBrush.ColorProperty, anim);
+        });
+    }
+
+    /// <summary>Destructive-action tone from the active theme (red), for the drop highlight.</summary>
+    private Color HighlightColor => TryFindResource("AuraErr") is SolidColorBrush brush ? brush.Color : FallbackHighlightColor;
+
+    /// <summary>
+    /// Animates the drop-zone border on a brush owned by this element. The border starts with a
+    /// frozen system brush (and must never animate a shared theme brush), so each animation
+    /// starts from a fresh brush at the current color.
+    /// </summary>
+    private void AnimateDropBorder(AnimationTimeline animation)
+    {
+        var from = DropZoneBorder.BorderBrush is SolidColorBrush current ? current.Color : Colors.Transparent;
+        var brush = new SolidColorBrush(from);
+        DropZoneBorder.BorderBrush = brush;
+        brush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
     }
 
     private void OnFileDrop(object sender, DragEventArgs e)
@@ -112,21 +123,21 @@ public partial class FileShredderView : UserControl
             e.Data.GetData(DataFormats.FileDrop) is string[] files &&
             DataContext is FileShredderViewModel vm)
         {
-            // Flash: coral → white → coral → transparent (confirmation pulse)
+            // Confirmation pulse: highlight → foreground → highlight → transparent.
+            var highlight = HighlightColor;
+            var foreground = TryFindResource("AuraTextBright") is SolidColorBrush fg ? fg.Color : Colors.White;
             var flash = new ColorAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(400) };
-            flash.KeyFrames.Add(new LinearColorKeyFrame(Colors.White, KeyTime.FromPercent(0.3)));
-            flash.KeyFrames.Add(new LinearColorKeyFrame(DropHighlightColor, KeyTime.FromPercent(0.6)));
+            flash.KeyFrames.Add(new LinearColorKeyFrame(foreground, KeyTime.FromPercent(0.3)));
+            flash.KeyFrames.Add(new LinearColorKeyFrame(highlight, KeyTime.FromPercent(0.6)));
             flash.KeyFrames.Add(new LinearColorKeyFrame(Colors.Transparent, KeyTime.FromPercent(1.0)));
-            DropZoneBorder.BorderBrush = new SolidColorBrush(DropHighlightColor);
-            DropZoneBorder.BorderBrush.BeginAnimation(SolidColorBrush.ColorProperty, flash);
+            AnimateDropBorder(flash);
 
             vm.AddDroppedFiles(files);
         }
         else
         {
             // Non-file drop — reset border
-            var anim = new ColorAnimation(Colors.Transparent, TimeSpan.FromMilliseconds(200));
-            DropZoneBorder.BorderBrush?.BeginAnimation(SolidColorBrush.ColorProperty, anim);
+            AnimateDropBorder(new ColorAnimation(Colors.Transparent, TimeSpan.FromMilliseconds(180)));
         }
     }
 }

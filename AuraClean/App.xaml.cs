@@ -65,7 +65,7 @@ public partial class App : Application
 
         try
         {
-            ThemeService.ApplyTheme(settings.IsLightTheme);
+            ThemeService.Initialize(settings.Theme);
             DiagnosticLogger.PruneOldLogs(TimeSpan.FromDays(60));
 
             var window = new MainWindow();

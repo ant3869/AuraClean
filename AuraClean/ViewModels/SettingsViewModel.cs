@@ -18,7 +18,7 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     [ObservableProperty] private bool _showConfirmationDialogs;
     [ObservableProperty] private bool _minimizeToTray;
     [ObservableProperty] private bool _launchAtStartup;
-    [ObservableProperty] private bool _isLightTheme;
+    [ObservableProperty] private ThemeMode _selectedThemeMode;
 
     // ── Cleaner ──
     [ObservableProperty] private bool _cleanTempFiles;
@@ -80,6 +80,16 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
         ScheduledCleanupFrequency = "Weekly";
         ScheduledCleanupTime = "03:00";
         LoadFromDisk();
+
+        // The sidebar toggle can change the theme too; keep the radio group in sync.
+        ThemeService.ThemeChanged += (_, _) => SyncThemeMode(ThemeService.Mode);
+    }
+
+    private void SyncThemeMode(ThemeMode mode)
+    {
+        _suppressThemePreview = true;
+        SelectedThemeMode = mode;
+        _suppressThemePreview = false;
     }
 
     /// <summary>
@@ -97,9 +107,7 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
         ShowConfirmationDialogs = s.ShowConfirmationDialogs;
         MinimizeToTray = s.MinimizeToTray;
         LaunchAtStartup = s.LaunchAtStartup;
-        _suppressThemePreview = true;
-        IsLightTheme = s.IsLightTheme;
-        _suppressThemePreview = false;
+        SyncThemeMode(s.Theme);
 
         CleanTempFiles = s.CleanTempFiles;
         CleanWindowsUpdate = s.CleanWindowsUpdate;
@@ -154,7 +162,7 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
             ShowConfirmationDialogs = ShowConfirmationDialogs,
             MinimizeToTray = MinimizeToTray,
             LaunchAtStartup = LaunchAtStartup,
-            IsLightTheme = IsLightTheme,
+            Theme = ThemeService.Mode,
 
             CleanTempFiles = CleanTempFiles,
             CleanWindowsUpdate = CleanWindowsUpdate,
@@ -227,7 +235,7 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
         SettingsService.Save(defaults);
 
         LoadFromDisk();
-        ThemeService.ApplyTheme(IsLightTheme);
+        ThemeService.SetMode(SelectedThemeMode, persist: false);
         ExperienceModeService.NotifyModeChanged();
         _ = ScheduledCleanupService.ApplyScheduleAsync();
 
@@ -240,7 +248,7 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     {
         SettingsService.InvalidateCache();
         LoadFromDisk();
-        ThemeService.ApplyTheme(IsLightTheme);
+        ThemeService.SetMode(SelectedThemeMode, persist: false);
         ExperienceModeService.NotifyModeChanged();
         StatusMessage = "Settings reloaded from disk.";
     }
@@ -260,13 +268,14 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     partial void OnShowConfirmationDialogsChanged(bool value) => HasUnsavedChanges = true;
     partial void OnMinimizeToTrayChanged(bool value) => HasUnsavedChanges = true;
     partial void OnLaunchAtStartupChanged(bool value) => HasUnsavedChanges = true;
-    partial void OnIsLightThemeChanged(bool value)
+    partial void OnSelectedThemeModeChanged(ThemeMode value)
     {
         if (_suppressThemePreview)
             return;
 
-        HasUnsavedChanges = true;
-        ThemeService.ApplyTheme(value); // Live preview; persisted on Save.
+        // Appearance applies and saves immediately, like the sidebar toggle; it is not part of
+        // the "unsaved changes" set.
+        ThemeService.SetMode(value);
     }
     partial void OnCleanTempFilesChanged(bool value) => HasUnsavedChanges = true;
     partial void OnCleanWindowsUpdateChanged(bool value) => HasUnsavedChanges = true;

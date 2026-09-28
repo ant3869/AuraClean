@@ -56,6 +56,13 @@ public partial class MainViewModel : ObservableObject
         ? "Switch to Normal Mode"
         : "Switch to Advanced Mode";
 
+    /// <summary>Current theme preference, drives the sidebar toggle's icon.</summary>
+    public ThemeMode ThemeMode => ThemeService.Mode;
+
+    /// <summary>Tooltip and accessible name for the sidebar theme toggle.</summary>
+    public string ThemeToggleLabel =>
+        $"Theme: {ThemeModes.Label(ThemeService.Mode)}. Switch to {ThemeModes.Label(ThemeModes.Next(ThemeService.Mode))}";
+
     // System info properties for Dashboard
     [ObservableProperty] private string _osName = string.Empty;
     [ObservableProperty] private string _cpuName = string.Empty;
@@ -158,6 +165,11 @@ public partial class MainViewModel : ObservableObject
         finally { _isApplyingExternalModeChange = false; }
         ApplyExperienceModeToChildren(IsAdvancedMode);
         ExperienceModeService.ModeChanged += OnExperienceModeChanged;
+        ThemeService.ThemeChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(ThemeMode));
+            OnPropertyChanged(nameof(ThemeToggleLabel));
+        };
         StatusBarText = "AuraClean — Ready";
 
         Cleaner.CleanupCompleted += OnCleanupCompleted;
@@ -316,6 +328,13 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleExperienceMode() => IsAdvancedMode = !IsAdvancedMode;
+
+    [RelayCommand]
+    private void CycleTheme()
+    {
+        var mode = ThemeService.Cycle();
+        StatusBarText = $"Theme: {ThemeModes.Label(mode)}";
+    }
 
     [RelayCommand]
     private async Task QuickAnalyzeAsync()

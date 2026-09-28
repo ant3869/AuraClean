@@ -34,6 +34,9 @@ public static class LogicTests
         Section("Cleanup selection policy", TestCleanupPolicy);
         Section("Duplicate keep/delete exclusivity", TestDuplicateEntryExclusivity);
         Section("Threat signature data", TestSignatureData);
+        Section("Theme mode rules", TestThemeModes);
+        Section("Theme palette", TestThemePalette);
+        Section("Motion easing", TestCubicBezier);
 
         return (_pass, _fail);
     }
@@ -251,6 +254,107 @@ public static class LogicTests
         valid.Normalize();
         Check(valid.ScheduledCleanupTime == "07:05", "Single-digit hour normalized to HH:mm");
         Check(valid.ScheduledCleanupFrequency == "Daily", "Frequency casing normalized");
+
+        Check(new AppSettings().Theme == ThemeMode.Dark, "New installs default to the dark theme");
+
+        var legacyLight = new AppSettings { IsLightTheme = true };
+        legacyLight.Normalize();
+        Check(legacyLight.Theme == ThemeMode.Light && !legacyLight.IsLightTheme,
+            "Pre-1.6 light-theme flag migrates to ThemeMode.Light and is cleared");
+
+        var chosenAuto = new AppSettings { Theme = ThemeMode.Auto };
+        chosenAuto.Normalize();
+        Check(chosenAuto.Theme == ThemeMode.Auto, "An explicit Auto preference is kept");
+
+        var corrupt = new AppSettings { Theme = (ThemeMode)99 };
+        corrupt.Normalize();
+        Check(corrupt.Theme == ThemeMode.Dark, "Unknown theme value falls back to Dark");
+    }
+
+    private static void TestThemeModes()
+    {
+        Check(ThemeModes.Next(ThemeMode.Auto) == ThemeMode.Light &&
+              ThemeModes.Next(ThemeMode.Light) == ThemeMode.Dark &&
+              ThemeModes.Next(ThemeMode.Dark) == ThemeMode.Auto, "Toggle cycles Auto → Light → Dark → Auto");
+        Check(ThemeModes.ResolveIsLight(ThemeMode.Auto, systemPrefersLight: true), "Auto follows a light OS");
+        Check(!ThemeModes.ResolveIsLight(ThemeMode.Auto, systemPrefersLight: false), "Auto follows a dark OS");
+        Check(ThemeModes.ResolveIsLight(ThemeMode.Light, systemPrefersLight: false), "Light ignores the OS");
+        Check(!ThemeModes.ResolveIsLight(ThemeMode.Dark, systemPrefersLight: true), "Dark ignores the OS");
+        Check(ThemeModes.Label(ThemeMode.Auto) == "Auto (system)", "Auto is labeled for the menu");
+        Check(ThemeModes.Normalize((ThemeMode)(-1)) == ThemeMode.Dark, "Invalid mode normalizes to Dark");
+    }
+
+    private static void TestThemePalette()
+    {
+        Check(Rgba.Parse("#7C5CFF") == new Rgba(0x7C, 0x5C, 0xFF), "Parses #RRGGBB");
+        Check(Rgba.Parse("#2E000000") == new Rgba(0, 0, 0, 0x2E), "Parses #AARRGGBB");
+        Check(ColorMix.Mix(Rgba.Parse("#FFFFFF"), 50, Rgba.Parse("#000000")) == new Rgba(128, 128, 128),
+            "color-mix 50% of white and black is mid gray");
+        Check(ColorMix.Fade(Rgba.Parse("#7C5CFF"), 12) == new Rgba(0x7C, 0x5C, 0xFF, 31),
+            "Mixing with transparent keeps the hue and scales alpha");
+        Check(ColorMix.Mix(Rgba.Parse("#123456"), 100, Rgba.Parse("#ABCDEF")) == Rgba.Parse("#123456"),
+            "100% mix returns the first color");
+
+        var dark = ThemePalette.Build(light: false);
+        var light = ThemePalette.Build(light: true);
+        Check(dark.Brushes.Keys.OrderBy(k => k).SequenceEqual(light.Brushes.Keys.OrderBy(k => k)) &&
+              dark.Colors.Keys.OrderBy(k => k).SequenceEqual(light.Colors.Keys.OrderBy(k => k)) &&
+              dark.Gradients.Keys.OrderBy(k => k).SequenceEqual(light.Gradients.Keys.OrderBy(k => k)),
+            "Both themes define exactly the same resource keys");
+        Check(dark.Gradients.All(g => g.Value.Length == light.Gradients[g.Key].Length),
+            "Gradient stop counts match between themes");
+
+        Check(dark.Brushes["AuraBackground"] == Rgba.Parse("#0A0A0B") &&
+              light.Brushes["AuraBackground"] == Rgba.Parse("#FFFFFF"), "Page background matches the tokens");
+        Check(light.Brushes["AuraAccentSoft"] == Rgba.Parse("#6344E6"),
+            "Light accent text uses the AA-safe #6344E6");
+        Check(dark.Brushes["AuraAccent"] == light.Brushes["AuraAccent"], "Accent fill is the same in both themes");
+
+        foreach (var (name, palette) in new[] { ("dark", dark), ("light", light) })
+        {
+            foreach (var key in new[] { "AuraTextBright", "AuraTextSecondary", "AuraTextMuted", "AuraAccentSoft",
+                                        "AuraOk", "AuraWarn", "AuraErr", "AuraInfo" })
+            {
+                var onPage = Contrast(palette.Brushes[key], palette.Brushes["AuraBackground"]);
+                var onCard = Contrast(palette.Brushes[key], palette.Brushes["AuraCardBackground"]);
+                Check(onPage >= 4.5 && onCard >= 4.5,
+                    $"{key} meets WCAG AA on page and card in {name} ({onPage:F2}, {onCard:F2})");
+            }
+        }
+    }
+
+    private static void TestCubicBezier()
+    {
+        Check(CubicBezier.Evaluate(0, 0.2, 0, 0, 1) == 0 && CubicBezier.Evaluate(1, 0.2, 0, 0, 1) == 1,
+            "Curve is anchored at 0 and 1");
+        Check(Math.Abs(CubicBezier.Evaluate(0.5, 0, 0, 1, 1) - 0.5) < 1e-4, "Linear control points give linear timing");
+        Check(CubicBezier.Evaluate(0.5, 0.2, 0, 0, 1) > 0.8, "Control curve (.2,0,0,1) front-loads motion");
+
+        double previous = 0;
+        bool monotonic = true;
+        for (int i = 1; i <= 100; i++)
+        {
+            var value = CubicBezier.Evaluate(i / 100.0, 0.2, 0, 0, 1);
+            monotonic &= value >= previous - 1e-9;
+            previous = value;
+        }
+        Check(monotonic, "Control curve is monotonic");
+        Check(CubicBezier.Evaluate(double.NaN, 0.2, 0, 0, 1) == 0, "NaN progress is treated as start");
+    }
+
+    private static double Contrast(Rgba a, Rgba b)
+    {
+        static double Channel(byte c)
+        {
+            var v = c / 255.0;
+            return v <= 0.03928 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
+        }
+
+        static double Luminance(Rgba c) => 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+
+        var la = Luminance(a);
+        var lb = Luminance(b);
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
     }
 
     private static void TestStartupOptions()

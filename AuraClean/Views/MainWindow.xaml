@@ -529,10 +529,36 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <TextBlock Text="{Binding AppVersion}"
-                               Foreground="{DynamicResource AuraTextMuted}"
-                               FontSize="10"
-                               Margin="0,4,0,0" />
+                    <Grid Margin="0,4,0,0">
+                        <TextBlock Text="{Binding AppVersion}"
+                                   Style="{StaticResource AuraMono}"
+                                   Foreground="{DynamicResource AuraTextMuted}"
+                                   FontSize="10"
+                                   VerticalAlignment="Center" />
+
+                        <!-- Theme toggle: Auto (system) → Light → Dark -->
+                        <Button Style="{StaticResource AuraIconButton}"
+                                HorizontalAlignment="Right"
+                                Command="{Binding CycleThemeCommand}"
+                                ToolTip="{Binding ThemeToggleLabel}"
+                                AutomationProperties.Name="{Binding ThemeToggleLabel}">
+                            <materialDesign:PackIcon Width="16" Height="16">
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Setter Property="Kind" Value="ThemeLightDark" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ThemeMode}" Value="Light">
+                                                <Setter Property="Kind" Value="WeatherSunny" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ThemeMode}" Value="Dark">
+                                                <Setter Property="Kind" Value="WeatherNight" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                        </Button>
+                    </Grid>
                 </StackPanel>
             </Grid>
         </Border>

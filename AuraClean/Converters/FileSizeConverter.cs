@@ -99,28 +99,33 @@ public class IntToVisibilityConverter : IValueConverter
 }
 
 /// <summary>
-/// Converts a health score (0-100) to a color brush for the gauge.
-/// Red (0-40) → Orange (40-70) → Green (70-100).
+/// Converts a health score (0-100) to the theme's status tone for the gauge:
+/// red below 40, amber below 70, green otherwise. Returns the shared theme brush so the
+/// gauge repaints when the theme changes.
 /// </summary>
 public class HealthScoreColorConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (value is not int score) return new System.Windows.Media.SolidColorBrush(
-            System.Windows.Media.Color.FromRgb(0x9E, 0x9E, 0x9E));
-
-        var color = score switch
-        {
-            < 40 => System.Windows.Media.Color.FromRgb(0xFF, 0x6B, 0x8A),   // Coral/Warning
-            < 70 => System.Windows.Media.Color.FromRgb(0xFF, 0xB7, 0x4D),   // Amber
-            _ => System.Windows.Media.Color.FromRgb(0x00, 0xE5, 0xC3)       // Cyan/Success
-        };
-
-        return new System.Windows.Media.SolidColorBrush(color);
-    }
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        ThemeBrushes.Get(value is int score ? ThemeBrushes.ForScore(score) : "AuraTextMuted");
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
+}
+
+/// <summary>Looks up theme brushes; the returned instances are updated in place on theme change.</summary>
+public static class ThemeBrushes
+{
+    public static System.Windows.Media.Brush Get(string key) =>
+        System.Windows.Application.Current?.TryFindResource(key) as System.Windows.Media.Brush
+        ?? System.Windows.Media.Brushes.Transparent;
+
+    /// <summary>Status tone for a 0-100 score: err below 40, warn below 70, ok otherwise.</summary>
+    public static string ForScore(int score) => score switch
+    {
+        < 40 => "AuraErr",
+        < 70 => "AuraWarn",
+        _ => "AuraOk",
+    };
 }
 
 /// <summary>
@@ -174,27 +179,28 @@ public class ScoreToWidthConverter : IValueConverter
 }
 
 /// <summary>
-/// Converts a hex color string like "#FF6B8A" to a SolidColorBrush.
+/// Converts a theme brush key (e.g. "AuraOk") or a "#RRGGBB" string to a brush.
+/// Keys resolve to the shared theme brushes, so bound elements follow theme changes.
 /// </summary>
 public class HexToBrushConverter : IValueConverter
 {
-    private static readonly System.Windows.Media.SolidColorBrush FallbackBrush =
-        new(System.Windows.Media.Color.FromRgb(0x7C, 0x5C, 0xFC));
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is string hex && hex.StartsWith('#') && hex.Length == 7)
+        if (value is not string text || string.IsNullOrWhiteSpace(text))
+            return ThemeBrushes.Get("AuraAccentSoft");
+
+        if (!text.StartsWith('#'))
+            return ThemeBrushes.Get(text);
+
+        if (text.Length == 7 &&
+            uint.TryParse(text.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
         {
-            try
-            {
-                byte r = System.Convert.ToByte(hex.Substring(1, 2), 16);
-                byte g = System.Convert.ToByte(hex.Substring(3, 2), 16);
-                byte b = System.Convert.ToByte(hex.Substring(5, 2), 16);
-                return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
-            }
-            catch (FormatException) { }
+            var brush = new SolidColorBrush(Color.FromRgb((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb));
+            brush.Freeze();
+            return brush;
         }
-        return FallbackBrush;
+
+        return ThemeBrushes.Get("AuraAccentSoft");
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -229,54 +235,52 @@ public class ScoreToAngleConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>Trend arrow tone: up = ok, down = err, flat = dim.</summary>
 public class TrendArrowColorConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        var arrow = value as string ?? string.Empty;
-        return arrow switch
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        ThemeBrushes.Get((value as string) switch
         {
-            "↑" => new SolidColorBrush(Color.FromRgb(0x4F, 0xD4, 0xA0)), // AuraSuccess / Mint
-            "↓" => new SolidColorBrush(Color.FromRgb(0xE8, 0x60, 0x70)), // AuraWarning / Coral
-            _ => new SolidColorBrush(Color.FromRgb(0x6B, 0x65, 0x80)),   // Muted
-        };
-    }
+            "↑" => "AuraOk",
+            "↓" => "AuraErr",
+            _ => "AuraTextMuted",
+        });
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
 
+/// <summary>
+/// Ambient glow behind the health score. The design system uses flat surfaces with no glow,
+/// so this is transparent in every state; kept so existing bindings stay valid.
+/// </summary>
 public class HealthGlowBrushConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        var glowColor = value is int score
-            ? score switch
-            {
-                < 40 => Color.FromArgb(0x14, 0xFF, 0x6B, 0x8A),  // Coral glow
-                < 70 => Color.FromArgb(0x14, 0xFF, 0xB7, 0x4D),  // Amber glow
-                _ => Color.FromArgb(0x14, 0x5C, 0xA8, 0x8A)      // Teal glow
-            }
-            : Color.FromArgb(0x14, 0x9B, 0x88, 0xFF);            // Default violet
-
-        var fadeColor = Color.FromArgb((byte)(glowColor.A / 3), glowColor.R, glowColor.G, glowColor.B);
-
-        var brush = new RadialGradientBrush
-        {
-            Center = new System.Windows.Point(0.3, 0.5),
-            RadiusX = 0.5,
-            RadiusY = 1.2,
-            GradientStops =
-            {
-                new GradientStop(glowColor, 0),
-                new GradientStop(fadeColor, 0.6),
-                new GradientStop(Colors.Transparent, 1)
-            }
-        };
-        brush.Freeze();
-        return brush;
-    }
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        System.Windows.Media.Brushes.Transparent;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Two-way bridge between an enum property and a group of RadioButtons:
+/// IsChecked is true when the value equals ConverterParameter; checking a button writes that value back.
+/// </summary>
+public class EnumEqualsConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value != null && parameter is string name &&
+        string.Equals(value.ToString(), name, StringComparison.OrdinalIgnoreCase);
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not true || parameter is not string name)
+            return Binding.DoNothing;
+
+        var enumType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        return enumType.IsEnum && Enum.TryParse(enumType, name, ignoreCase: true, out var result)
+            ? result!
+            : Binding.DoNothing;
+    }
 }

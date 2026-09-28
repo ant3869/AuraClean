@@ -86,6 +86,53 @@
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
 
+                <!-- ═══ APPEARANCE ═══ -->
+                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="ThemeLightDark" Width="20" Height="20"
+                                                     Foreground="{DynamicResource AuraAccentSoft}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="Appearance" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Auto follows the Windows app theme and switches with it. Applies immediately." />
+                        <TextBlock Text="THEME" Style="{StaticResource AuraEyebrow}" Margin="0,0,0,6" />
+                        <Border Style="{StaticResource AuraSegmented}">
+                            <StackPanel Orientation="Horizontal"
+                                        AutomationProperties.Name="Theme">
+                                <RadioButton Style="{StaticResource AuraSegmentedItem}" GroupName="ThemeMode"
+                                             AutomationProperties.Name="Auto (system)"
+                                             IsChecked="{Binding SelectedThemeMode, Converter={StaticResource EnumEquals}, ConverterParameter=Auto}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="ThemeLightDark" Width="16" Height="16"
+                                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="Auto (system)" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton Style="{StaticResource AuraSegmentedItem}" GroupName="ThemeMode"
+                                             AutomationProperties.Name="Light"
+                                             IsChecked="{Binding SelectedThemeMode, Converter={StaticResource EnumEquals}, ConverterParameter=Light}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="WeatherSunny" Width="16" Height="16"
+                                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="Light" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton Style="{StaticResource AuraSegmentedItem}" GroupName="ThemeMode"
+                                             AutomationProperties.Name="Dark"
+                                             IsChecked="{Binding SelectedThemeMode, Converter={StaticResource EnumEquals}, ConverterParameter=Dark}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="WeatherNight" Width="16" Height="16"
+                                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="Dark" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
                 <!-- ═══ GENERAL ═══ -->
                 <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
                     <StackPanel>
@@ -116,9 +163,6 @@
                         <CheckBox Style="{StaticResource AuraToggle}"
                                   IsChecked="{Binding LaunchAtStartup}"
                                   Content="Launch AuraClean when Windows starts" />
-                        <CheckBox Style="{StaticResource AuraToggle}"
-                                  IsChecked="{Binding IsLightTheme}"
-                                  Content="Use light theme" />
                     </StackPanel>
                 </Border>
 

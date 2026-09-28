@@ -43,7 +43,7 @@
 
             <!-- File List -->
             <Border x:Name="DropZoneBorder" Grid.Column="0" Style="{StaticResource AuraGlassCardFlush}"
-                    CornerRadius="16"
+                    CornerRadius="12"
                     BorderThickness="1.5"
                     BorderBrush="Transparent"
                     Focusable="True"
@@ -180,7 +180,7 @@
 
                     <!-- Drop Overlay (shown during drag-over) -->
                     <Border x:Name="DropOverlay" Grid.Row="0" Grid.RowSpan="3"
-                            Background="#220078D4" CornerRadius="14"
+                            Background="{DynamicResource AuraErrBannerBackground}" CornerRadius="12"
                             Visibility="Collapsed" IsHitTestVisible="False">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <materialDesign:PackIcon Kind="FileDownloadOutline" Width="40" Height="40"

@@ -23,34 +23,34 @@ public partial class SystemInfoViewModel : ObservableObject
     [ObservableProperty] private int _overallScore;
     [ObservableProperty] private string _overallGrade = "—";
     [ObservableProperty] private string _overallGradeLabel = "";
-    [ObservableProperty] private string _overallColor = "#7C5CFC";
+    [ObservableProperty] private string _overallColor = "AuraAccentSoft";
     [ObservableProperty] private ObservableCollection<HardwareScoreService.CategoryScore> _categoryScores = [];
 
     // ── Individual category scores for binding ──
     [ObservableProperty] private int _cpuScore;
     [ObservableProperty] private string _cpuGrade = "—";
     [ObservableProperty] private string _cpuSummary = "";
-    [ObservableProperty] private string _cpuColor = "#7C5CFC";
+    [ObservableProperty] private string _cpuColor = "AuraAccentSoft";
 
     [ObservableProperty] private int _memoryScore;
     [ObservableProperty] private string _memoryGrade = "—";
     [ObservableProperty] private string _memorySummary = "";
-    [ObservableProperty] private string _memoryColor = "#7C5CFC";
+    [ObservableProperty] private string _memoryColor = "AuraAccentSoft";
 
     [ObservableProperty] private int _gpuScore;
     [ObservableProperty] private string _gpuGrade = "—";
     [ObservableProperty] private string _gpuSummary = "";
-    [ObservableProperty] private string _gpuColor = "#7C5CFC";
+    [ObservableProperty] private string _gpuColor = "AuraAccentSoft";
 
     [ObservableProperty] private int _storageScore;
     [ObservableProperty] private string _storageGrade = "—";
     [ObservableProperty] private string _storageSummary = "";
-    [ObservableProperty] private string _storageColor = "#7C5CFC";
+    [ObservableProperty] private string _storageColor = "AuraAccentSoft";
 
     [ObservableProperty] private int _systemScore;
     [ObservableProperty] private string _systemGrade = "—";
     [ObservableProperty] private string _systemSummary = "";
-    [ObservableProperty] private string _systemColor = "#7C5CFC";
+    [ObservableProperty] private string _systemColor = "AuraAccentSoft";
 
     // ── Key hardware summary lines ──
     [ObservableProperty] private string _cpuName = "";
