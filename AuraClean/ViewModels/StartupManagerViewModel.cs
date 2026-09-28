@@ -148,16 +148,6 @@ public partial class StartupManagerViewModel : ObservableObject
             return;
         }
 
-        if (!IsAdvancedMode)
-        {
-            checkedEntries = checkedEntries.Where(e => e.IsEnabled).ToList();
-            if (checkedEntries.Count == 0)
-            {
-                StatusMessage = "Normal mode only disables startup items. Turn on Advanced mode to re-enable or delete entries.";
-                return;
-            }
-        }
-
         IsBusy = true;
         int toggled = 0;
         string? lastError = null;
@@ -166,7 +156,9 @@ public partial class StartupManagerViewModel : ObservableObject
         {
             foreach (var entry in checkedEntries)
             {
-                bool newState = IsAdvancedMode && !entry.IsEnabled;
+                // Enabling only restores an item's original behavior, so both modes can toggle
+                // either way; permanently deleting entries stays Advanced-only.
+                bool newState = !entry.IsEnabled;
                 StatusMessage = newState ? $"Enabling {entry.Name}..." : $"Disabling {entry.Name}...";
 
                 var (success, message) = await StartupManagerService.ToggleStartupEntryAsync(entry, newState);

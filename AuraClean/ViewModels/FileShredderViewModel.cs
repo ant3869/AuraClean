@@ -177,6 +177,17 @@ public partial class FileShredderViewModel : ObservableObject
         UpdateSelectionCount();
     }
 
+    /// <summary>
+    /// Turns on Advanced mode app-wide (the choice is saved and every page updates), so shredding
+    /// can be unlocked from the page that needs it.
+    /// </summary>
+    [RelayCommand]
+    private void EnableAdvancedMode()
+    {
+        ExperienceModeService.SaveMode(true);
+        StatusMessage = "Advanced mode is on. Choose an algorithm, then shred.";
+    }
+
     [RelayCommand]
     private async Task ShredAllAsync()
     {

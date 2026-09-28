@@ -22,7 +22,9 @@ public static partial class StartupManagerService
         [ObservableProperty] private string _command = string.Empty;
         [ObservableProperty] private string _location = string.Empty;
         [ObservableProperty] private string _publisher = string.Empty;
-        [ObservableProperty] private bool _isEnabled = true;
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusText))]
+        private bool _isEnabled = true;
         [ObservableProperty] private StartupSource _source;
         [ObservableProperty] private StartupImpact _impact = StartupImpact.Unknown;
         [ObservableProperty] private string _filePath = string.Empty;
@@ -30,6 +32,7 @@ public static partial class StartupManagerService
         [ObservableProperty] private bool _isSelected;
 
         public string FormattedSize => FormatHelper.FormatBytes(FileSizeBytes);
+        public string StatusText => IsEnabled ? "Enabled" : "Disabled";
         public string ImpactLabel => Impact switch
         {
             StartupImpact.High => "High",

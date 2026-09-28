@@ -644,7 +644,7 @@ class Program
             var scan = await DuplicateFinderService.ScanForDuplicatesAsync(dupDir, minSizeBytes: 1);
             foreach (var file in scan.Groups.SelectMany(g => g.Files))
                 file.IsSelected = true;
-            await DuplicateFinderService.DeleteDuplicatesAsync(scan.Groups);
+            await DuplicateFinderService.DeleteDuplicatesAsync(scan.Groups, useRecycleBin: false);
             Assert(File.Exists(a) || File.Exists(b), "At least one duplicate copy survives when all are selected");
         }
         catch (Exception ex)

@@ -274,8 +274,14 @@ public static partial class DuplicateFinderService
     /// <summary>
     /// Deletes selected duplicate files from the scan results.
     /// </summary>
+    /// <summary>
+    /// Deletes every selected, non-kept copy, always leaving at least one copy per group.
+    /// With <paramref name="useRecycleBin"/> the copies go to the Recycle Bin (recoverable;
+    /// space is freed when the bin is emptied) instead of being deleted permanently.
+    /// </summary>
     public static async Task<(int Deleted, int Failed, long BytesFreed)> DeleteDuplicatesAsync(
         IEnumerable<DuplicateGroup> groups,
+        bool useRecycleBin,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -307,7 +313,9 @@ public static partial class DuplicateFinderService
                 foreach (var file in toDelete)
                 {
                     ct.ThrowIfCancellationRequested();
-                    progress?.Report($"Deleting: {file.FileName}...");
+                    progress?.Report(useRecycleBin
+                        ? $"Moving to Recycle Bin: {file.FileName}..."
+                        : $"Deleting: {file.FileName}...");
 
                     try
                     {
@@ -332,7 +340,21 @@ public static partial class DuplicateFinderService
 
                         if (info.IsReadOnly)
                             info.IsReadOnly = false;
-                        info.Delete();
+
+                        if (useRecycleBin)
+                        {
+                            if (!RecycleBinHelper.TrySendToRecycleBin(file.FullPath, out var recycleError))
+                            {
+                                failed++;
+                                DiagnosticLogger.Warn("DuplicateFinderService", $"Could not recycle {file.FullPath}: {recycleError}");
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            info.Delete();
+                        }
+
                         bytesFreed += file.SizeBytes;
                         deleted++;
                     }

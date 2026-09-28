@@ -200,13 +200,11 @@
                             <GridViewColumn Width="40">
                                 <GridViewColumn.Header>
                                     <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                              Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                               ToolTip="Select All" />
                                 </GridViewColumn.Header>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <CheckBox IsChecked="{Binding IsSelected}"
-                                                  Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                   VerticalAlignment="Center" />
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
@@ -214,9 +212,8 @@
                             <GridViewColumn Header="Status" Width="60">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
-                                        <materialDesign:PackIcon
-                                            Kind="{Binding IsEnabled, Converter={StaticResource BoolToVis}, ConverterParameter=Icon}"
-                                            Width="18" Height="18">
+                                        <materialDesign:PackIcon Width="18" Height="18"
+                                            AutomationProperties.Name="{Binding StatusText}">
                                             <materialDesign:PackIcon.Style>
                                                 <Style TargetType="materialDesign:PackIcon">
                                                     <Style.Triggers>

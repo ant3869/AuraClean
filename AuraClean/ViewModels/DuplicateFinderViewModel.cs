@@ -37,6 +37,15 @@ public partial class DuplicateFinderViewModel : ObservableObject
 
     public string FormattedWasted => FormatHelper.FormatBytes(TotalWastedBytes);
 
+    /// <summary>Copies currently marked for deletion (selected and not kept).</summary>
+    [ObservableProperty] private int _selectedDeleteCount;
+
+    public string DeleteButtonLabel => SelectedDeleteCount > 0
+        ? $"Delete Selected ({SelectedDeleteCount:N0})"
+        : "Delete Selected";
+
+    partial void OnSelectedDeleteCountChanged(int value) => OnPropertyChanged(nameof(DeleteButtonLabel));
+
     private CancellationTokenSource? _scanCts;
 
     public DuplicateFinderViewModel()
@@ -108,7 +117,7 @@ public partial class DuplicateFinderViewModel : ObservableObject
             if (!IsAdvancedMode)
                 ApplyNormalModeReviewDefaults(result.Groups);
 
-            DuplicateGroups = new ObservableCollection<DuplicateFinderService.DuplicateGroup>(result.Groups);
+            SetResults(result.Groups);
             TotalGroupCount = result.Groups.Count;
             TotalDuplicateCount = result.TotalDuplicateFiles;
             TotalWastedBytes = result.TotalWastedBytes;
@@ -149,51 +158,65 @@ public partial class DuplicateFinderViewModel : ObservableObject
     {
         if (!HasResults || IsBusy) return;
 
-        if (!IsAdvancedMode)
+        var selected = DuplicateGroups.SelectMany(g => g.Files)
+            .Where(f => f.IsSelected && !f.IsKeep)
+            .ToList();
+
+        if (selected.Count == 0)
         {
-            StatusMessage = "Turn on Advanced mode to delete duplicate files. Normal mode is review-only for personal files.";
+            StatusMessage = "Tick the copies you want to delete, or click \"Keep this\" on the copy to keep.";
             return;
         }
 
-        var selectedCount = DuplicateGroups.SelectMany(g => g.Files)
-            .Count(f => f.IsSelected && !f.IsKeep);
-
-        if (selectedCount == 0)
-        {
-            StatusMessage = "No files selected for deletion.";
-            return;
-        }
-
+        var bytes = selected.Sum(f => f.SizeBytes);
         if (SafetyPromptService.IsDryRunEnabled())
         {
-            var bytes = DuplicateGroups.SelectMany(g => g.Files)
-                .Where(f => f.IsSelected && !f.IsKeep)
-                .Sum(f => f.SizeBytes);
-            StatusMessage = $"Dry run: would delete {selectedCount} duplicate file(s) ({FormatHelper.FormatBytes(bytes)}).";
+            StatusMessage = $"Dry run: would delete {selected.Count} duplicate file(s) ({FormatHelper.FormatBytes(bytes)}).";
             return;
         }
 
-        if (!SafetyPromptService.ConfirmDestructiveAction(
-                $"Delete {selectedCount} selected duplicate file(s)?"))
+        // Normal mode never deletes permanently: copies go to the Recycle Bin.
+        var useRecycleBin = !IsAdvancedMode;
+        var risky = selected.Count(f => PathSafety.IsLikelyAppDependency(f.FullPath));
+        var message =
+            $"{(useRecycleBin ? "Move" : "Permanently delete")} {selected.Count:N0} duplicate cop{(selected.Count == 1 ? "y" : "ies")} " +
+            $"({FormatHelper.FormatBytes(bytes)}){(useRecycleBin ? " to the Recycle Bin" : string.Empty)}?\n\n" +
+            "At least one copy of every file is always kept." +
+            (useRecycleBin
+                ? "\nYou can restore them from the Recycle Bin; the space is freed when it is emptied."
+                : "\nThis cannot be undone.") +
+            (risky > 0
+                ? $"\n\nWarning: {risky:N0} of these look like program files or live inside an app folder " +
+                  "(AppData, virtual environments, package caches). Apps usually need their own copy — deleting it can break them."
+                : string.Empty);
+
+        var confirmed = risky > 0
+            ? SafetyPromptService.ConfirmSecurityDecision(message, "Delete duplicate files")
+            : SafetyPromptService.ConfirmDestructiveAction(message, "Delete duplicate files");
+        if (!confirmed)
         {
             StatusMessage = "Duplicate deletion cancelled.";
             return;
         }
 
         IsBusy = true;
-        StatusMessage = $"Deleting {selectedCount} duplicate files...";
+        StatusMessage = useRecycleBin
+            ? $"Moving {selected.Count:N0} duplicate files to the Recycle Bin..."
+            : $"Deleting {selected.Count:N0} duplicate files...";
 
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
             var (deleted, failed, bytesFreed) = await DuplicateFinderService.DeleteDuplicatesAsync(
-                DuplicateGroups, progress: progress);
+                DuplicateGroups, useRecycleBin, progress);
 
-            StatusMessage = $"Deleted {deleted} files ({FormatHelper.FormatBytes(bytesFreed)} freed). " +
-                           (failed > 0 ? $"{failed} skipped (in use, changed since the scan, or protected)." : "");
+            var skipped = failed > 0 ? $" {failed} skipped (in use, changed since the scan, or protected)." : string.Empty;
+            StatusMessage = useRecycleBin
+                ? $"Moved {deleted:N0} files ({FormatHelper.FormatBytes(bytesFreed)}) to the Recycle Bin.{skipped}"
+                : $"Deleted {deleted:N0} files ({FormatHelper.FormatBytes(bytesFreed)} freed).{skipped}";
 
             CleanupHistoryService.Record(CleanupOperationType.DuplicateRemoval, deleted, bytesFreed,
-                $"Duplicates in {SelectedPath}");
+                $"Duplicates in {SelectedPath}{(useRecycleBin ? " (Recycle Bin)" : string.Empty)}");
 
             // Rebuild results so the (non-observable) group lists refresh in the UI.
             var remaining = new List<DuplicateFinderService.DuplicateGroup>();
@@ -203,7 +226,7 @@ public partial class DuplicateFinderViewModel : ObservableObject
                 if (group.Files.Count > 1)
                     remaining.Add(group);
             }
-            DuplicateGroups = new ObservableCollection<DuplicateFinderService.DuplicateGroup>(remaining);
+            SetResults(remaining);
 
             TotalGroupCount = DuplicateGroups.Count;
             TotalDuplicateCount = DuplicateGroups.Sum(g => g.Count - 1);
@@ -250,6 +273,55 @@ public partial class DuplicateFinderViewModel : ObservableObject
             foreach (var file in group.Files)
                 file.IsSelected = false;
     }
+
+    /// <summary>
+    /// Keeps <paramref name="file"/> and marks every other copy in its group for deletion — the
+    /// usual "keep this one, remove the rest" decision, made explicitly per group.
+    /// </summary>
+    [RelayCommand]
+    private void KeepFile(DuplicateFinderService.DuplicateFileEntry? file)
+    {
+        if (file == null || IsBusy)
+            return;
+
+        var group = DuplicateGroups.FirstOrDefault(g => g.Files.Contains(file));
+        if (group == null)
+            return;
+
+        foreach (var copy in group.Files)
+        {
+            var keep = ReferenceEquals(copy, file);
+            copy.IsKeep = keep;
+            copy.IsSelected = !keep;
+        }
+
+        StatusMessage = $"Keeping {file.FullPath}. {group.Files.Count - 1} other cop{(group.Files.Count == 2 ? "y is" : "ies are")} marked for deletion.";
+    }
+
+    private void SetResults(IEnumerable<DuplicateFinderService.DuplicateGroup> groups)
+    {
+        foreach (var file in DuplicateGroups.SelectMany(g => g.Files))
+            file.PropertyChanged -= OnFileSelectionChanged;
+
+        DuplicateGroups = new ObservableCollection<DuplicateFinderService.DuplicateGroup>(groups);
+
+        foreach (var file in DuplicateGroups.SelectMany(g => g.Files))
+            file.PropertyChanged += OnFileSelectionChanged;
+
+        RecountSelection();
+    }
+
+    private void OnFileSelectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DuplicateFinderService.DuplicateFileEntry.IsSelected)
+            or nameof(DuplicateFinderService.DuplicateFileEntry.IsKeep))
+        {
+            RecountSelection();
+        }
+    }
+
+    private void RecountSelection() =>
+        SelectedDeleteCount = DuplicateGroups.SelectMany(g => g.Files).Count(f => f.IsSelected && !f.IsKeep);
 
     [RelayCommand]
     private void OpenInExplorer(string? path)

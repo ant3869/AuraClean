@@ -33,6 +33,7 @@ public static class LogicTests
         Section("Command-line options", TestStartupOptions);
         Section("Cleanup selection policy", TestCleanupPolicy);
         Section("Duplicate keep/delete exclusivity", TestDuplicateEntryExclusivity);
+        Section("App-dependency warning heuristic", TestAppDependencyHeuristic);
         Section("Threat signature data", TestSignatureData);
         Section("Theme mode rules", TestThemeModes);
         Section("Theme palette", TestThemePalette);
@@ -269,6 +270,35 @@ public static class LogicTests
         var corrupt = new AppSettings { Theme = (ThemeMode)99 };
         corrupt.Normalize();
         Check(corrupt.Theme == ThemeMode.Dark, "Unknown theme value falls back to Dark");
+    }
+
+    private static void TestAppDependencyHeuristic()
+    {
+        Check(PathSafety.IsLikelyAppDependency(@"C:\Users\me\AppData\Roaming\app\torch\lib\cusparse64_12.dll"),
+            "DLL inside AppData is flagged");
+        Check(PathSafety.IsLikelyAppDependency(@"C:\Users\me\Desktop\proj\venv\Lib\site-packages\torch\lib\x.txt"),
+            "Anything in a Python virtual environment is flagged");
+        Check(PathSafety.IsLikelyAppDependency(@"D:\code\web\node_modules\left-pad\index.js"),
+            "node_modules content is flagged");
+        Check(PathSafety.IsLikelyAppDependency(@"D:\Tools\setup.EXE"), "Executables are flagged regardless of case");
+        Check(!PathSafety.IsLikelyAppDependency(@"C:\Users\me\Pictures\holiday\IMG_0001.jpg"),
+            "Personal photos are not flagged");
+        Check(!PathSafety.IsLikelyAppDependency(@"C:\Users\me\Documents\report (1).docx"),
+            "Personal documents are not flagged");
+        Check(!PathSafety.IsLikelyAppDependency(string.Empty), "Empty path is not flagged");
+
+        var group = new DuplicateFinderService.DuplicateGroup
+        {
+            Hash = "abc",
+            Files =
+            [
+                new DuplicateFinderService.DuplicateFileEntry { FileName = "cufft64_11.dll", FullPath = @"C:\a\cufft64_11.dll" },
+                new DuplicateFinderService.DuplicateFileEntry { FileName = "cufft64_11.dll", FullPath = @"C:\b\cufft64_11.dll" },
+            ],
+        };
+        Check(group.DisplayName == "cufft64_11.dll", "Duplicate group is titled by its file name");
+        Check(new DuplicateFinderService.DuplicateGroup { Hash = "abc" }.DisplayName == "abc",
+            "Empty duplicate group falls back to its hash");
     }
 
     private static void TestThemeModes()
