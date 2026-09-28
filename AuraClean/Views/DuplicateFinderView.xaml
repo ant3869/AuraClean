@@ -326,10 +326,9 @@
                                                             <!-- Keep badge -->
                                                             <Border Grid.Column="1"
                                                                     Style="{StaticResource AuraPillOk}"
-                                                                    MinHeight="20" Padding="7,1" Margin="0,0,8,0"
+                                                                    Margin="0,0,8,0"
                                                                     Visibility="{Binding IsKeep, Converter={StaticResource BoolToVis}}">
                                                                 <StackPanel Orientation="Horizontal">
-                                                                    <Ellipse Style="{StaticResource AuraPillDot}" />
                                                                     <TextBlock Text="Keep" FontSize="10" FontWeight="Medium" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                             </Border>

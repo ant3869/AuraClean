@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Storage map tiles are tinted by category with theme text, readable in both themes.
 - **Clearer hierarchy** — group sections (duplicate groups, cleaner categories, threat categories, uninstall leftovers) have a shaded, accent-edged header band with a semibold title, so headings no longer blend into their rows; duplicate groups are titled by file name with a "N copies" pill; body text is one step softer than headings.
 - **Buttons look like buttons** — secondary buttons have a filled surface, visible border and full-contrast text (they read as disabled before); dashboard actions are color-coded (Quick Clean violet, Health Check green, Boost RAM amber, Storage Map teal); new tone button styles for telling neighboring actions apart.
+- **Status tags** — badges (severity, dry run, copies, wasted, unsaved changes, detection method) are squared tags with a solid tone fill and bold text instead of outlined ovals with dots; tag text meets WCAG AA in both themes. The sidebar shows administrator status as a shield icon and label.
 - **Sidebar** — each section has its own color for its label and icons (Cleanup violet, Analyze teal, Optimize green, Utilities amber); icons are 18px.
 - **Sidebar (OpenEval shell)** — gradient brand mark with tracked "SYSTEM UTILITY" subtitle, letter-spaced section labels (new `TrackedText` control; screen readers get normal casing), 16px icons that follow the item state, keyboard hints as kbd chips, an Administrator status pill, and version + theme toggle in the footer. Sidebar and status bar use the shell surface.
 
@@ -26,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Sidebar selection** — only the current page is highlighted; previously one item stayed highlighted in every section you had visited.
 - **Sidebar labels** — the keyboard-shortcut hint no longer draws on top of the item name on hover.
+- **Collapsible group headers** rendered as a tiny centered box with the title missing (MaterialDesign's switch style was applied to the header toggle).
+- **Threat Scanner scan-mode cards** (and history filter chips, storage map tiles, system info filter chips) were cut off at 32px because they picked up MaterialDesign's default button style.
 - **System info** — the grade letter on each hardware card was drawn at 15% opacity (the badge's fade applied to its text) and was nearly invisible.
 - **Selection badges** ("N selected") and the disk fragmentation percentage used white text on light fills and were hard to read.
 - **File shredder** — dragging non-file content (such as text) over the drop zone and away no longer crashes the app (it animated a frozen brush).

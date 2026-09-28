@@ -340,6 +340,28 @@
         </Setter>
     </Style>
 
+    <!-- Bare button: for buttons that supply their own Template (cards, chips, tiles). An explicit
+         style keeps MaterialDesign's implicit button style (fixed 32px height, raised look) off them. -->
+    <Style x:Key="AuraBareButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource AuraFocusVisual}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      RecognizesAccessKey="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Primary: flat accent fill, white text, 8px radius, 40px hit target -->
     <Style x:Key="AuraPrimaryButton" TargetType="Button" BasedOn="{StaticResource AuraButtonBase}">
         <Setter Property="Background" Value="{DynamicResource AuraAccent}" />
@@ -508,6 +530,17 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Header toggle used by AuraGroupExpander. Explicit so MaterialDesign's implicit ToggleButton
+         (switch) style — fixed size, centered — never applies to the header band. -->
+    <Style x:Key="AuraGroupHeaderToggle" TargetType="ToggleButton">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
     <!-- Group expander: a shaded, accent-edged header band (chevron + title) above the rows it
          owns, so a group's heading never blends into its content. Put it inside a flush card. -->
     <Style x:Key="AuraGroupExpander" TargetType="Expander">
@@ -520,6 +553,7 @@
                 <ControlTemplate TargetType="Expander">
                     <DockPanel>
                         <ToggleButton x:Name="HeaderSite"
+                                      Style="{StaticResource AuraGroupHeaderToggle}"
                                       DockPanel.Dock="Top"
                                       IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                       Content="{TemplateBinding Header}"
@@ -773,69 +807,61 @@
     <!--  dot or icon plus text.                     -->
     <!-- ═══════════════════════════════════════════ -->
 
-    <!-- Status pill (accent by default): tone 38% border, tone 10% fill, tone text -->
+    <!-- Status tag (accent by default): squared 4px corners, 18% tone fill, semibold tone text.
+         Status is never color-only: the tag always carries a word ("Medium", "Dry run", "3 copies"). -->
     <Style x:Key="AuraPill" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusFull}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="8,2" />
-        <Setter Property="MinHeight" Value="22" />
+        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusXS}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="7,2" />
+        <Setter Property="MinHeight" Value="20" />
         <Setter Property="HorizontalAlignment" Value="Left" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Background" Value="{DynamicResource AuraAccentTint}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraAccentLine}" />
-        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraAccentSoft}" />
+        <Setter Property="Background" Value="{DynamicResource AuraAccentStrong}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraAccentTagText}" />
         <Setter Property="TextElement.FontSize" Value="{StaticResource AuraFontSizeCaption}" />
+        <Setter Property="TextElement.FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="AuraPillOk" TargetType="Border" BasedOn="{StaticResource AuraPill}">
-        <Setter Property="Background" Value="{DynamicResource AuraOkTint}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraOkLine}" />
-        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraOk}" />
+        <Setter Property="Background" Value="{DynamicResource AuraOkStrong}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraOkTagText}" />
     </Style>
 
     <Style x:Key="AuraPillWarn" TargetType="Border" BasedOn="{StaticResource AuraPill}">
-        <Setter Property="Background" Value="{DynamicResource AuraWarnTint}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraWarnLine}" />
-        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraWarn}" />
+        <Setter Property="Background" Value="{DynamicResource AuraWarnStrong}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraWarnTagText}" />
     </Style>
 
     <Style x:Key="AuraPillErr" TargetType="Border" BasedOn="{StaticResource AuraPill}">
-        <Setter Property="Background" Value="{DynamicResource AuraErrTint}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraErrLine}" />
-        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraErr}" />
+        <Setter Property="Background" Value="{DynamicResource AuraErrStrong}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraErrTagText}" />
     </Style>
 
     <Style x:Key="AuraPillInfo" TargetType="Border" BasedOn="{StaticResource AuraPill}">
-        <Setter Property="Background" Value="{DynamicResource AuraInfoTint}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraInfoLine}" />
-        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraInfo}" />
+        <Setter Property="Background" Value="{DynamicResource AuraInfoStrong}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraInfoTagText}" />
     </Style>
 
-    <!-- Pending / neutral pill -->
+    <!-- Pending / neutral tag -->
     <Style x:Key="AuraPillNeutral" TargetType="Border" BasedOn="{StaticResource AuraPill}">
         <Setter Property="Background" Value="{DynamicResource AuraBgElev}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraBorderSubtle}" />
-        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraTextMuted}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraTextSecondary}" />
     </Style>
 
-    <!-- 7px status dot; takes the tone of the pill it sits in -->
+    <!-- Kept for compatibility; tags no longer use a status dot -->
     <Style x:Key="AuraPillDot" TargetType="Ellipse">
-        <Setter Property="Width" Value="7" />
-        <Setter Property="Height" Value="7" />
-        <Setter Property="Margin" Value="0,0,6,0" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Fill" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}" />
+        <Setter Property="Visibility" Value="Collapsed" />
     </Style>
 
     <!-- Legacy status badge: views set the tone background; now pill-shaped -->
     <Style x:Key="AuraStatusBadge" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusFull}" />
+        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusXS}" />
         <Setter Property="Padding" Value="8,2" />
     </Style>
 
     <!-- Chip: legend / category chip -->
     <Style x:Key="AuraChip" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusFull}" />
+        <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusControl}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="8,3" />
         <Setter Property="Background" Value="{DynamicResource AuraBgElev}" />

@@ -153,7 +153,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Command="{Binding DataContext.FilterByTypeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        <Button Style="{StaticResource AuraBareButton}" Command="{Binding DataContext.FilterByTypeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}"
                                 Margin="0,0,4,4" Cursor="Hand">
                             <Button.Template>
@@ -261,7 +261,6 @@
                                     Visibility="{Binding WasDryRun, Converter={StaticResource BoolToVis}}"
                                     Style="{StaticResource AuraPillWarn}">
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Style="{StaticResource AuraPillDot}" />
                                     <TextBlock Text="Dry run" FontWeight="Medium" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Border>
