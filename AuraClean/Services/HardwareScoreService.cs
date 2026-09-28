@@ -383,15 +383,13 @@ public static class HardwareScoreService
         _ => "F"
     };
 
+    /// <summary>Theme brush key for a grade: green, violet, amber or red (resolved by HexToBrushConverter).</summary>
     public static string GradeColor(int score) => score switch
     {
-        >= 90 => "#00E5C3",  // Cyan/mint - exceptional
-        >= 80 => "#5BF0D7",  // Mint - excellent
-        >= 70 => "#7C5CFC",  // Violet - very good
-        >= 60 => "#A78BFA",  // Light purple - good
-        >= 50 => "#FFB74D",  // Amber - average
-        >= 35 => "#FF8A65",  // Orange - below average
-        _ => "#FF6B8A"       // Coral - needs upgrade
+        >= 80 => "AuraOk",
+        >= 60 => "AuraAccentSoft",
+        >= 50 => "AuraWarn",
+        _ => "AuraErr"
     };
 
     public static string GradeLabel(int score) => score switch
