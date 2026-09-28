@@ -145,27 +145,24 @@ public partial class LargeFileFinderViewModel : ObservableObject
     [RelayCommand]
     private void BrowseFolder()
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog
+        var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "Select any file in the target folder",
-            Filter = "All Files (*.*)|*.*",
-            CheckFileExists = true,
+            Title = "Select a folder to scan for large files",
+            Multiselect = false
         };
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
         {
-            var dir = Path.GetDirectoryName(dialog.FileName);
-            if (dir != null)
-            {
-                ScanPath = dir;
-                SelectedDrive = null;
-            }
+            ScanPath = dialog.FolderName;
+            SelectedDrive = null;
         }
     }
 
     [RelayCommand]
     private async Task ScanAsync()
     {
+        if (IsBusy) return;
+
         if (string.IsNullOrWhiteSpace(ScanPath))
         {
             StatusMessage = "Please select a drive or folder to scan.";
@@ -185,7 +182,7 @@ public partial class LargeFileFinderViewModel : ObservableObject
         ProgressFilesScanned = 0;
         ProgressFilesFound = 0;
 
-        long minBytes = (long)MinimumSizeMB * 1024 * 1024;
+        long minBytes = (long)Math.Max(1, MinimumSizeMB) * 1024 * 1024;
         StatusMessage = $"Scanning {ScanPath} for files ≥ {MinimumSizeMB} MB...";
 
         _cts = new CancellationTokenSource();
@@ -247,22 +244,15 @@ public partial class LargeFileFinderViewModel : ObservableObject
     {
         if (SelectedFile == null) return;
 
-        try
-        {
-            if (File.Exists(SelectedFile.FullPath))
-            {
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{SelectedFile.FullPath}\"");
-            }
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("LargeFileFinderVM", "Failed to open file location", ex);
-        }
+        if (!ShellHelper.RevealInExplorer(SelectedFile.FullPath))
+            StatusMessage = "Couldn't open the file location.";
     }
 
     [RelayCommand]
-    private void DeleteSelected()
+    private async Task DeleteSelectedAsync()
     {
+        if (IsBusy) return;
+
         if (!IsAdvancedMode)
         {
             StatusMessage = "Turn on Advanced mode to delete large files. Normal mode is review-only for personal files.";
@@ -270,36 +260,50 @@ public partial class LargeFileFinderViewModel : ObservableObject
         }
 
         var checkedFiles = FilteredFiles.Where(f => f.IsSelected).ToList();
-
         if (checkedFiles.Count == 0)
         {
             StatusMessage = "No files selected for deletion.";
             return;
         }
 
+        var blocked = checkedFiles.Where(f => !PathSafety.IsSafeToDeleteFile(f.FullPath, out _)).ToList();
+        checkedFiles = checkedFiles.Except(blocked).ToList();
+        if (checkedFiles.Count == 0)
+        {
+            StatusMessage = "The selected files are Windows or system files and can't be deleted here.";
+            return;
+        }
+
+        var bytes = checkedFiles.Sum(f => f.SizeBytes);
         if (SafetyPromptService.IsDryRunEnabled())
         {
-            var bytes = checkedFiles.Sum(f => f.SizeBytes);
             StatusMessage = $"Dry run: would delete {checkedFiles.Count} file(s) ({FormatHelper.FormatBytes(bytes)}).";
             return;
         }
 
         if (!SafetyPromptService.ConfirmDestructiveAction(
-                $"Delete {checkedFiles.Count} selected large file(s)?"))
+                $"Permanently delete {checkedFiles.Count} selected large file(s) ({FormatHelper.FormatBytes(bytes)})?" +
+                (blocked.Count > 0 ? $"\n\n{blocked.Count} system file(s) will be skipped." : string.Empty)))
         {
             StatusMessage = "Large file deletion cancelled.";
             return;
         }
 
+        IsBusy = true;
+        StatusMessage = $"Deleting {checkedFiles.Count} file(s)...";
+
         int deleted = 0;
         long freedBytes = 0;
         var failedFiles = new List<string>();
 
-        foreach (var file in checkedFiles)
+        try
         {
-            try
+            var outcomes = await Task.Run(() => checkedFiles
+                .Select(file => (File: file, Result: LargeFileFinderService.DeleteFile(file.FullPath)))
+                .ToList());
+
+            foreach (var (file, (success, message)) in outcomes)
             {
-                var (success, error) = LargeFileFinderService.DeleteFile(file.FullPath);
                 if (success)
                 {
                     freedBytes += file.SizeBytes;
@@ -309,22 +313,30 @@ public partial class LargeFileFinderViewModel : ObservableObject
                 else
                 {
                     failedFiles.Add(file.FileName);
+                    DiagnosticLogger.Warn("LargeFileFinderVM", $"Failed to delete {file.FullPath}: {message}");
                 }
             }
-            catch (Exception ex)
-            {
-                failedFiles.Add(file.FileName);
-                DiagnosticLogger.Warn("LargeFileFinderVM", $"Failed to delete: {file.FullPath}", ex);
-            }
-        }
 
-        TotalSizeFound -= freedBytes;
-        OnPropertyChanged(nameof(FormattedTotalSize));
-        ResultCount = Files.Count;
-        ApplyFilter();
-        SelectedFile = null;
-        StatusMessage = $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}." +
-            (failedFiles.Count > 0 ? $" {failedFiles.Count} failed." : "");
+            CleanupHistoryService.Record(CleanupOperationType.LargeFileRemoval, deleted, freedBytes,
+                $"Large files in {ScanPath}");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("LargeFileFinderVM", "DeleteSelectedAsync failed", ex);
+        }
+        finally
+        {
+            TotalSizeFound = Math.Max(0, TotalSizeFound - freedBytes);
+            OnPropertyChanged(nameof(FormattedTotalSize));
+            ResultCount = Files.Count;
+            HasResults = true;
+            ApplyFilter();
+            SelectedFile = null;
+            StatusMessage = $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}." +
+                (failedFiles.Count > 0 ? $" {failedFiles.Count} failed (in use or access denied)." : "") +
+                (blocked.Count > 0 ? $" {blocked.Count} system file(s) skipped." : "");
+            IsBusy = false;
+        }
     }
 
     /// <summary>

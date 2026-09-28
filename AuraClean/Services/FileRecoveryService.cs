@@ -1,14 +1,14 @@
 using AuraClean.Helpers;
-using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Text;
 
 namespace AuraClean.Services;
 
 /// <summary>
-/// File Recovery Service — scans the Recycle Bin for recently deleted files
-/// and allows restoring them to their original locations.
-/// Uses the Windows Shell COM interfaces to enumerate Recycle Bin items.
+/// File Recovery Service — lists the current user's Recycle Bin items and restores them to
+/// their original locations. Reads the Recycle Bin's own "$I" metadata records directly, which
+/// gives exact original paths, sizes, and deletion times regardless of the Windows language.
 /// </summary>
 public static class FileRecoveryService
 {
@@ -21,219 +21,237 @@ public static class FileRecoveryService
         public string FileType { get; set; } = string.Empty;
         public bool IsFolder { get; set; }
 
-        /// <summary>Internal path within Recycle Bin ($Recycle.Bin)</summary>
+        /// <summary>The "$R…" payload inside $Recycle.Bin.</summary>
         public string RecycleBinPath { get; set; } = string.Empty;
 
-        public string FormattedSize => SizeBytes switch
-        {
-            0 => "0 B",
-            < 1024 => $"{SizeBytes} B",
-            < 1_048_576 => $"{SizeBytes / 1024.0:F1} KB",
-            < 1_073_741_824 => $"{SizeBytes / 1_048_576.0:F1} MB",
-            _ => $"{SizeBytes / 1_073_741_824.0:F2} GB"
-        };
+        /// <summary>The "$I…" metadata record that describes the payload.</summary>
+        public string MetadataPath { get; set; } = string.Empty;
+
+        public string FormattedSize => FormatHelper.FormatBytes(SizeBytes);
 
         public string DeletedDateDisplay => DeletedDate.ToString("yyyy-MM-dd HH:mm");
     }
 
     /// <summary>
-    /// Scans the Windows Recycle Bin for deleted items using PowerShell
-    /// to access Shell.Application COM object.
+    /// Scans every fixed drive's Recycle Bin for the current user.
     /// </summary>
     public static async Task<List<RecoverableFile>> ScanRecycleBinAsync(
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        var files = new List<RecoverableFile>();
-
         progress?.Report("Scanning Recycle Bin...");
 
-        try
+        var files = await Task.Run(() =>
         {
-            await Task.Run(() =>
+            var results = new List<RecoverableFile>();
+            string? sid;
+            try
             {
-                // Use Shell32 Namespace to enumerate Recycle Bin (namespace 10 = Recycle Bin)
-                var shellType = Type.GetTypeFromProgID("Shell.Application");
-                if (shellType == null) return;
+                using var identity = WindowsIdentity.GetCurrent();
+                sid = identity.User?.Value;
+            }
+            catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException)
+            {
+                DiagnosticLogger.Warn("FileRecovery", "Could not resolve current user SID", ex);
+                return results;
+            }
 
-                dynamic? shell = Activator.CreateInstance(shellType);
-                if (shell == null) return;
+            if (sid == null)
+                return results;
 
+            foreach (var drive in DriveInfo.GetDrives())
+            {
+                ct.ThrowIfCancellationRequested();
+
+                bool usable;
+                try { usable = drive.IsReady && drive.DriveType is DriveType.Fixed or DriveType.Removable; }
+                catch (IOException) { usable = false; }
+                if (!usable)
+                    continue;
+
+                var binDir = Path.Combine(drive.RootDirectory.FullName, "$Recycle.Bin", sid);
+                if (!Directory.Exists(binDir))
+                    continue;
+
+                progress?.Report($"Reading Recycle Bin on {drive.Name}...");
+
+                IEnumerable<string> metadataFiles;
                 try
                 {
-                    // 10 = Recycle Bin special folder
-                    dynamic? recycleBin = shell.NameSpace(10);
-                    if (recycleBin == null) return;
-
-                    dynamic? items = recycleBin.Items();
-                    if (items == null) return;
-
-                    int count = items.Count;
-                    progress?.Report($"Found {count} items in Recycle Bin...");
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        ct.ThrowIfCancellationRequested();
-
-                        try
-                        {
-                            dynamic? item = items.Item(i);
-                            if (item == null) continue;
-
-                            string name = item.Name?.ToString() ?? "";
-                            string path = item.Path?.ToString() ?? "";
-                            long size = 0;
-                            bool isFolder = item.IsFolder;
-                            DateTime deletedDate = DateTime.MinValue;
-
-                            try { size = item.Size; } catch { }
-
-                            // Column 2 = "Date deleted" (locale-dependent)
-                            try
-                            {
-                                string? dateStr = recycleBin.GetDetailsOf(item, 2)?.ToString();
-                                // Handle non-breaking spaces and Unicode LTR/RTL marks
-                                if (!string.IsNullOrWhiteSpace(dateStr))
-                                {
-                                    dateStr = dateStr.Replace("\u200E", "").Replace("\u200F", "")
-                                                     .Replace('\u00A0', ' ').Trim();
-                                    DateTime.TryParse(dateStr, out deletedDate);
-                                }
-                            }
-                            catch { }
-
-                            // Column 1 = "Original Location"
-                            string originalLocation = "";
-                            try
-                            {
-                                originalLocation = recycleBin.GetDetailsOf(item, 1)?.ToString() ?? "";
-                            }
-                            catch { }
-
-                            var originalPath = string.IsNullOrEmpty(originalLocation)
-                                ? name
-                                : Path.Combine(originalLocation, name);
-
-                            files.Add(new RecoverableFile
-                            {
-                                FileName = name,
-                                OriginalPath = originalPath,
-                                RecycleBinPath = path,
-                                SizeBytes = size,
-                                DeletedDate = deletedDate,
-                                IsFolder = isFolder,
-                                FileType = isFolder ? "Folder" : Path.GetExtension(name).TrimStart('.').ToUpperInvariant()
-                            });
-
-                            if ((i + 1) % 100 == 0)
-                                progress?.Report($"Processed {i + 1} of {count} items...");
-                        }
-                        catch { }
-                    }
+                    metadataFiles = Directory.EnumerateFiles(binDir, "$I*", PathSafety.TopLevelNoReparse).ToList();
                 }
-                finally
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    Marshal.ReleaseComObject(shell);
+                    DiagnosticLogger.Warn("FileRecovery", $"Could not read {binDir}", ex);
+                    continue;
                 }
-            }, ct);
 
-            progress?.Report($"Found {files.Count} recoverable items.");
-            DiagnosticLogger.Info("FileRecovery", $"Scan found {files.Count} items in Recycle Bin");
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Error("FileRecovery", "Failed to scan Recycle Bin", ex);
-            progress?.Report($"Error scanning Recycle Bin: {ex.Message}");
-        }
+                foreach (var metadataPath in metadataFiles)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var item = TryReadItem(metadataPath);
+                    if (item != null)
+                        results.Add(item);
+                }
+            }
 
+            return results;
+        }, ct);
+
+        progress?.Report($"Found {files.Count} recoverable items.");
+        DiagnosticLogger.Info("FileRecovery", $"Scan found {files.Count} items in Recycle Bin");
         return files.OrderByDescending(f => f.DeletedDate).ToList();
     }
 
-    /// <summary>
-    /// Restores a file from the Recycle Bin to its original location
-    /// by using the Shell MoveHere verb.
-    /// </summary>
-    public static async Task<bool> RestoreFileAsync(RecoverableFile file, IProgress<string>? progress = null)
+    private static RecoverableFile? TryReadItem(string metadataPath)
     {
-        if (string.IsNullOrEmpty(file.RecycleBinPath))
-            return false;
-
-        progress?.Report($"Restoring {file.FileName}...");
-
         try
         {
-            return await Task.Run(() =>
+            var info = new FileInfo(metadataPath);
+            if (info.Length is < 24 or > 65536)
+                return null;
+
+            var data = File.ReadAllBytes(metadataPath);
+            if (!TryParseRecycleBinInfo(data, out var originalPath, out var size, out var deletedUtc))
+                return null;
+
+            var payloadName = "$R" + info.Name[2..];
+            var payloadPath = Path.Combine(info.DirectoryName!, payloadName);
+            bool isFolder = Directory.Exists(payloadPath);
+            if (!isFolder && !File.Exists(payloadPath))
+                return null; // Orphaned metadata — nothing to restore.
+
+            var fileName = Path.GetFileName(originalPath);
+            return new RecoverableFile
             {
-                var shellType = Type.GetTypeFromProgID("Shell.Application");
-                if (shellType == null) return false;
-
-                dynamic? shell = Activator.CreateInstance(shellType);
-                if (shell == null) return false;
-
-                try
-                {
-                    dynamic? recycleBin = shell.NameSpace(10);
-                    if (recycleBin == null) return false;
-
-                    dynamic? items = recycleBin.Items();
-                    if (items == null) return false;
-
-                    for (int i = 0; i < items.Count; i++)
-                    {
-                        dynamic? item = items.Item(i);
-                        if (item?.Path?.ToString() == file.RecycleBinPath)
-                        {
-                            // Restore original location directory
-                            var origDir = Path.GetDirectoryName(file.OriginalPath);
-                            if (!string.IsNullOrEmpty(origDir) && !Directory.Exists(origDir))
-                            {
-                                Directory.CreateDirectory(origDir);
-                            }
-
-                            // Get the original folder namespace and move the item back
-                            if (!string.IsNullOrEmpty(origDir))
-                            {
-                                dynamic? destFolder = shell.NameSpace(origDir);
-                                if (destFolder != null)
-                                {
-                                    // 4 = no UI, 16 = respond "yes to all"
-                                    destFolder.MoveHere(item, 4 | 16);
-                                    DiagnosticLogger.Info("FileRecovery",
-                                        $"Restored: {file.FileName} to {file.OriginalPath}");
-                                    return true;
-                                }
-                            }
-
-                            break;
-                        }
-                    }
-                }
-                finally
-                {
-                    Marshal.ReleaseComObject(shell);
-                }
-
-                return false;
-            });
+                FileName = string.IsNullOrEmpty(fileName) ? originalPath : fileName,
+                OriginalPath = originalPath,
+                RecycleBinPath = payloadPath,
+                MetadataPath = metadataPath,
+                SizeBytes = size,
+                DeletedDate = deletedUtc.ToLocalTime(),
+                IsFolder = isFolder,
+                FileType = isFolder ? "Folder" : Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant()
+            };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            DiagnosticLogger.Error("FileRecovery", $"Failed to restore {file.FileName}", ex);
-            progress?.Report($"Failed to restore {file.FileName}: {ex.Message}");
-            return false;
+            DiagnosticLogger.Warn("FileRecovery", $"Skipped unreadable Recycle Bin record {metadataPath}", ex);
+            return null;
         }
     }
 
     /// <summary>
-    /// Restores multiple files in batch.
+    /// Parses a Recycle Bin "$I" record.
+    /// Version 1 (Vista–8.1): header, size, FILETIME, fixed 520-byte UTF-16 path.
+    /// Version 2 (Windows 10+): header, size, FILETIME, 4-byte char count, UTF-16 path.
     /// </summary>
-    public static async Task<(int Success, int Failed)> RestoreFilesAsync(
+    internal static bool TryParseRecycleBinInfo(byte[] data, out string originalPath, out long size, out DateTime deletedUtc)
+    {
+        originalPath = string.Empty;
+        size = 0;
+        deletedUtc = DateTime.MinValue;
+
+        if (data.Length < 24)
+            return false;
+
+        long version = BitConverter.ToInt64(data, 0);
+        size = BitConverter.ToInt64(data, 8);
+        long fileTime = BitConverter.ToInt64(data, 16);
+
+        try
+        {
+            deletedUtc = fileTime > 0 ? DateTime.FromFileTimeUtc(fileTime) : DateTime.MinValue;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            deletedUtc = DateTime.MinValue;
+        }
+
+        string raw;
+        switch (version)
+        {
+            case 1:
+                if (data.Length < 24 + 2)
+                    return false;
+                raw = Encoding.Unicode.GetString(data, 24, Math.Min(520, data.Length - 24));
+                break;
+
+            case 2:
+                if (data.Length < 28)
+                    return false;
+                int chars = BitConverter.ToInt32(data, 24);
+                if (chars <= 0 || 28 + (long)chars * 2 > data.Length)
+                    return false;
+                raw = Encoding.Unicode.GetString(data, 28, chars * 2);
+                break;
+
+            default:
+                return false;
+        }
+
+        var nul = raw.IndexOf('\0');
+        originalPath = (nul >= 0 ? raw[..nul] : raw).Trim();
+        return originalPath.Length > 0 && size >= 0;
+    }
+
+    /// <summary>
+    /// Restores a Recycle Bin item to its original location. Never overwrites: if something now
+    /// exists at the original path the item is left in the Recycle Bin and a message explains why.
+    /// </summary>
+    public static Task<(bool Success, string Message)> RestoreFileAsync(RecoverableFile file) => Task.Run(() =>
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(file.RecycleBinPath) || string.IsNullOrEmpty(file.OriginalPath))
+                return (false, "Missing Recycle Bin information.");
+
+            bool payloadIsFolder = Directory.Exists(file.RecycleBinPath);
+            if (!payloadIsFolder && !File.Exists(file.RecycleBinPath))
+                return (false, $"{file.FileName} is no longer in the Recycle Bin.");
+
+            if (File.Exists(file.OriginalPath) || Directory.Exists(file.OriginalPath))
+                return (false, $"{file.FileName}: something already exists at {file.OriginalPath}; it was not overwritten.");
+
+            var parent = Path.GetDirectoryName(file.OriginalPath);
+            if (!string.IsNullOrEmpty(parent))
+                Directory.CreateDirectory(parent);
+
+            if (payloadIsFolder)
+                Directory.Move(file.RecycleBinPath, file.OriginalPath);
+            else
+                File.Move(file.RecycleBinPath, file.OriginalPath);
+
+            try
+            {
+                if (!string.IsNullOrEmpty(file.MetadataPath) && File.Exists(file.MetadataPath))
+                    File.Delete(file.MetadataPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                DiagnosticLogger.Warn("FileRecovery", $"Restored, but could not remove {file.MetadataPath}", ex);
+            }
+
+            DiagnosticLogger.Info("FileRecovery", $"Restored: {file.OriginalPath}");
+            return (true, $"Restored {file.FileName}.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            DiagnosticLogger.Error("FileRecovery", $"Failed to restore {file.FileName}", ex);
+            return (false, $"{file.FileName}: {ex.Message}");
+        }
+    });
+
+    /// <summary>
+    /// Restores multiple files. Returns the items that were restored and the failure messages.
+    /// </summary>
+    public static async Task<(List<RecoverableFile> Restored, List<string> Failures)> RestoreFilesAsync(
         IEnumerable<RecoverableFile> files,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        int success = 0, failed = 0;
+        var restored = new List<RecoverableFile>();
+        var failures = new List<string>();
         var fileList = files.ToList();
 
         for (int i = 0; i < fileList.Count; i++)
@@ -242,13 +260,12 @@ public static class FileRecoveryService
             var file = fileList[i];
             progress?.Report($"Restoring {i + 1}/{fileList.Count}: {file.FileName}");
 
-            if (await RestoreFileAsync(file, progress))
-                success++;
-            else
-                failed++;
+            var (ok, message) = await RestoreFileAsync(file);
+            if (ok) restored.Add(file);
+            else failures.Add(message);
         }
 
-        progress?.Report($"Restore complete: {success} restored, {failed} failed.");
-        return (success, failed);
+        progress?.Report($"Restore complete: {restored.Count} restored, {failures.Count} failed.");
+        return (restored, failures);
     }
 }

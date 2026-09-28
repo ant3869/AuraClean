@@ -105,7 +105,7 @@ public static class DiskOptimizerService
         try
         {
             // defrag /O optimizes: defrag for HDD, retrim for SSD
-            var result = await RunDefragAsync($"{volume} /O /U", progress, ct);
+            var result = await RunDefragAsync($"{volume} /O /U /V", progress, ct);
             if (result.Success)
             {
                 DiagnosticLogger.Info("DiskOptimizer", $"Optimization of {volume} completed successfully");
@@ -176,41 +176,22 @@ public static class DiskOptimizerService
         IProgress<string>? progress,
         CancellationToken ct)
     {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "defrag.exe",
-            Arguments = arguments,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = new Process { StartInfo = psi };
-        var output = new System.Text.StringBuilder();
-
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
+        // defrag.exe is safe to interrupt: cancellation terminates it.
+        var result = await ProcessRunner.RunAsync(
+            ProcessRunner.SystemTool("defrag.exe"),
+            arguments,
+            ct,
+            onOutputLine: line =>
             {
-                output.AppendLine(e.Data);
-                progress?.Report(e.Data.Trim());
-            }
-        };
+                var trimmed = line.Trim();
+                if (trimmed.Length > 0)
+                    progress?.Report(trimmed);
+            });
 
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                output.AppendLine(e.Data);
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        await process.WaitForExitAsync(ct);
-
-        return (process.ExitCode == 0, output.ToString());
+        var output = string.IsNullOrWhiteSpace(result.StandardError)
+            ? result.StandardOutput
+            : result.StandardOutput + Environment.NewLine + result.StandardError;
+        return (result.Succeeded, output);
     }
 
     /// <summary>
@@ -223,24 +204,7 @@ public static class DiskOptimizerService
 
         try
         {
-            // Map physical disks to their media type
             var diskMediaTypes = new Dictionary<int, DriveMediaType>();
-
-            using (var searcher = new ManagementObjectSearcher(
-                "SELECT DeviceID, MediaType FROM Win32_DiskDrive"))
-            {
-                foreach (var disk in searcher.Get())
-                {
-                    var deviceId = disk["DeviceID"]?.ToString() ?? "";
-                    // Extract disk number from \\.\PHYSICALDRIVE0
-                    if (int.TryParse(deviceId.Replace("\\\\.\\PHYSICALDRIVE", ""), out var diskNum))
-                    {
-                        var mediaType = Convert.ToInt32(disk["MediaType"] ?? 0);
-                        // MediaType: 3=HDD, 4=SSD (Win32_DiskDrive may not reliably report this)
-                        // Fall back to MSFT_PhysicalDisk if needed
-                    }
-                }
-            }
 
             // Use MSFT_PhysicalDisk for more reliable SSD detection
             using (var searcher = new ManagementObjectSearcher(
@@ -261,13 +225,6 @@ public static class DiskOptimizerService
                         };
                     }
                 }
-            }
-
-            // Map partitions to drive letters
-            using (var searcher = new ManagementObjectSearcher(
-                "ASSOCIATORS OF {Win32_DiskDrive.DeviceID='\\\\.\\PHYSICALDRIVE0'} WHERE AssocClass=Win32_DiskDriveToDiskPartition"))
-            {
-                // Use a different approach: enumerate Win32_DiskDrive then follow associations
             }
 
             // Simpler approach: query partition-to-letter mapping for each disk

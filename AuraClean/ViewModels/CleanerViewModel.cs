@@ -4,8 +4,8 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Windows.Data;
 
 namespace AuraClean.ViewModels;
 
@@ -18,25 +18,69 @@ public partial class JunkCategory : ObservableObject
     [ObservableProperty] private bool _isExpanded = true;
     [ObservableProperty] private bool _isAllSelected = true;
 
+    private bool _syncingSelection;
+
     public ObservableCollection<JunkItem> Items { get; } = [];
+
+    public JunkCategory()
+    {
+        Items.CollectionChanged += OnItemsChanged;
+    }
 
     public long TotalSize => Items.Sum(i => i.SizeBytes);
     public int ItemCount => Items.Count;
-
-    public string FormattedTotalSize => TotalSize switch
-    {
-        0 => "0 B",
-        < 1024 => $"{TotalSize} B",
-        < 1_048_576 => $"{TotalSize / 1024.0:F1} KB",
-        < 1_073_741_824 => $"{TotalSize / 1_048_576.0:F1} MB",
-        _ => $"{TotalSize / 1_073_741_824.0:F2} GB"
-    };
+    public string FormattedTotalSize => FormatHelper.FormatBytes(TotalSize);
 
     partial void OnIsAllSelectedChanged(bool value)
     {
+        if (_syncingSelection)
+            return;
+
         foreach (var item in Items)
             item.IsSelected = value;
     }
+
+    /// <summary>Updates the header checkbox to mirror the item selection without cascading.</summary>
+    public void SyncSelectionState()
+    {
+        _syncingSelection = true;
+        try { IsAllSelected = Items.Count > 0 && Items.All(i => i.IsSelected); }
+        finally { _syncingSelection = false; }
+    }
+
+    private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null)
+            foreach (JunkItem item in e.OldItems)
+                item.PropertyChanged -= OnItemPropertyChanged;
+        if (e.NewItems != null)
+            foreach (JunkItem item in e.NewItems)
+                item.PropertyChanged += OnItemPropertyChanged;
+
+        OnPropertyChanged(nameof(ItemCount));
+        OnPropertyChanged(nameof(TotalSize));
+        OnPropertyChanged(nameof(FormattedTotalSize));
+        SyncSelectionState();
+    }
+
+    private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(JunkItem.IsSelected))
+            SyncSelectionState();
+        else if (e.PropertyName == nameof(JunkItem.SizeBytes))
+        {
+            OnPropertyChanged(nameof(TotalSize));
+            OnPropertyChanged(nameof(FormattedTotalSize));
+        }
+    }
+}
+
+/// <summary>Raised when a cleanup run finishes (including dry runs).</summary>
+public sealed class CleanupCompletedEventArgs(int itemsCleaned, long bytesFreed, bool wasDryRun) : EventArgs
+{
+    public int ItemsCleaned { get; } = itemsCleaned;
+    public long BytesFreed { get; } = bytesFreed;
+    public bool WasDryRun { get; } = wasDryRun;
 }
 
 /// <summary>
@@ -45,18 +89,13 @@ public partial class JunkCategory : ObservableObject
 /// </summary>
 public partial class CleanerViewModel : ObservableObject
 {
-    private readonly object _categoriesLock = new();
-
     [ObservableProperty] private ObservableCollection<JunkCategory> _categories = [];
 
-    public CleanerViewModel()
-    {
-        BindingOperations.EnableCollectionSynchronization(Categories, _categoriesLock);
-    }
+    /// <summary>Raised after every completed cleanup so the dashboard can refresh.</summary>
+    public event EventHandler<CleanupCompletedEventArgs>? CleanupCompleted;
 
     partial void OnCategoriesChanged(ObservableCollection<JunkCategory> value)
     {
-        BindingOperations.EnableCollectionSynchronization(value, _categoriesLock);
         HookItemSelectionEvents();
     }
 
@@ -69,7 +108,7 @@ public partial class CleanerViewModel : ObservableObject
             if (selected.Count == 0) return "Select items to clean";
             var totalSize = selected.Sum(i => i.SizeBytes);
             var prefix = IsAdvancedMode ? "CLEAN" : "CLEAN SAFE ITEMS";
-            return $"{prefix} {selected.Count} FILES \u00b7 {FormatHelper.FormatBytes(totalSize)}";
+            return $"{prefix} {selected.Count} ITEM{(selected.Count != 1 ? "S" : "")} · {FormatHelper.FormatBytes(totalSize)}";
         }
     }
 
@@ -91,11 +130,24 @@ public partial class CleanerViewModel : ObservableObject
         if (e.PropertyName == nameof(JunkItem.IsSelected))
             OnPropertyChanged(nameof(SmartCleanLabel));
     }
-    [ObservableProperty] private bool _isBusy;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CleanSelectedCommand))]
+    private bool _isBusy;
+
     [ObservableProperty] private bool _isAnalyzing;
     [ObservableProperty] private string _statusMessage = "Ready to analyze your system for unnecessary files.";
-    [ObservableProperty] private bool _hasResults;
-    [ObservableProperty] private long _totalJunkSize;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SmartCleanLabel))]
+    [NotifyCanExecuteChangedFor(nameof(CleanSelectedCommand))]
+    private bool _hasResults;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FormattedTotalSize))]
+    private long _totalJunkSize;
+
     [ObservableProperty] private int _totalJunkCount;
     [ObservableProperty] private double _progressValue;
 
@@ -105,38 +157,37 @@ public partial class CleanerViewModel : ObservableObject
     [ObservableProperty] private bool _canUndoLastClean;
     [ObservableProperty] private string _lastCleanedSummary = string.Empty;
 
-    public string FormattedTotalSize => TotalJunkSize switch
-    {
-        0 => "0 B",
-        < 1024 => $"{TotalJunkSize} B",
-        < 1_048_576 => $"{TotalJunkSize / 1024.0:F1} KB",
-        < 1_073_741_824 => $"{TotalJunkSize / 1_048_576.0:F1} MB",
-        _ => $"{TotalJunkSize / 1_073_741_824.0:F2} GB"
-    };
+    public string FormattedTotalSize => FormatHelper.FormatBytes(TotalJunkSize);
 
-    [RelayCommand]
+    private bool CanAnalyze() => !IsBusy;
+    private bool CanClean() => !IsBusy && HasResults;
+
+    [RelayCommand(CanExecute = nameof(CanAnalyze))]
     private async Task AnalyzeAsync()
     {
+        if (IsBusy) return;
+
         IsBusy = true;
         IsAnalyzing = true;
         StatusMessage = "Analyzing system...";
-        Categories.Clear();
+        Categories = [];
+        HasResults = false;
+        TotalJunkSize = 0;
+        TotalJunkCount = 0;
         ProgressValue = 0;
 
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
             var settings = SettingsService.Load();
+            var advanced = IsAdvancedMode;
 
-            // Run system junk scan and optional heuristic scan in parallel.
             ProgressValue = 10;
-            var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(progress);
+            var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(
+                progress, includeReviewOnlyCategories: advanced);
 
-            ProgressValue = 30;
-            var abandonedTask = IsAdvancedMode && settings.RunHeuristicScan
-                ? HeuristicScannerService.ScanForAbandonedFilesAsync(
-                    settings.AbandonedFileDaysThreshold,
-                    progress)
+            var abandonedTask = advanced && settings.RunHeuristicScan
+                ? HeuristicScannerService.ScanForAbandonedFilesAsync(settings.AbandonedFileDaysThreshold, progress)
                 : Task.FromResult(new List<JunkItem>());
 
             var systemJunk = await systemJunkTask;
@@ -145,21 +196,13 @@ public partial class CleanerViewModel : ObservableObject
             var abandoned = await abandonedTask;
             ProgressValue = 80;
 
-            // Combine all results
             var allItems = systemJunk.Concat(abandoned)
                 .Where(i => !FileCleanerService.IsProtectedUserMediaFile(i.Path))
+                .Where(i => advanced || CleanupModePolicy.IsNormalModeJunkType(i.Type))
                 .ToList();
 
-            if (!IsAdvancedMode)
-            {
-                allItems = allItems
-                    .Where(i => CleanupModePolicy.IsNormalModeJunkType(i.Type))
-                    .ToList();
-            }
+            CleanupModePolicy.ApplyDefaultSelection(allItems, settings, advanced);
 
-            ApplyDefaultSelections(allItems, settings, IsAdvancedMode);
-
-            // Group by category — build all data off-thread then assign once
             var grouped = allItems.GroupBy(i => i.Category)
                 .OrderBy(g => g.Key)
                 .Select(g =>
@@ -167,12 +210,11 @@ public partial class CleanerViewModel : ObservableObject
                     var cat = new JunkCategory { Name = g.Key };
                     foreach (var item in g.OrderByDescending(i => i.SizeBytes))
                         cat.Items.Add(item);
-                    cat.IsAllSelected = cat.Items.Count > 0 && cat.Items.All(i => i.IsSelected);
+                    cat.SyncSelectionState();
                     return cat;
                 })
                 .ToList();
 
-            // Single assignment to avoid per-item UI updates
             Categories = new ObservableCollection<JunkCategory>(grouped);
 
             TotalJunkSize = allItems.Sum(i => i.SizeBytes);
@@ -180,11 +222,11 @@ public partial class CleanerViewModel : ObservableObject
             HasResults = allItems.Count > 0;
             ProgressValue = 100;
 
-            StatusMessage = allItems.Count > 0 && IsAdvancedMode
-                ? $"Found {TotalJunkCount} items ({FormattedTotalSize}) of reclaimable space."
-                : allItems.Count > 0
-                    ? $"Found {TotalJunkCount} low-risk cleanup item(s) ({FormattedTotalSize}). Advanced mode shows review-only categories."
-                : "No unnecessary files found.";
+            StatusMessage = allItems.Count == 0
+                ? "No unnecessary files found."
+                : advanced
+                    ? $"Found {TotalJunkCount} items ({FormattedTotalSize}) of reclaimable space."
+                    : $"Found {TotalJunkCount} low-risk cleanup item(s) ({FormattedTotalSize}). Advanced mode shows review-only categories.";
         }
         catch (Exception ex)
         {
@@ -198,10 +240,22 @@ public partial class CleanerViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanClean))]
     private async Task CleanSelectedAsync()
     {
-        if (!HasResults) return;
+        if (!HasResults || IsBusy) return;
+
+        var settings = SettingsService.Load();
+        var selectedItems = Categories.SelectMany(c => c.Items)
+            .Where(i => i.IsSelected)
+            .Where(i => IsAdvancedMode || CleanupModePolicy.IsNormalModeJunkType(i.Type))
+            .ToList();
+
+        if (selectedItems.Count == 0)
+        {
+            StatusMessage = "No items selected for cleaning.";
+            return;
+        }
 
         IsBusy = true;
         StatusMessage = "Preparing cleanup...";
@@ -209,32 +263,23 @@ public partial class CleanerViewModel : ObservableObject
 
         try
         {
-            var settings = SettingsService.Load();
-            var selectedItems = Categories.SelectMany(c => c.Items)
-                .Where(i => i.IsSelected).ToList();
-
-            if (selectedItems.Count == 0)
-            {
-                StatusMessage = "No items selected for cleaning.";
-                IsBusy = false;
-                return;
-            }
-
             if (settings.DryRunMode)
             {
-                var (_, protectedSkipped, wouldFree, _) =
+                var (wouldClean, protectedSkipped, wouldFree, _) =
                     await FileCleanerService.CleanItemsAsync(selectedItems, dryRun: true);
 
-                StatusMessage = $"Dry run: would clean {selectedItems.Count - protectedSkipped} items " +
+                StatusMessage = $"Dry run: would clean {wouldClean} items " +
                     $"({FormatHelper.FormatBytes(wouldFree)}). {protectedSkipped} protected media file(s) skipped.";
                 ProgressValue = 100;
                 CanUndoLastClean = false;
+                CleanupCompleted?.Invoke(this, new CleanupCompletedEventArgs(0, 0, wasDryRun: true));
                 return;
             }
 
+            var totalBytes = selectedItems.Sum(i => i.SizeBytes);
             var confirmMessage = IsAdvancedMode
-                ? $"Clean {selectedItems.Count} selected item(s)? This can permanently remove files."
-                : $"Clean {selectedItems.Count} low-risk selected item(s)?";
+                ? $"Clean {selectedItems.Count} selected item(s) ({FormatHelper.FormatBytes(totalBytes)})? This permanently removes files."
+                : $"Clean {selectedItems.Count} low-risk item(s) ({FormatHelper.FormatBytes(totalBytes)})?";
 
             if (!SafetyPromptService.ConfirmDestructiveAction(confirmMessage))
             {
@@ -252,6 +297,7 @@ public partial class CleanerViewModel : ObservableObject
                 if (!rpSuccess)
                 {
                     StatusMessage = $"Warning: {rpMsg} — Proceeding with cleanup...";
+                    DiagnosticLogger.Warn("CleanerVM", $"Restore point not created: {rpMsg}");
                     await Task.Delay(1500);
                 }
             }
@@ -265,17 +311,12 @@ public partial class CleanerViewModel : ObservableObject
             ProgressValue = 100;
 
             StatusMessage = $"Cleaned {deleted} items ({FormatHelper.FormatBytes(bytesFreed)} freed). " +
-                           $"{skipped} skipped (locked/in-use).";
+                           $"{skipped} skipped (locked, recent, or protected).";
 
-            // Track last cleanup for undo support
             LastCleanedCount = deleted;
             LastCleanedBytes = bytesFreed;
             LastCleanedSummary = $"{deleted} items ({FormatHelper.FormatBytes(bytesFreed)}) cleaned at {DateTime.Now:HH:mm:ss}";
-            CanUndoLastClean = rpSuccess;
-
-            // Send tray notification
-            NotificationService.ShowSuccess("Cleanup Complete",
-                $"Freed {FormatHelper.FormatBytes(bytesFreed)} by cleaning {deleted} items.");
+            CanUndoLastClean = rpSuccess && deleted > 0;
 
             if (errors.Count > 0)
             {
@@ -286,12 +327,23 @@ public partial class CleanerViewModel : ObservableObject
                 DiagnosticLogger.Warn("CleanerViewModel", $"Cleanup errors:\n{details}");
             }
 
-            // Remove cleaned items from displayed categories
+            if (deleted > 0)
+            {
+                NotificationService.ShowSuccess("Cleanup Complete",
+                    $"Freed {FormatHelper.FormatBytes(bytesFreed)} by cleaning {deleted} items.");
+                CleanupHistoryService.Record(CleanupOperationType.SystemClean, deleted, bytesFreed,
+                    $"{selectedItems.Count} selected item(s), {skipped} skipped");
+            }
+
+            // Remove cleaned items from displayed categories; keep skipped ones visible.
             foreach (var category in Categories.ToList())
             {
                 var toRemove = category.Items.Where(i => i.IsSelected && !i.IsLocked).ToList();
                 foreach (var item in toRemove)
+                {
+                    item.PropertyChanged -= OnJunkItemPropertyChanged;
                     category.Items.Remove(item);
+                }
 
                 if (category.Items.Count == 0)
                     Categories.Remove(category);
@@ -300,10 +352,13 @@ public partial class CleanerViewModel : ObservableObject
             TotalJunkSize = Categories.SelectMany(c => c.Items).Sum(i => i.SizeBytes);
             TotalJunkCount = Categories.SelectMany(c => c.Items).Count();
             HasResults = TotalJunkCount > 0;
+            OnPropertyChanged(nameof(SmartCleanLabel));
+
+            CleanupCompleted?.Invoke(this, new CleanupCompletedEventArgs(deleted, bytesFreed, wasDryRun: false));
         }
         catch (Exception ex)
         {
-            StatusMessage = "Something went wrong during cleanup. Please try again.";
+            StatusMessage = "Something went wrong during cleanup. Some items may not have been removed.";
             DiagnosticLogger.Error("CleanerVM", "Cleanup failed", ex);
         }
         finally
@@ -316,50 +371,15 @@ public partial class CleanerViewModel : ObservableObject
     private void SelectAll()
     {
         foreach (var category in Categories)
-        {
             category.IsAllSelected = true;
-            foreach (var item in category.Items)
-                item.IsSelected = true;
-        }
+        OnPropertyChanged(nameof(SmartCleanLabel));
     }
 
     [RelayCommand]
     private void DeselectAll()
     {
         foreach (var category in Categories)
-        {
             category.IsAllSelected = false;
-            foreach (var item in category.Items)
-                item.IsSelected = false;
-        }
+        OnPropertyChanged(nameof(SmartCleanLabel));
     }
-
-    private static void ApplyDefaultSelections(IEnumerable<JunkItem> items, AppSettings settings, bool isAdvancedMode)
-    {
-        foreach (var item in items)
-        {
-            if (!isAdvancedMode)
-            {
-                item.IsSelected = CleanupModePolicy.IsNormalModeJunkType(item.Type);
-                continue;
-            }
-
-            item.IsSelected = item.Type switch
-            {
-                JunkType.TempFile => settings.CleanTempFiles,
-                JunkType.WindowsUpdateCache => settings.CleanWindowsUpdate,
-                JunkType.Prefetch => settings.CleanPrefetch,
-                JunkType.CrashDump => settings.CleanCrashDumps,
-                JunkType.RecycleBin => settings.CleanRecycleBin,
-                JunkType.BrowserCache => settings.CleanBrowserCache,
-                JunkType.ThumbnailCache => settings.CleanThumbnailCache,
-                JunkType.LogFile => settings.CleanWindowsLogs,
-                JunkType.WindowsOld => false,
-                JunkType.WinSxS => false,
-                JunkType.AbandonedFile => false,
-                _ => item.IsSelected
-            };
-        }
-    }
-
 }

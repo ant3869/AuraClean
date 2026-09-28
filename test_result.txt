@@ -1,3 +1,0 @@
-ALIVE=False
-TITLE=
-CRASHLOG=False

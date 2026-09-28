@@ -17,12 +17,42 @@ public static class CleanupHistoryService
 
     private static readonly string HistoryFile = Path.Combine(HistoryDir, "cleanup_history.json");
 
+    private static readonly object _lock = new();
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter() }
     };
+
+    /// <summary>Raised after a record is added or the history is cleared.</summary>
+    public static event Action? HistoryChanged;
+
+    /// <summary>
+    /// Convenience wrapper that honors the "Log cleanup operations" setting and skips
+    /// empty operations. Never throws.
+    /// </summary>
+    public static void Record(CleanupOperationType type, int itemCount, long bytesFreed, string details)
+    {
+        try
+        {
+            if (!SettingsService.Load().LogCleanupOperations || itemCount <= 0)
+                return;
+
+            LogOperation(new CleanupRecord
+            {
+                OperationType = type,
+                ItemCount = itemCount,
+                BytesFreed = Math.Max(0, bytesFreed),
+                Details = details
+            });
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("CleanupHistoryService", "Failed to record operation", ex);
+        }
+    }
 
     /// <summary>
     /// Records a new cleanup operation to the history log.
@@ -31,18 +61,22 @@ public static class CleanupHistoryService
     {
         try
         {
-            var history = LoadHistory();
-            history.Records.Insert(0, record); // newest first
+            lock (_lock)
+            {
+                var history = LoadHistoryUnlocked();
+                history.Records.Insert(0, record); // newest first
 
-            // Trim to max entries
-            var settings = SettingsService.Load();
-            int max = settings.MaxHistoryEntries > 0 ? settings.MaxHistoryEntries : 500;
-            if (history.Records.Count > max)
-                history.Records.RemoveRange(max, history.Records.Count - max);
+                var settings = SettingsService.Load();
+                int max = settings.MaxHistoryEntries > 0 ? settings.MaxHistoryEntries : 500;
+                if (history.Records.Count > max)
+                    history.Records.RemoveRange(max, history.Records.Count - max);
 
-            SaveHistory(history);
+                SaveHistoryUnlocked(history);
+            }
+
             DiagnosticLogger.Info("CleanupHistoryService",
                 $"Logged {record.OperationType}: {record.ItemCount} items, {FormatHelper.FormatBytes(record.BytesFreed)}");
+            HistoryChanged?.Invoke();
         }
         catch (Exception ex)
         {
@@ -55,54 +89,51 @@ public static class CleanupHistoryService
     /// </summary>
     public static CleanupHistory LoadHistory()
     {
-        try
-        {
-            if (File.Exists(HistoryFile))
-            {
-                var json = File.ReadAllText(HistoryFile);
-                return JsonSerializer.Deserialize<CleanupHistory>(json, JsonOptions) ?? new CleanupHistory();
-            }
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("CleanupHistoryService", "Failed to load history", ex);
-        }
-
-        return new CleanupHistory();
+        lock (_lock)
+            return LoadHistoryUnlocked();
     }
 
     /// <summary>
-    /// Clears all history records.
+    /// Clears all history records. Returns false when the file could not be written.
     /// </summary>
-    public static void ClearHistory()
+    public static bool ClearHistory()
     {
-        SaveHistory(new CleanupHistory());
-        DiagnosticLogger.Info("CleanupHistoryService", "History cleared");
+        try
+        {
+            lock (_lock)
+                SaveHistoryUnlocked(new CleanupHistory());
+
+            DiagnosticLogger.Info("CleanupHistoryService", "History cleared");
+            HistoryChanged?.Invoke();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("CleanupHistoryService", "Failed to clear history", ex);
+            return false;
+        }
     }
 
     /// <summary>
     /// Gets summary statistics across all history.
     /// </summary>
-    public static HistorySummary GetSummary()
-    {
-        var history = LoadHistory();
-        var records = history.Records;
+    public static HistorySummary GetSummary() => BuildSummary(LoadHistory().Records);
 
-        return new HistorySummary
-        {
-            TotalOperations = records.Count,
-            TotalBytesFreed = records.Sum(r => r.BytesFreed),
-            TotalItemsCleaned = records.Sum(r => r.ItemCount),
-            FirstOperation = records.Count > 0 ? records[^1].Timestamp : null,
-            LastOperation = records.Count > 0 ? records[0].Timestamp : null,
-            OperationsByType = records
-                .GroupBy(r => r.OperationType)
-                .ToDictionary(g => g.Key, g => g.Count()),
-            BytesByType = records
-                .GroupBy(r => r.OperationType)
-                .ToDictionary(g => g.Key, g => g.Sum(r => r.BytesFreed))
-        };
-    }
+    /// <summary>Builds summary statistics for an in-memory record list.</summary>
+    public static HistorySummary BuildSummary(IReadOnlyList<CleanupRecord> records) => new()
+    {
+        TotalOperations = records.Count,
+        TotalBytesFreed = records.Sum(r => r.BytesFreed),
+        TotalItemsCleaned = records.Sum(r => r.ItemCount),
+        FirstOperation = records.Count > 0 ? records.Min(r => r.Timestamp) : null,
+        LastOperation = records.Count > 0 ? records.Max(r => r.Timestamp) : null,
+        OperationsByType = records
+            .GroupBy(r => r.OperationType)
+            .ToDictionary(g => g.Key, g => g.Count()),
+        BytesByType = records
+            .GroupBy(r => r.OperationType)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.BytesFreed))
+    };
 
     /// <summary>
     /// Exports history as a human-readable text report.
@@ -117,7 +148,7 @@ public static class CleanupHistoryService
         sb.AppendLine("═══════════════════════════════════════════");
         sb.AppendLine();
 
-        var summary = GetSummary();
+        var summary = BuildSummary(history.Records);
         sb.AppendLine($"Total operations:  {summary.TotalOperations}");
         sb.AppendLine($"Total space freed: {FormatHelper.FormatBytes(summary.TotalBytesFreed)}");
         sb.AppendLine($"Total items:       {summary.TotalItemsCleaned}");
@@ -125,7 +156,7 @@ public static class CleanupHistoryService
 
         foreach (var record in history.Records)
         {
-            sb.AppendLine($"[{record.Timestamp:yyyy-MM-dd HH:mm:ss}] {record.OperationType}");
+            sb.AppendLine($"[{record.Timestamp:yyyy-MM-dd HH:mm:ss}] {record.OperationType.ToDisplayString()}");
             sb.AppendLine($"  Items: {record.ItemCount}  |  Freed: {FormatHelper.FormatBytes(record.BytesFreed)}");
             if (!string.IsNullOrWhiteSpace(record.Details))
                 sb.AppendLine($"  Details: {record.Details}");
@@ -135,17 +166,42 @@ public static class CleanupHistoryService
         return sb.ToString();
     }
 
-    private static void SaveHistory(CleanupHistory history)
-    {
-        Directory.CreateDirectory(HistoryDir);
-        var json = JsonSerializer.Serialize(history, JsonOptions);
-        File.WriteAllText(HistoryFile, json);
-    }
-
     /// <summary>
     /// Returns the history storage directory path.
     /// </summary>
     public static string GetHistoryDirectory() => HistoryDir;
+
+    private static CleanupHistory LoadHistoryUnlocked()
+    {
+        try
+        {
+            if (File.Exists(HistoryFile))
+            {
+                var json = File.ReadAllText(HistoryFile);
+                var history = JsonSerializer.Deserialize<CleanupHistory>(json, JsonOptions) ?? new CleanupHistory();
+                history.Records ??= [];
+                history.Records.RemoveAll(r => r == null);
+                foreach (var record in history.Records)
+                    record.Details ??= string.Empty;
+                return history;
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("CleanupHistoryService", "Failed to load history", ex);
+        }
+
+        return new CleanupHistory();
+    }
+
+    private static void SaveHistoryUnlocked(CleanupHistory history)
+    {
+        Directory.CreateDirectory(HistoryDir);
+        var json = JsonSerializer.Serialize(history, JsonOptions);
+        var tempFile = HistoryFile + ".tmp";
+        File.WriteAllText(tempFile, json);
+        File.Move(tempFile, HistoryFile, overwrite: true);
+    }
 }
 
 // ══════════════════════════════════════════════════
@@ -185,7 +241,10 @@ public enum CleanupOperationType
     FileShred,
     QuarantinePurge,
     ThreatQuarantine,
-    ThreatDelete
+    ThreatDelete,
+    ManualQuarantine,
+    EmptyFolderRemoval,
+    QuarantineRestore
 }
 
 public static class CleanupOperationTypeExtensions
@@ -203,6 +262,9 @@ public static class CleanupOperationTypeExtensions
         CleanupOperationType.ThreatQuarantine => "Threat Quarantine",
         CleanupOperationType.ThreatDelete => "Threat Delete",
         CleanupOperationType.QuarantinePurge => "Quarantine Purge",
+        CleanupOperationType.ManualQuarantine => "Manual Quarantine",
+        CleanupOperationType.EmptyFolderRemoval => "Empty Folder Removal",
+        CleanupOperationType.QuarantineRestore => "Quarantine Restore",
         _ => type.ToString()
     };
 
@@ -219,6 +281,9 @@ public static class CleanupOperationTypeExtensions
         CleanupOperationType.QuarantinePurge => "ShieldRemove",
         CleanupOperationType.ThreatQuarantine => "ShieldAlert",
         CleanupOperationType.ThreatDelete => "DeleteForever",
+        CleanupOperationType.ManualQuarantine => "ShieldLock",
+        CleanupOperationType.EmptyFolderRemoval => "FolderRemove",
+        CleanupOperationType.QuarantineRestore => "Restore",
         _ => "ClipboardList"
     };
 }

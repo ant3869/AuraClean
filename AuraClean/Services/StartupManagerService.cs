@@ -127,7 +127,7 @@ public static partial class StartupManagerService
                         };
 
                         // Check if disabled via StartupApproved
-                        entry.IsEnabled = !IsDisabledViaStartupApproved(valueName, hive);
+                        entry.IsEnabled = !IsDisabledViaStartupApproved(valueName, hive, view);
 
                         entries.Add(entry);
                     }
@@ -207,12 +207,19 @@ public static partial class StartupManagerService
                     case StartupSource.RegistryCurrentUser:
                     case StartupSource.RegistryLocalMachine:
                     {
+                        var displayKey = entry.RegistryHive == RegistryHive.CurrentUser
+                            ? $"HKCU\\{entry.RegistryPath}"
+                            : $"HKLM ({(entry.RegistryView == RegistryView.Registry32 ? "32" : "64")}-bit)\\{entry.RegistryPath}";
+                        var backup = RegistryScannerService.BackupRegistryKeyAsync(displayKey).GetAwaiter().GetResult();
+                        if (backup == null)
+                            return (false, "Could not back up the startup key; the entry was not deleted.");
+
                         using var baseKey = RegistryKey.OpenBaseKey(entry.RegistryHive, entry.RegistryView);
                         using var runKey = baseKey.OpenSubKey(entry.RegistryPath, writable: true);
                         runKey?.DeleteValue(entry.RegistryValueName, throwOnMissingValue: false);
 
                         // Also remove from StartupApproved
-                        RemoveFromStartupApproved(entry.RegistryValueName, entry.RegistryHive);
+                        RemoveFromStartupApproved(entry.RegistryValueName, entry.RegistryHive, entry.RegistryView);
 
                         return (true, $"Removed startup entry: {entry.Name}");
                     }
@@ -229,17 +236,13 @@ public static partial class StartupManagerService
 
                     case StartupSource.TaskScheduler:
                     {
-                        var psi = new ProcessStartInfo("schtasks.exe", $"/Delete /TN \"{entry.Command}\" /F")
-                        {
-                            UseShellExecute = false,
-                            CreateNoWindow = true,
-                            RedirectStandardOutput = true
-                        };
-                        using var proc = Process.Start(psi);
-                        proc?.WaitForExit(10000);
-                        return proc?.ExitCode == 0
+                        var result = Helpers.ProcessRunner.RunAsync(
+                            Helpers.ProcessRunner.SystemTool("schtasks.exe"),
+                            $"/Delete /TN \"{entry.Command}\" /F",
+                            timeout: TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
+                        return result.Succeeded
                             ? (true, $"Deleted scheduled task: {entry.Name}")
-                            : (false, "Failed to delete scheduled task.");
+                            : (false, $"Failed to delete scheduled task: {result.CombinedMessage}");
                     }
 
                     default:
@@ -267,6 +270,9 @@ public static partial class StartupManagerService
         {
             foreach (var file in Directory.EnumerateFiles(folderPath))
             {
+                if (Path.GetFileName(file).Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 var ext = Path.GetExtension(file).ToLowerInvariant();
                 bool isDisabled = ext == ".disabled";
                 var actualName = isDisabled
@@ -301,7 +307,7 @@ public static partial class StartupManagerService
     {
         try
         {
-            var psi = new ProcessStartInfo("schtasks.exe", "/Query /FO CSV /NH /V")
+            var psi = new ProcessStartInfo(Helpers.ProcessRunner.SystemTool("schtasks.exe"), "/Query /FO CSV /NH /V")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -337,6 +343,10 @@ public static partial class StartupManagerService
                 if (taskName.StartsWith(@"\Microsoft\", StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                if (entries.Any(e => e.Source == StartupSource.TaskScheduler &&
+                                     e.Command.Equals(taskName, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
                 var filePath = ExtractFilePath(taskToRun);
                 entries.Add(new StartupEntry
                 {
@@ -345,7 +355,7 @@ public static partial class StartupManagerService
                     Location = "Task Scheduler",
                     FilePath = filePath,
                     Source = StartupSource.TaskScheduler,
-                    IsEnabled = status.Contains("Ready", StringComparison.OrdinalIgnoreCase),
+                    IsEnabled = !status.Contains("Disabled", StringComparison.OrdinalIgnoreCase),
                     Publisher = GetFilePublisher(filePath),
                     FileSizeBytes = GetFileSize(filePath),
                     Impact = StartupImpact.Medium,
@@ -362,9 +372,7 @@ public static partial class StartupManagerService
         try
         {
             // Use StartupApproved mechanism (same as Task Manager uses)
-            var approvedKeyPath = entry.RegistryHive == RegistryHive.CurrentUser
-                ? DisabledRunKey
-                : (entry.RegistryView == RegistryView.Registry32 ? DisabledRunKey32 : DisabledRunKey);
+            var approvedKeyPath = GetApprovedKeyPath(entry.RegistryHive, entry.RegistryView);
 
             var hive = entry.RegistryHive == RegistryHive.CurrentUser
                 ? RegistryHive.CurrentUser
@@ -422,29 +430,27 @@ public static partial class StartupManagerService
     private static (bool Success, string Message) ToggleScheduledTask(StartupEntry entry, bool enable)
     {
         var action = enable ? "/Enable" : "/Disable";
-        var psi = new ProcessStartInfo("schtasks.exe", $"/Change /TN \"{entry.Command}\" {action}")
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true
-        };
+        var result = Helpers.ProcessRunner.RunAsync(
+            Helpers.ProcessRunner.SystemTool("schtasks.exe"),
+            $"/Change /TN \"{entry.Command}\" {action}",
+            timeout: TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
 
-        using var proc = Process.Start(psi);
-        proc?.WaitForExit(10000);
-
-        if (proc?.ExitCode == 0)
+        if (result.Succeeded)
         {
             entry.IsEnabled = enable;
             return (true, $"{entry.Name} {(enable ? "enabled" : "disabled")}.");
         }
-        return (false, $"Failed to {(enable ? "enable" : "disable")} task.");
+        return (false, $"Failed to {(enable ? "enable" : "disable")} task: {result.CombinedMessage}");
     }
 
-    private static bool IsDisabledViaStartupApproved(string valueName, RegistryHive hive)
+    private static string GetApprovedKeyPath(RegistryHive hive, RegistryView view) =>
+        hive == RegistryHive.LocalMachine && view == RegistryView.Registry32 ? DisabledRunKey32 : DisabledRunKey;
+
+    private static bool IsDisabledViaStartupApproved(string valueName, RegistryHive hive, RegistryView view)
     {
         try
         {
-            var keyPath = hive == RegistryHive.CurrentUser ? DisabledRunKey : DisabledRunKey;
+            var keyPath = GetApprovedKeyPath(hive, view);
             using var baseKey = RegistryKey.OpenBaseKey(hive, RegistryView.Default);
             using var approvedKey = baseKey.OpenSubKey(keyPath);
 
@@ -458,11 +464,11 @@ public static partial class StartupManagerService
         return false;
     }
 
-    private static void RemoveFromStartupApproved(string valueName, RegistryHive hive)
+    private static void RemoveFromStartupApproved(string valueName, RegistryHive hive, RegistryView view)
     {
         try
         {
-            var keyPath = hive == RegistryHive.CurrentUser ? DisabledRunKey : DisabledRunKey;
+            var keyPath = GetApprovedKeyPath(hive, view);
             using var baseKey = RegistryKey.OpenBaseKey(hive, RegistryView.Default);
             using var approvedKey = baseKey.OpenSubKey(keyPath, writable: true);
             approvedKey?.DeleteValue(valueName, throwOnMissingValue: false);

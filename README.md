@@ -5,7 +5,7 @@
   <p>
     <img src="https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue?style=flat-square&logo=windows" alt="Platform" />
     <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet" alt=".NET 8" />
-    <img src="https://img.shields.io/badge/Version-1.5.0-7C5CFC?style=flat-square" alt="v1.5.0" />
+    <img src="https://img.shields.io/badge/Version-1.5.1-7C5CFC?style=flat-square" alt="v1.5.1" />
     <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="MIT License" />
   </p>
 
@@ -27,7 +27,7 @@
 - **Uninstaller** — Deep uninstall with review-first leftover scanning and force-remove support for broken MSI entries
 - **System Cleaner** — Scans 15 junk categories: temp files, Windows Update cache, prefetch, crash dumps, Recycle Bin, WinSxS, and more
 - **RAM Booster** — Trim working sets and purge the standby list using native Windows APIs
-- **Privacy Clean** — Clear browser caches, cookies, and tracking data with SQLite VACUUM + DNS flush
+- **Privacy Clean** — Clear browser caches; in Advanced mode also site/tracking data (signs you out of websites), SQLite VACUUM, and DNS flush
 
 **Analyze**
 - **Storage Map** — Visual treemap disk analyzer with breadcrumb navigation and top-10 largest files
@@ -44,7 +44,7 @@
 - **Disk Optimizer** — TRIM, defrag, and optimization recommendations for HDD/SSD
 - **File Recovery** — Scan and recover recently deleted files
 - **Empty Folder Finder** — Detect empty folders from low-risk temp/cache roots; results require explicit selection before removal
-- **App Installer** — Bundle installer for streamlined application deployment
+- **App Installer** — Bundle installer for streamlined application deployment; installers must be Authenticode-signed (unsigned ones require explicit approval)
 
 **Security**
 - **Threat Scanner** — Heuristic malware/adware/PUP detection with real-time file, process, startup, service, and hosts-file scanning
@@ -122,6 +122,11 @@ All user data is stored locally in `%LocalAppData%\AuraClean\` — settings, cle
 
 ## Security
 
+- Hard safety rails on every delete: drive roots, the Windows folder, Program Files, user-profile roots, and known folders (Documents, Desktop, Downloads, …) can never be deleted, and deletion never follows junctions or symbolic links
+- Temp files younger than 24 hours and logs younger than 7 days are kept, so running installers and in-progress diagnostics are not broken
+- Only the current user's Recycle Bin is emptied; scheduled cleanups are limited to low-risk categories
+- Registry keys are deleted only after a successful `.reg` backup, and shared system keys (e.g. `…\Run`) are never deleted
+- Threat remediation is surgical: a hijacked hosts entry removes only that line, startup threats remove only their autorun value, Windows components are never quarantined, and heuristic findings are opt-in
 - Restore points can be created before cleaning operations
 - Dry-run mode and confirmation prompts apply across destructive cleanup tools
 - Cleaner preserves common photo/screenshot formats even when they appear inside selected junk folders

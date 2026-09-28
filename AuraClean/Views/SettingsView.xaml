@@ -167,6 +167,9 @@
                             <TextBox Width="60" Margin="8,0"
                                      Text="{Binding AbandonedFileDaysThreshold, UpdateSourceTrigger=PropertyChanged}"
                                      materialDesign:HintAssist.Hint="Days"
+                                     MaxLength="4"
+                                     ToolTip="Between 30 and 3650 days"
+                                     AutomationProperties.Name="Abandoned file threshold in days"
                                      FontSize="13" VerticalAlignment="Center"
                                      Foreground="{DynamicResource AuraTextPrimary}"
                                      Background="{DynamicResource AuraSurfaceLight}"
@@ -339,6 +342,7 @@
                             <TextBox Text="{Binding ScheduledCleanupTime, UpdateSourceTrigger=PropertyChanged}"
                                      Width="70" Margin="8,0"
                                      MaxLength="5"
+                                     AutomationProperties.Name="Scheduled cleanup time"
                                      FontSize="13"
                                      Foreground="{DynamicResource AuraTextPrimary}"
                                      Background="{DynamicResource AuraSurfaceLight}" />
@@ -383,7 +387,7 @@
         </ScrollViewer>
 
         <!-- Status Bar -->
-        <TextBlock Grid.Row="2"
+        <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Grid.Row="2"
                    Text="{Binding StatusMessage}"
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"

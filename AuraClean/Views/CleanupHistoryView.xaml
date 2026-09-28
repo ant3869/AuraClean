@@ -295,7 +295,7 @@
         </StackPanel>
 
         <!-- Status -->
-        <TextBlock Grid.Row="4"
+        <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Grid.Row="4"
                    Text="{Binding StatusMessage}"
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"

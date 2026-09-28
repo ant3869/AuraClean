@@ -27,6 +27,43 @@ public static class MemoryManagerService
     [DllImport("ntdll.dll", SetLastError = true)]
     private static extern int NtSetSystemInformation(int infoClass, ref int info, int length);
 
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool OpenProcessToken(IntPtr processHandle, uint desiredAccess, out IntPtr tokenHandle);
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool LookupPrivilegeValue(string? systemName, string name, out LUID luid);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AdjustTokenPrivileges(IntPtr tokenHandle, bool disableAllPrivileges,
+        ref TOKEN_PRIVILEGES newState, uint bufferLength, IntPtr previousState, IntPtr returnLength);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LUID
+    {
+        public uint LowPart;
+        public int HighPart;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct TOKEN_PRIVILEGES
+    {
+        public uint PrivilegeCount;
+        public LUID Luid;
+        public uint Attributes;
+    }
+
+    private const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
+    private const uint TOKEN_QUERY = 0x0008;
+    private const uint SE_PRIVILEGE_ENABLED = 0x00000002;
+    private const int ERROR_NOT_ALL_ASSIGNED = 1300;
+    private const string SeProfileSingleProcessPrivilege = "SeProfileSingleProcessPrivilege";
+
     // Access rights
     private const uint PROCESS_QUERY_INFORMATION = 0x0400;
     private const uint PROCESS_SET_QUOTA = 0x0100;
@@ -71,8 +108,6 @@ public static class MemoryManagerService
             int skipped = 0;
             bool standbyPurged = false;
 
-            // Snapshot current RAM usage
-            var memBefore = GC.GetGCMemoryInfo();
             var processes = Process.GetProcesses();
             try
             {
@@ -132,10 +167,17 @@ public static class MemoryManagerService
                     progress?.Report("Purging standby memory list...");
                     try
                     {
-                        int command = MemoryPurgeStandbyList;
-                        int result = NtSetSystemInformation(
-                            SystemMemoryListInformation, ref command, sizeof(int));
-                        standbyPurged = (result >= 0); // NT_SUCCESS
+                        // The purge is refused with STATUS_PRIVILEGE_NOT_HELD unless this
+                        // privilege is explicitly enabled on the (elevated) process token.
+                        if (TryEnablePrivilege(SeProfileSingleProcessPrivilege))
+                        {
+                            int command = MemoryPurgeStandbyList;
+                            int result = NtSetSystemInformation(
+                                SystemMemoryListInformation, ref command, sizeof(int));
+                            standbyPurged = result >= 0; // NT_SUCCESS
+                            if (!standbyPurged)
+                                DiagnosticLogger.Warn("MemoryManager", $"Standby purge returned NTSTATUS 0x{result:X8}");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -196,26 +238,71 @@ public static class MemoryManagerService
     }
 
     /// <summary>
-    /// Gets current system memory statistics (async — enumerates all processes on a background thread).
+    /// Gets current system memory statistics on a background thread.
     /// </summary>
-    public static async Task<MemorySnapshot> GetMemorySnapshotAsync()
+    public static Task<MemorySnapshot> GetMemorySnapshotAsync() => Task.Run(GetMemorySnapshot);
+
+    /// <summary>
+    /// Gets current physical memory statistics. Returns zeros if the query fails.
+    /// </summary>
+    public static MemorySnapshot GetMemorySnapshot()
     {
-        return await Task.Run(() =>
+        var memStatus = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
+        if (!GlobalMemoryStatusEx(ref memStatus))
         {
-            var memStatus = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
-            GlobalMemoryStatusEx(ref memStatus);
+            DiagnosticLogger.Warn("MemoryManager", $"GlobalMemoryStatusEx failed (error {Marshal.GetLastWin32Error()})");
+            return new MemorySnapshot(0, 0, 0, 0);
+        }
 
-            long totalPhysical = (long)memStatus.ullTotalPhys;
-            long availablePhysical = (long)memStatus.ullAvailPhys;
-            long usedPhysical = totalPhysical - availablePhysical;
+        long totalPhysical = (long)memStatus.ullTotalPhys;
+        long availablePhysical = (long)memStatus.ullAvailPhys;
+        long usedPhysical = totalPhysical - availablePhysical;
 
-            return new MemorySnapshot(
-                TotalPhysicalBytes: totalPhysical,
-                UsedBytes: usedPhysical,
-                AvailableBytes: availablePhysical,
-                UsagePercent: totalPhysical > 0
-                    ? (double)usedPhysical / totalPhysical * 100.0 : 0);
-        });
+        return new MemorySnapshot(
+            TotalPhysicalBytes: totalPhysical,
+            UsedBytes: usedPhysical,
+            AvailableBytes: availablePhysical,
+            UsagePercent: totalPhysical > 0
+                ? (double)usedPhysical / totalPhysical * 100.0 : 0);
+    }
+
+    /// <summary>Enables a privilege on the current process token. Returns true on success.</summary>
+    private static bool TryEnablePrivilege(string privilegeName)
+    {
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out var token))
+        {
+            DiagnosticLogger.Warn("MemoryManager", $"OpenProcessToken failed (error {Marshal.GetLastWin32Error()})");
+            return false;
+        }
+
+        try
+        {
+            if (!LookupPrivilegeValue(null, privilegeName, out var luid))
+                return false;
+
+            var privileges = new TOKEN_PRIVILEGES
+            {
+                PrivilegeCount = 1,
+                Luid = luid,
+                Attributes = SE_PRIVILEGE_ENABLED
+            };
+
+            if (!AdjustTokenPrivileges(token, false, ref privileges, 0, IntPtr.Zero, IntPtr.Zero))
+                return false;
+
+            // AdjustTokenPrivileges "succeeds" even when the privilege is not held.
+            if (Marshal.GetLastWin32Error() == ERROR_NOT_ALL_ASSIGNED)
+            {
+                DiagnosticLogger.Warn("MemoryManager", $"{privilegeName} is not held by this account.");
+                return false;
+            }
+
+            return true;
+        }
+        finally
+        {
+            CloseHandle(token);
+        }
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]

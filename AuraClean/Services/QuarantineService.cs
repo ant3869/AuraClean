@@ -19,6 +19,14 @@ public static class QuarantineService
 
     private static readonly string ManifestFile = Path.Combine(QuarantineDir, "manifest.json");
 
+    /// <summary>
+    /// Suffix appended to stored files so quarantined executables and scripts can never be
+    /// launched by double-clicking them in the quarantine folder.
+    /// </summary>
+    private const string StoredSuffix = ".quarantined";
+
+    private static readonly SemaphoreSlim _manifestLock = new(1, 1);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -36,10 +44,14 @@ public static class QuarantineService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
+
+        string? storedPath = null;
+        bool moved = false;
+
+        await _manifestLock.WaitAsync(ct);
         try
         {
-            ct.ThrowIfCancellationRequested();
-
             if (!File.Exists(originalPath))
             {
                 DiagnosticLogger.Warn("QuarantineService", $"File not found: {originalPath}");
@@ -50,13 +62,18 @@ public static class QuarantineService
 
             var fileInfo = new FileInfo(originalPath);
             var entryId = Guid.NewGuid().ToString("N")[..12];
-            var storedName = $"{entryId}_{Path.GetFileName(originalPath)}";
-            var storedPath = Path.Combine(QuarantineDir, storedName);
+            var storedName = $"{entryId}_{Path.GetFileName(originalPath)}{StoredSuffix}";
+            storedPath = Path.Combine(QuarantineDir, storedName);
 
             progress?.Report($"Quarantining: {Path.GetFileName(originalPath)}");
 
-            // Move the file
+            var size = fileInfo.Length;
+            var lastWrite = fileInfo.LastWriteTime;
+            if (fileInfo.IsReadOnly)
+                fileInfo.IsReadOnly = false;
+
             await Task.Run(() => File.Move(originalPath, storedPath), ct);
+            moved = true;
 
             var entry = new QuarantineEntry
             {
@@ -65,25 +82,44 @@ public static class QuarantineService
                 StoredFileName = storedName,
                 Reason = reason,
                 QuarantinedAt = DateTime.Now,
-                FileSizeBytes = fileInfo.Length,
-                OriginalLastModified = fileInfo.LastWriteTime
+                FileSizeBytes = size,
+                OriginalLastModified = lastWrite
             };
 
-            // Update manifest
             var manifest = LoadManifest();
             manifest.Entries.Add(entry);
             SaveManifest(manifest);
 
             DiagnosticLogger.Info("QuarantineService",
-                $"Quarantined: {originalPath} → {storedName} ({FormatHelper.FormatBytes(fileInfo.Length)})");
+                $"Quarantined: {originalPath} → {storedName} ({FormatHelper.FormatBytes(size)})");
 
             return entry;
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (!moved) { throw; }
         catch (Exception ex)
         {
             DiagnosticLogger.Warn("QuarantineService", $"Failed to quarantine {originalPath}", ex);
+
+            // Never leave a file stranded in quarantine without a manifest record.
+            if (moved && storedPath != null)
+            {
+                try
+                {
+                    if (!File.Exists(originalPath))
+                        File.Move(storedPath, originalPath);
+                }
+                catch (Exception rollbackEx) when (rollbackEx is IOException or UnauthorizedAccessException)
+                {
+                    DiagnosticLogger.Error("QuarantineService",
+                        $"Rollback failed; file remains at {storedPath}", rollbackEx);
+                }
+            }
+
             return null;
+        }
+        finally
+        {
+            _manifestLock.Release();
         }
     }
 
@@ -116,6 +152,7 @@ public static class QuarantineService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
+        await _manifestLock.WaitAsync(ct);
         try
         {
             var manifest = LoadManifest();
@@ -135,18 +172,18 @@ public static class QuarantineService
                 return false;
             }
 
-            // Ensure parent directory exists
             var parentDir = Path.GetDirectoryName(entry.OriginalPath);
             if (!string.IsNullOrEmpty(parentDir))
                 Directory.CreateDirectory(parentDir);
 
             progress?.Report($"Restoring: {Path.GetFileName(entry.OriginalPath)}");
 
-            // Handle conflict: if a file already exists at the original path
+            // Never overwrite a file that now occupies the original location.
             if (File.Exists(entry.OriginalPath))
             {
-                var backupPath = entry.OriginalPath + ".aura_backup";
-                await Task.Run(() => File.Move(entry.OriginalPath, backupPath, overwrite: true), ct);
+                var backupPath = $"{entry.OriginalPath}.aura_backup_{DateTime.Now:yyyyMMddHHmmss}";
+                await Task.Run(() => File.Move(entry.OriginalPath, backupPath), ct);
+                DiagnosticLogger.Info("QuarantineService", $"Existing file preserved as {backupPath}");
             }
 
             await Task.Run(() => File.Move(storedPath, entry.OriginalPath), ct);
@@ -157,10 +194,14 @@ public static class QuarantineService
             DiagnosticLogger.Info("QuarantineService", $"Restored: {entry.OriginalPath}");
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             DiagnosticLogger.Warn("QuarantineService", $"Failed to restore {entryId}", ex);
             return false;
+        }
+        finally
+        {
+            _manifestLock.Release();
         }
     }
 
@@ -172,6 +213,7 @@ public static class QuarantineService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
+        await _manifestLock.WaitAsync(ct);
         try
         {
             var manifest = LoadManifest();
@@ -183,7 +225,14 @@ public static class QuarantineService
             progress?.Report($"Purging: {Path.GetFileName(entry.OriginalPath)}");
 
             if (File.Exists(storedPath))
-                await Task.Run(() => File.Delete(storedPath), ct);
+            {
+                await Task.Run(() =>
+                {
+                    var info = new FileInfo(storedPath);
+                    if (info.IsReadOnly) info.IsReadOnly = false;
+                    info.Delete();
+                }, ct);
+            }
 
             manifest.Entries.Remove(entry);
             SaveManifest(manifest);
@@ -191,10 +240,14 @@ public static class QuarantineService
             DiagnosticLogger.Info("QuarantineService", $"Purged: {entry.OriginalPath}");
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             DiagnosticLogger.Warn("QuarantineService", $"Failed to purge {entryId}", ex);
             return false;
+        }
+        finally
+        {
+            _manifestLock.Release();
         }
     }
 
@@ -209,8 +262,7 @@ public static class QuarantineService
         var retentionDays = settings.QuarantineRetentionDays;
         var cutoff = DateTime.Now.AddDays(-retentionDays);
 
-        var manifest = LoadManifest();
-        var expired = manifest.Entries.Where(e => e.QuarantinedAt < cutoff).ToList();
+        var expired = GetAllEntries().Where(e => e.QuarantinedAt < cutoff).ToList();
 
         int purged = 0;
         foreach (var entry in expired)
@@ -231,6 +283,8 @@ public static class QuarantineService
     /// </summary>
     public static List<QuarantineEntry> GetAllEntries()
     {
+        // Lock-free read: the manifest is always replaced atomically, so a reader sees either
+        // the previous or the new version, never a partial write.
         return LoadManifest().Entries;
     }
 
@@ -263,8 +317,11 @@ public static class QuarantineService
             if (File.Exists(ManifestFile))
             {
                 var json = File.ReadAllText(ManifestFile);
-                return JsonSerializer.Deserialize<QuarantineManifest>(json, JsonOptions)
-                       ?? new QuarantineManifest();
+                var manifest = JsonSerializer.Deserialize<QuarantineManifest>(json, JsonOptions)
+                               ?? new QuarantineManifest();
+                manifest.Entries ??= [];
+                manifest.Entries.RemoveAll(e => e == null || string.IsNullOrEmpty(e.StoredFileName));
+                return manifest;
             }
         }
         catch (Exception ex)
@@ -279,7 +336,9 @@ public static class QuarantineService
     {
         Directory.CreateDirectory(QuarantineDir);
         var json = JsonSerializer.Serialize(manifest, JsonOptions);
-        File.WriteAllText(ManifestFile, json);
+        var tempFile = ManifestFile + ".tmp";
+        File.WriteAllText(tempFile, json);
+        File.Move(tempFile, ManifestFile, overwrite: true);
     }
 }
 

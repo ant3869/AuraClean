@@ -54,15 +54,13 @@
 
             <!-- Summary text -->
             <TextBlock Grid.Column="1"
+                       Text="{Binding StatusMessage}"
+                       ToolTip="{Binding StatusMessage}"
                        VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,0,12,0"
                        Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Text" Value="{Binding StatusMessage}" />
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
+                       FontSize="13" />
 
             <Button Grid.Column="2"
                     Content="Select All"
@@ -281,6 +279,9 @@
                            Text="{Binding StatusMessage}"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource AuraTextSecondary}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding StatusMessage}"
+                           Margin="0,0,12,0"
                            FontSize="12"
                            VerticalAlignment="Center" />
 

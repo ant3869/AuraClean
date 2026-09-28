@@ -27,22 +27,23 @@ public partial class SoftwareUpdaterViewModel : ObservableObject
     [RelayCommand]
     private async Task CheckForUpdatesAsync()
     {
+        if (IsBusy) return;
+
         IsBusy = true;
         StatusMessage = "Checking for update tools...";
         Programs.Clear();
         OutdatedCount = 0;
 
-        IsWingetAvailable = await SoftwareUpdaterService.IsWingetAvailableAsync();
-        if (!IsWingetAvailable)
-        {
-            StatusMessage = "The Windows update tool isn't available. Install 'App Installer' from the Microsoft Store to enable updates.";
-            IsBusy = false;
-            return;
-        }
-
         var progress = new Progress<string>(msg => StatusMessage = msg);
         try
         {
+            IsWingetAvailable = await SoftwareUpdaterService.IsWingetAvailableAsync();
+            if (!IsWingetAvailable)
+            {
+                StatusMessage = "The Windows update tool isn't available. Install 'App Installer' from the Microsoft Store to enable updates.";
+                return;
+            }
+
             var outdated = await SoftwareUpdaterService.CheckForUpdatesAsync(progress);
             foreach (var p in outdated)
             {
@@ -77,6 +78,8 @@ public partial class SoftwareUpdaterViewModel : ObservableObject
     [RelayCommand]
     private async Task UpdateSelectedAsync()
     {
+        if (IsBusy) return;
+
         var selected = Programs.Where(p => p.IsSelected && !p.IsUpdated).ToList();
         if (selected.Count == 0)
         {
@@ -84,43 +87,62 @@ public partial class SoftwareUpdaterViewModel : ObservableObject
             return;
         }
 
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Update {selected.Count} program(s) with winget? Close them first; installers run silently.",
+                "Confirm updates"))
+        {
+            StatusMessage = "Update cancelled.";
+            return;
+        }
+
         IsBusy = true;
         int successCount = 0;
 
-        foreach (var entry in selected)
+        try
         {
-            entry.UpdateStatus = "Updating...";
-            StatusMessage = $"Updating {entry.Name}...";
-
-            var program = new SoftwareUpdaterService.OutdatedProgram
+            foreach (var entry in selected)
             {
-                Name = entry.Name,
-                Id = entry.Id,
-                InstalledVersion = entry.InstalledVersion,
-                AvailableVersion = entry.AvailableVersion,
-                Source = entry.Source
-            };
+                entry.UpdateStatus = "Updating...";
+                StatusMessage = $"Updating {entry.Name}...";
 
-            var (success, message) = await SoftwareUpdaterService.UpdateProgramAsync(program);
+                var program = new SoftwareUpdaterService.OutdatedProgram
+                {
+                    Name = entry.Name,
+                    Id = entry.Id,
+                    InstalledVersion = entry.InstalledVersion,
+                    AvailableVersion = entry.AvailableVersion,
+                    Source = entry.Source
+                };
 
-            if (success)
-            {
-                entry.IsUpdated = true;
-                entry.UpdateStatus = "Updated";
-                successCount++;
+                var (success, message) = await SoftwareUpdaterService.UpdateProgramAsync(program);
+
+                if (success)
+                {
+                    entry.IsUpdated = true;
+                    entry.UpdateStatus = "Updated";
+                    successCount++;
+                }
+                else
+                {
+                    entry.UpdateStatus = "Failed";
+                    DiagnosticLogger.Warn("SoftwareUpdaterVM", $"{entry.Name}: {message}");
+                }
             }
-            else
-            {
-                entry.UpdateStatus = "Failed";
-            }
+
+            if (successCount > 0)
+                NotificationService.ShowSuccess("Software Updates",
+                    $"Successfully updated {successCount} program(s).");
         }
-
-        StatusMessage = $"Updated {successCount}/{selected.Count} program(s).";
-        if (successCount > 0)
-            NotificationService.ShowSuccess("Software Updates",
-                $"Successfully updated {successCount} program(s).");
-
-        IsBusy = false;
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("SoftwareUpdaterVM", "UpdateSelectedAsync failed", ex);
+        }
+        finally
+        {
+            StatusMessage = $"Updated {successCount}/{selected.Count} program(s)." +
+                            (successCount < selected.Count ? " See each row's status for failures." : string.Empty);
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]

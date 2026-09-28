@@ -1,8 +1,10 @@
 using AuraClean.Helpers;
 using AuraClean.Models;
-using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Security.Principal;
 using System.ServiceProcess;
+using System.Text.RegularExpressions;
 
 namespace AuraClean.Services;
 
@@ -22,57 +24,92 @@ public static class FileCleanerService
     };
 
     /// <summary>
+    /// Temp files younger than this are left alone: running installers and apps extract
+    /// working files to %TEMP% and break if they disappear mid-use.
+    /// </summary>
+    internal static readonly TimeSpan TempFileMinimumAge = TimeSpan.FromHours(24);
+
+    /// <summary>Recent logs are kept so in-progress diagnostics are not destroyed.</summary>
+    internal static readonly TimeSpan LogFileMinimumAge = TimeSpan.FromDays(7);
+
+    private const int MaxFilesPerAggregatedDirectory = 20_000;
+
+    private static string WindowsDir => PathSafety.WindowsDirectory;
+
+    private static string ProgramDataDir =>
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+
+    /// <summary>
+    /// Minimum age a file must reach before it may be cleaned, per junk type.
+    /// </summary>
+    internal static TimeSpan? GetMinimumAge(JunkType type) => type switch
+    {
+        JunkType.TempFile => TempFileMinimumAge,
+        JunkType.LogFile => LogFileMinimumAge,
+        _ => null
+    };
+
+    /// <summary>
+    /// Whether an aggregated directory item may itself be removed once emptied.
+    /// Log folders under %SystemRoot% are expected to exist by the services that write to them.
+    /// </summary>
+    private static bool ShouldRemoveEmptiedDirectory(JunkType type) => type is not JunkType.LogFile;
+
+    /// <summary>
     /// Analyzes the system for junk files and returns categorized results.
     /// </summary>
+    /// <param name="includeReviewOnlyCategories">
+    /// When false, the slow Windows.old measurement and DISM component-store analysis are skipped.
+    /// Normal mode and scheduled cleanups never offer those categories, so there is no point
+    /// spending minutes computing them.
+    /// </param>
     public static async Task<List<JunkItem>> AnalyzeSystemJunkAsync(
         IProgress<string>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool includeReviewOnlyCategories = true)
     {
         var results = new System.Collections.Concurrent.ConcurrentBag<JunkItem>();
 
-        // Resolve user-specific paths on the calling thread
-        var userCrashDumps = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CrashDumps");
-        var thumbDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            @"Microsoft\Windows\Explorer");
-        var userWer = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            @"Microsoft\Windows\WER");
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var userCrashDumps = Path.Combine(localAppData, "CrashDumps");
+        var thumbDir = Path.Combine(localAppData, @"Microsoft\Windows\Explorer");
+        var userWer = Path.Combine(localAppData, @"Microsoft\Windows\WER");
         var tempPath = Path.GetTempPath();
 
-        // Build scan descriptors — all independent, safe to parallelize
         var scanJobs = new List<(string Path, JunkType Type, string Desc, string? Pattern)>
         {
-            (@"C:\Windows\Temp", JunkType.TempFile, "Windows Temp", null),
+            (Path.Combine(WindowsDir, "Temp"), JunkType.TempFile, "Windows Temp", null),
             (tempPath, JunkType.TempFile, "User Temp", null),
-            (@"C:\Windows\Prefetch", JunkType.Prefetch, "Prefetch File", "*.pf"),
+            (Path.Combine(WindowsDir, "Prefetch"), JunkType.Prefetch, "Prefetch File", "*.pf"),
             (userCrashDumps, JunkType.CrashDump, "User Crash Dump", null),
-            (@"C:\Windows\Minidump", JunkType.CrashDump, "System Minidump", null),
-            (@"C:\Windows\SoftwareDistribution\Download", JunkType.WindowsUpdateCache, "Windows Update Cache", null),
-            (@"C:\Windows\BranchCache", JunkType.BranchCache, "BranchCache", null),
+            (Path.Combine(WindowsDir, "Minidump"), JunkType.CrashDump, "System Minidump", null),
+            (Path.Combine(WindowsDir, @"SoftwareDistribution\Download"), JunkType.WindowsUpdateCache, "Windows Update Cache", null),
+            (Path.Combine(WindowsDir, "BranchCache"), JunkType.BranchCache, "BranchCache", null),
             (thumbDir, JunkType.ThumbnailCache, "Thumbnail Cache", "thumbcache_*.db"),
-            (@"C:\Windows\SoftwareDistribution\DeliveryOptimization", JunkType.DeliveryOptimization, "Delivery Optimization", null),
-            (@"C:\ProgramData\Microsoft\Windows\WER\ReportArchive", JunkType.WindowsErrorReporting, "WER Archive", null),
-            (@"C:\ProgramData\Microsoft\Windows\WER\ReportQueue", JunkType.WindowsErrorReporting, "WER Queue", null),
+            (Path.Combine(WindowsDir, @"SoftwareDistribution\DeliveryOptimization"), JunkType.DeliveryOptimization, "Delivery Optimization", null),
+            (Path.Combine(ProgramDataDir, @"Microsoft\Windows\WER\ReportArchive"), JunkType.WindowsErrorReporting, "WER Archive", null),
+            (Path.Combine(ProgramDataDir, @"Microsoft\Windows\WER\ReportQueue"), JunkType.WindowsErrorReporting, "WER Queue", null),
             (userWer, JunkType.WindowsErrorReporting, "User WER", null),
-            (@"C:\Windows\ServiceProfiles\LocalService\AppData\Local\FontCache", JunkType.FontCache, "Font Cache", null),
-            (@"C:\Windows\Logs", JunkType.LogFile, "Windows Log", null),
-            (@"C:\Windows\Panther", JunkType.LogFile, "Setup Log", null),
+            (Path.Combine(WindowsDir, @"ServiceProfiles\LocalService\AppData\Local\FontCache"), JunkType.FontCache, "Font Cache", null),
+            (Path.Combine(WindowsDir, "Logs"), JunkType.LogFile, "Windows Log", null),
+            (Path.Combine(WindowsDir, "Panther"), JunkType.LogFile, "Setup Log", null),
         };
 
-        // Add Recycle Bin per fixed drive
-        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
+        // Only the current user's Recycle Bin: emptying other accounts' bins would destroy
+        // files those users may still want to restore.
+        var userSid = GetCurrentUserSid();
+        if (userSid != null)
         {
-            var recyclePath = Path.Combine(drive.RootDirectory.FullName, "$Recycle.Bin");
-            scanJobs.Add((recyclePath, JunkType.RecycleBin, $"Recycle Bin ({drive.Name})", null));
+            foreach (var drive in GetFixedDrives())
+            {
+                var recyclePath = Path.Combine(drive.RootDirectory.FullName, "$Recycle.Bin", userSid);
+                scanJobs.Add((recyclePath, JunkType.RecycleBin, $"Recycle Bin ({drive.Name})", null));
+            }
         }
 
-        // Run all scans in parallel with bounded concurrency to avoid disk thrashing
         progress?.Report("Scanning system for junk files...");
         await Parallel.ForEachAsync(
-            scanJobs,
+            scanJobs.DistinctBy(j => j.Path, StringComparer.OrdinalIgnoreCase),
             new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
             (job, token) =>
             {
@@ -83,39 +120,32 @@ public static class FileCleanerService
                 return ValueTask.CompletedTask;
             });
 
-        // 14. Windows.old (if present)
+        if (!includeReviewOnlyCategories)
+            return results.ToList();
+
         progress?.Report("Checking for Windows.old...");
-        if (Directory.Exists(@"C:\Windows.old"))
+        var windowsOld = Path.Combine(Path.GetPathRoot(WindowsDir) ?? @"C:\", "Windows.old");
+        if (Directory.Exists(windowsOld))
         {
-            long oldSize = 0;
-            try
-            {
-                foreach (var f in Directory.EnumerateFiles(@"C:\Windows.old", "*", SearchOption.AllDirectories).Take(5000))
-                {
-                    try { oldSize += new FileInfo(f).Length; } catch { /* Per-file size read failure — expected for locked files */ }
-                }
-            }
-            catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", "Failed to enumerate Windows.old", ex); }
+            var (oldSize, _) = await Task.Run(() => MeasureDirectory(windowsOld, null, MaxFilesPerAggregatedDirectory * 5, ct), ct);
             if (oldSize > 0)
             {
                 results.Add(new JunkItem
                 {
-                    Path = @"C:\Windows.old",
+                    Path = windowsOld,
                     Description = "Windows.old (previous installation)",
                     Type = JunkType.WindowsOld,
                     SizeBytes = oldSize,
-                    LastModified = Directory.GetLastWriteTime(@"C:\Windows.old"),
-                    IsSelected = false // Don't auto-select — user should decide
+                    LastModified = SafeGetLastWriteTime(windowsOld),
+                    IsSelected = false
                 });
             }
         }
 
-        // 15. WinSxS Component Store (safe cleanup via DISM)
-        // Runs outside Task.Run because it needs async process execution
         progress?.Report("Analyzing Component Store (WinSxS)...");
         try
         {
-            var winsxsPath = @"C:\Windows\WinSxS";
+            var winsxsPath = Path.Combine(WindowsDir, "WinSxS");
             if (Directory.Exists(winsxsPath))
             {
                 long winsxsReclaimable = await GetWinSxSReclaimableSizeAsync(ct);
@@ -127,12 +157,13 @@ public static class FileCleanerService
                         Description = "Component Store — reclaimable via DISM cleanup",
                         Type = JunkType.WinSxS,
                         SizeBytes = winsxsReclaimable,
-                        LastModified = Directory.GetLastWriteTime(winsxsPath),
+                        LastModified = SafeGetLastWriteTime(winsxsPath),
                         IsSelected = false
                     });
                 }
             }
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             DiagnosticLogger.Warn("FileCleanerService", "Failed to analyze WinSxS", ex);
@@ -179,42 +210,40 @@ public static class FileCleanerService
 
         try
         {
-            // Stop services that lock files we want to clean
             var servicesToStop = new Dictionary<JunkType, string[]>
             {
-                [JunkType.WindowsUpdateCache] = ["wuauserv"],
+                [JunkType.WindowsUpdateCache] = ["wuauserv", "bits"],
+                [JunkType.DeliveryOptimization] = ["DoSvc"],
                 [JunkType.FontCache] = ["FontCache"],
-                [JunkType.ThumbnailCache] = ["WSearch"],
             };
 
             foreach (var (junkType, serviceNames) in servicesToStop)
             {
-                if (itemList.Any(i => i.Type == junkType))
+                if (!itemList.Any(i => i.Type == junkType))
+                    continue;
+
+                foreach (var svc in serviceNames)
                 {
-                    foreach (var svc in serviceNames)
-                    {
-                        progress?.Report($"Stopping {svc} service...");
-                        if (await TryStopServiceAsync(svc))
-                            stoppedServices.Add(svc);
-                    }
+                    if (stoppedServices.Contains(svc, StringComparer.OrdinalIgnoreCase))
+                        continue;
+
+                    progress?.Report($"Stopping {svc} service...");
+                    if (await TryStopServiceAsync(svc))
+                        stoppedServices.Add(svc);
                 }
             }
 
-            // Run all file I/O on a background thread
-            // Handle WinSxS items separately (needs DISM, not file deletion)
             var winsxsItems = itemList.Where(i => i.Type == JunkType.WinSxS).ToList();
             var fileItems = itemList.Where(i => i.Type != JunkType.WinSxS).ToList();
 
-            // Clean WinSxS via DISM
             foreach (var winsxsItem in winsxsItems)
             {
                 ct.ThrowIfCancellationRequested();
-                progress?.Report("Running DISM Component Store cleanup...");
-                var (success, freedBytes) = await CleanWinSxSAsync(ct);
-                if (success)
+                progress?.Report("Running DISM Component Store cleanup (this can take several minutes)...");
+                if (await CleanWinSxSAsync(ct))
                 {
                     deleted++;
-                    bytesFreed += freedBytes > 0 ? freedBytes : winsxsItem.SizeBytes;
+                    bytesFreed += winsxsItem.SizeBytes;
                 }
                 else
                 {
@@ -236,58 +265,9 @@ public static class FileCleanerService
 
                     try
                     {
-                        if (File.Exists(item.Path))
-                        {
-                            if (IsProtectedUserMediaFile(item.Path))
-                            {
-                                skipped++;
-                                item.IsLocked = true;
-                                item.LockingProcess = "Protected photo or screenshot file";
-                                continue;
-                            }
-
-                            // Attempt-based: just try to delete, handle failure gracefully
-                            var size = new FileInfo(item.Path).Length;
-                            File.Delete(item.Path);
-                            bytesFreed += size;
-                            deleted++;
-                        }
-                        else if (Directory.Exists(item.Path))
-                        {
-                            // For directories: delete files individually, skip locked ones,
-                            // then try to remove the (hopefully empty) directory tree.
-                            var (dirDeleted, dirSkipped, dirBytes, protectedMediaSkipped) =
-                                CleanDirectoryBestEffort(item.Path);
-                            deleted += dirDeleted;
-                            skipped += dirSkipped;
-                            bytesFreed += dirBytes;
-
-                            if (dirSkipped > 0)
-                            {
-                                item.IsLocked = true;
-                                item.LockingProcess = protectedMediaSkipped > 0
-                                    ? "Contains protected photo or screenshot files"
-                                    : "Contains locked or in-use files";
-                            }
-
-                            if (dirSkipped == 0)
-                            {
-                                // All files deleted — remove directory structure
-                                try { Directory.Delete(item.Path, recursive: true); }
-                                catch
-                                {
-                                    skipped++;
-                                    item.IsLocked = true;
-                                    item.LockingProcess = "Directory could not be removed";
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // Path no longer exists (already cleaned or moved)
-                            deleted++;
-                        }
+                        CleanSingleItem(item, ref deleted, ref skipped, ref bytesFreed, ct);
                     }
+                    catch (OperationCanceledException) { throw; }
                     catch (UnauthorizedAccessException)
                     {
                         skipped++;
@@ -298,15 +278,7 @@ public static class FileCleanerService
                     {
                         skipped++;
                         item.IsLocked = true;
-                        // Try to identify what's locking it
-                        try
-                        {
-                            var lockers = FileLockDetector.GetLockingProcesses(item.Path);
-                            item.LockingProcess = lockers.Count > 0
-                                ? string.Join(", ", lockers)
-                                : "System";
-                        }
-                        catch { item.LockingProcess = "Unknown process"; }
+                        item.LockingProcess = DescribeLockers(item.Path);
                     }
                     catch (IOException)
                     {
@@ -327,18 +299,112 @@ public static class FileCleanerService
         }
         finally
         {
-            // Restart all stopped services
-            foreach (var svc in stoppedServices)
+            // Restart services in reverse order so dependencies come back correctly.
+            for (int i = stoppedServices.Count - 1; i >= 0; i--)
             {
-                try { await TryStartServiceAsync(svc); }
-                catch { errors.Add($"Failed to restart {svc} service."); }
+                var svc = stoppedServices[i];
+                if (!await TryStartServiceAsync(svc))
+                    errors.Add($"Failed to restart {svc} service.");
             }
         }
 
-        // Write audit log for accountability
         WriteCleanupAudit(itemList, deleted, skipped, bytesFreed);
 
         return (deleted, skipped, bytesFreed, errors);
+    }
+
+    private static void CleanSingleItem(JunkItem item, ref int deleted, ref int skipped, ref long bytesFreed, CancellationToken ct)
+    {
+        if (File.Exists(item.Path))
+        {
+            if (IsProtectedUserMediaFile(item.Path))
+            {
+                skipped++;
+                item.IsLocked = true;
+                item.LockingProcess = "Protected photo or screenshot file";
+                return;
+            }
+
+            var info = new FileInfo(item.Path);
+            var minAge = GetMinimumAge(item.Type);
+            if (minAge.HasValue && DateTime.UtcNow - info.LastWriteTimeUtc < minAge.Value)
+            {
+                skipped++;
+                item.IsLocked = true;
+                item.LockingProcess = "Recently modified — kept for safety";
+                return;
+            }
+
+            var size = info.Length;
+            if (info.IsReadOnly)
+                info.IsReadOnly = false;
+            File.Delete(item.Path);
+            bytesFreed += size;
+            deleted++;
+            return;
+        }
+
+        if (Directory.Exists(item.Path))
+        {
+            if (PathSafety.IsProtectedRoot(item.Path))
+            {
+                skipped++;
+                item.IsLocked = true;
+                item.LockingProcess = "Protected folder — contents only";
+                DiagnosticLogger.Warn("FileCleanerService", $"Refused to clean protected folder {item.Path}");
+                return;
+            }
+
+            var olderThanUtc = GetMinimumAge(item.Type) is { } age ? DateTime.UtcNow - age : (DateTime?)null;
+            var (dirDeleted, dirSkipped, dirBytes, protectedMediaSkipped) =
+                CleanDirectoryBestEffort(item.Path, olderThanUtc, ct);
+            deleted += dirDeleted;
+            skipped += dirSkipped;
+            bytesFreed += dirBytes;
+
+            if (dirSkipped > 0)
+            {
+                item.IsLocked = true;
+                item.LockingProcess = protectedMediaSkipped > 0
+                    ? "Contains protected photo or screenshot files"
+                    : "Contains locked, recent, or in-use files";
+                return;
+            }
+
+            if (ShouldRemoveEmptiedDirectory(item.Type))
+            {
+                try
+                {
+                    if (!Directory.EnumerateFileSystemEntries(item.Path).Any())
+                        Directory.Delete(item.Path);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    skipped++;
+                    item.IsLocked = true;
+                    item.LockingProcess = "Directory could not be removed";
+                    DiagnosticLogger.Warn("FileCleanerService", $"Emptied folder could not be removed: {item.Path}", ex);
+                }
+            }
+            return;
+        }
+
+        // Path no longer exists (already cleaned or moved) — nothing left to do.
+        deleted++;
+    }
+
+    private static string DescribeLockers(string path)
+    {
+        try
+        {
+            var lockers = FileLockDetector.GetLockingProcesses(path);
+            return lockers.Count > 0 ? string.Join(", ", lockers) : "System";
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", $"Lock detection failed for {path}", ex);
+            return "Unknown process";
+        }
     }
 
     /// <summary>
@@ -348,11 +414,8 @@ public static class FileCleanerService
     {
         try
         {
-            var logDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AuraClean", "Logs");
-            Directory.CreateDirectory(logDir);
-            var logPath = Path.Combine(logDir, $"Cleanup_Audit_{DateTime.Now:yyyy-MM-dd_HHmmss}.log");
+            Directory.CreateDirectory(DiagnosticLogger.LogDirectory);
+            var logPath = Path.Combine(DiagnosticLogger.LogDirectory, $"Cleanup_Audit_{DateTime.Now:yyyy-MM-dd_HHmmss}.log");
 
             using var writer = new StreamWriter(logPath);
             writer.WriteLine($"AuraClean Cleanup Audit — {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
@@ -360,7 +423,7 @@ public static class FileCleanerService
             writer.WriteLine(new string('─', 60));
             foreach (var item in cleanedItems)
             {
-                var status = item.IsLocked ? "SKIPPED" : "DELETED";
+                var status = item.IsLocked ? $"SKIPPED ({item.LockingProcess})" : "DELETED";
                 writer.WriteLine($"[{status}] {item.Path} ({item.SizeBytes:N0} B) — {item.Type}");
             }
         }
@@ -372,19 +435,20 @@ public static class FileCleanerService
 
     /// <summary>
     /// Best-effort directory cleaning: deletes as many individual files as possible,
-    /// skipping locked ones. Returns counts of deleted, skipped, and bytes freed.
+    /// skipping locked, protected, and too-recent ones. Never follows junctions or symlinks,
+    /// so a link planted inside a temp folder cannot redirect deletion elsewhere.
     /// </summary>
-    private static (int Deleted, int Skipped, long BytesFreed, int ProtectedMediaSkipped)
-        CleanDirectoryBestEffort(string dirPath)
+    internal static (int Deleted, int Skipped, long BytesFreed, int ProtectedMediaSkipped)
+        CleanDirectoryBestEffort(string dirPath, DateTime? olderThanUtc = null, CancellationToken ct = default)
     {
-        int deleted = 0, skippedCount = 0;
-        int protectedMediaSkipped = 0;
+        int deleted = 0, skippedCount = 0, protectedMediaSkipped = 0;
         long bytesFreed = 0;
 
         try
         {
-            foreach (var file in Directory.EnumerateFiles(dirPath, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(dirPath, "*", PathSafety.RecursiveNoReparse))
             {
+                ct.ThrowIfCancellationRequested();
                 try
                 {
                     if (IsProtectedUserMediaFile(file))
@@ -394,33 +458,29 @@ public static class FileCleanerService
                         continue;
                     }
 
-                    var size = new FileInfo(file).Length;
+                    var info = new FileInfo(file);
+                    if (olderThanUtc.HasValue && info.LastWriteTimeUtc > olderThanUtc.Value)
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    var size = info.Length;
+                    if (info.IsReadOnly)
+                        info.IsReadOnly = false;
                     File.Delete(file);
                     bytesFreed += size;
                     deleted++;
                 }
-                catch
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     skippedCount++;
                 }
             }
 
-            // Clean up empty subdirectories bottom-up
-            try
-            {
-                foreach (var dir in Directory.GetDirectories(dirPath, "*", SearchOption.AllDirectories)
-                             .OrderByDescending(d => d.Length))
-                {
-                    try
-                    {
-                        if (!Directory.EnumerateFileSystemEntries(dir).Any())
-                            Directory.Delete(dir);
-                    }
-                    catch { /* Expected: locked or in-use directory */ }
-                }
-            }
-            catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", $"Failed to enumerate subdirectories of {dirPath}", ex); }
+            RemoveEmptySubdirectories(dirPath, ct);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             skippedCount++;
@@ -430,17 +490,48 @@ public static class FileCleanerService
         return (deleted, skippedCount, bytesFreed, protectedMediaSkipped);
     }
 
+    private static void RemoveEmptySubdirectories(string dirPath, CancellationToken ct)
+    {
+        List<string> dirs;
+        try
+        {
+            dirs = Directory.EnumerateDirectories(dirPath, "*", PathSafety.RecursiveNoReparse)
+                .OrderByDescending(d => d.Length)
+                .ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", $"Failed to enumerate subdirectories of {dirPath}", ex);
+            return;
+        }
+
+        foreach (var dir in dirs)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                if (!Directory.EnumerateFileSystemEntries(dir).Any())
+                    Directory.Delete(dir);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Expected: locked or in-use directory.
+            }
+        }
+    }
+
     internal static bool ContainsProtectedUserMedia(string dirPath, int maxFiles = 1000)
     {
         try
         {
-            return Directory.EnumerateFiles(dirPath, "*", SearchOption.AllDirectories)
+            return Directory.EnumerateFiles(dirPath, "*", PathSafety.RecursiveNoReparse)
                 .Take(maxFiles)
                 .Any(IsProtectedUserMediaFile);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return false;
+            // Unknown contents: treat as protected so nothing is presented for deletion.
+            return true;
         }
     }
 
@@ -451,7 +542,7 @@ public static class FileCleanerService
             var extension = Path.GetExtension(path);
             return !string.IsNullOrEmpty(extension) && ProtectedImageExtensions.Contains(extension);
         }
-        catch
+        catch (ArgumentException)
         {
             return false;
         }
@@ -467,39 +558,24 @@ public static class FileCleanerService
     {
         if (!Directory.Exists(path)) return;
 
+        var minAge = GetMinimumAge(type);
+        DateTime? olderThanUtc = minAge.HasValue ? DateTime.UtcNow - minAge.Value : null;
+
         try
         {
-            if (searchPattern != null)
-            {
-                // Pattern-based: scan top-level only (Prefetch *.pf, Thumbnail thumbcache_*.db)
-                foreach (var file in Directory.EnumerateFiles(path, searchPattern, SearchOption.TopDirectoryOnly))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    try
-                    {
-                        var fi = new FileInfo(file);
-                        results.Add(new JunkItem
-                        {
-                            Path = file,
-                            Description = $"{label}: {fi.Name}",
-                            Type = type,
-                            SizeBytes = fi.Length,
-                            LastModified = fi.LastWriteTime
-                        });
-                    }
-                    catch { }
-                }
-                return;
-            }
+            var topLevelFiles = searchPattern != null
+                ? Directory.EnumerateFiles(path, searchPattern, PathSafety.TopLevelNoReparse)
+                : Directory.EnumerateFiles(path, "*", PathSafety.TopLevelNoReparse);
 
-            // No pattern: scan root-level files individually,
-            // then aggregate each subdirectory into ONE JunkItem.
-            foreach (var file in Directory.EnumerateFiles(path))
+            foreach (var file in topLevelFiles)
             {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
                     var fi = new FileInfo(file);
+                    if (olderThanUtc.HasValue && fi.LastWriteTimeUtc > olderThanUtc.Value)
+                        continue;
+
                     results.Add(new JunkItem
                     {
                         Path = file,
@@ -509,24 +585,24 @@ public static class FileCleanerService
                         LastModified = fi.LastWriteTime
                     });
                 }
-                catch { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // File vanished or is inaccessible — skip it.
+                }
             }
 
-            // Subdirectories — one JunkItem per directory (with summed size)
-            foreach (var dir in Directory.EnumerateDirectories(path))
+            // Pattern-based scans (Prefetch *.pf, thumbcache_*.db) only look at the top level.
+            if (searchPattern != null)
+                return;
+
+            foreach (var dir in Directory.EnumerateDirectories(path, "*", PathSafety.TopLevelNoReparse))
             {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    int fileCount = 0;
-                    long size = 0;
-                    foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Take(2000))
-                    {
-                        try { size += new FileInfo(file).Length; fileCount++; }
-                        catch { }
-                    }
-
+                    var (size, fileCount) = MeasureDirectory(dir, olderThanUtc, MaxFilesPerAggregatedDirectory, ct);
                     var dirName = Path.GetFileName(dir);
+
                     if (fileCount > 0)
                     {
                         results.Add(new JunkItem
@@ -535,126 +611,206 @@ public static class FileCleanerService
                             Description = $"{label}: {dirName} ({fileCount:N0} files)",
                             Type = type,
                             SizeBytes = size,
-                            LastModified = Directory.GetLastWriteTime(dir)
+                            LastModified = SafeGetLastWriteTime(dir)
                         });
                     }
-                    else if (!Directory.EnumerateFileSystemEntries(dir).Any())
+                    else if (ShouldRemoveEmptiedDirectory(type) && IsEmptyTree(dir))
                     {
-                        // Empty directory — still cleanable
                         results.Add(new JunkItem
                         {
                             Path = dir,
                             Description = $"{label}: Empty folder {dirName}",
                             Type = type,
                             SizeBytes = 0,
-                            LastModified = Directory.GetLastWriteTime(dir)
+                            LastModified = SafeGetLastWriteTime(dir)
                         });
                     }
                 }
-                catch (Exception ex) { DiagnosticLogger.Warn("FileCleanerService", $"Failed to scan subdirectory under {path}", ex); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("FileCleanerService", $"Failed to scan subdirectory under {path}", ex);
+                }
             }
         }
-        catch (UnauthorizedAccessException) { }
-        catch (DirectoryNotFoundException) { }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or DirectoryNotFoundException or IOException)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", $"Could not scan {path}", ex);
+        }
     }
 
     /// <summary>
-    /// Attempts to stop a Windows service. Returns true if stopped or already stopped.
+    /// Sums eligible files (never following reparse points). Returns (bytes, fileCount).
     /// </summary>
-    private static async Task<bool> TryStopServiceAsync(string serviceName)
+    private static (long Size, int FileCount) MeasureDirectory(string dir, DateTime? olderThanUtc, int maxFiles, CancellationToken ct)
     {
-        return await Task.Run(() =>
+        long size = 0;
+        int count = 0;
+        try
         {
+            foreach (var file in new DirectoryInfo(dir).EnumerateFiles("*", PathSafety.RecursiveNoReparse))
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    if (olderThanUtc.HasValue && file.LastWriteTimeUtc > olderThanUtc.Value)
+                        continue;
+
+                    size += file.Length;
+                    if (++count >= maxFiles)
+                        break;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Skip unreadable file metadata.
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", $"Failed to measure {dir}", ex);
+        }
+
+        return (size, count);
+    }
+
+    private static bool IsEmptyTree(string dir)
+    {
+        try
+        {
+            return !Directory.EnumerateFiles(dir, "*", PathSafety.RecursiveNoReparse).Any();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static DateTime SafeGetLastWriteTime(string path)
+    {
+        try { return Directory.GetLastWriteTime(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return DateTime.MinValue; }
+    }
+
+    private static IEnumerable<DriveInfo> GetFixedDrives()
+    {
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            bool usable;
+            try { usable = drive.IsReady && drive.DriveType == DriveType.Fixed; }
+            catch (IOException) { usable = false; }
+
+            if (usable)
+                yield return drive;
+        }
+    }
+
+    private static string? GetCurrentUserSid()
+    {
+        try
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            return identity.User?.Value;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", "Could not resolve current user SID", ex);
+            return null;
+        }
+    }
+
+    // ══════════════════════════════════════════
+    //  SERVICES
+    // ══════════════════════════════════════════
+
+    /// <summary>
+    /// Attempts to stop a running Windows service. Returns true when AuraClean issued the stop,
+    /// even if the wait timed out — the caller must then restart it afterwards.
+    /// Returns false when the service was not running (so it must not be started later).
+    /// </summary>
+    private static Task<bool> TryStopServiceAsync(string serviceName) => Task.Run(() =>
+    {
+        try
+        {
+            using var sc = new ServiceController(serviceName);
+            if (sc.Status != ServiceControllerStatus.Running || !sc.CanStop)
+                return false;
+
+            sc.Stop();
             try
             {
-                using var sc = new ServiceController(serviceName);
-                if (sc.Status == ServiceControllerStatus.Stopped)
-                    return true;
-                if (sc.Status == ServiceControllerStatus.Running)
-                {
-                    sc.Stop();
-                    sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                    return sc.Status == ServiceControllerStatus.Stopped;
-                }
-                return false;
+                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
             }
-            catch (Exception ex)
+            catch (System.ServiceProcess.TimeoutException ex)
             {
-                DiagnosticLogger.Warn("FileCleanerService", $"Could not stop service '{serviceName}'", ex);
-                return false;
+                DiagnosticLogger.Warn("FileCleanerService", $"Service '{serviceName}' did not stop within 30s", ex);
             }
-        });
-    }
-
-    /// <summary>
-    /// Attempts to start a Windows service. Returns true if started or already running.
-    /// </summary>
-    private static async Task<bool> TryStartServiceAsync(string serviceName)
-    {
-        return await Task.Run(() =>
+            return true;
+        }
+        catch (Exception ex)
         {
-            try
-            {
-                using var sc = new ServiceController(serviceName);
-                if (sc.Status == ServiceControllerStatus.Running)
-                    return true;
-                if (sc.Status == ServiceControllerStatus.Stopped)
-                {
-                    sc.Start();
-                    sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-                    return sc.Status == ServiceControllerStatus.Running;
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                DiagnosticLogger.Warn("FileCleanerService", $"Could not start service '{serviceName}'", ex);
-                return false;
-            }
-        });
-    }
+            DiagnosticLogger.Warn("FileCleanerService", $"Could not stop service '{serviceName}'", ex);
+            return false;
+        }
+    });
 
     /// <summary>
-    /// Runs DISM /AnalyzeComponentStore to estimate reclaimable WinSxS space.
-    /// Parses the "Reclaimable Packages" size from DISM output.
+    /// Starts a service that AuraClean previously stopped. Returns true if it is running.
+    /// </summary>
+    private static Task<bool> TryStartServiceAsync(string serviceName) => Task.Run(() =>
+    {
+        try
+        {
+            using var sc = new ServiceController(serviceName);
+            sc.Refresh();
+
+            if (sc.Status == ServiceControllerStatus.Running)
+                return true;
+
+            if (sc.Status == ServiceControllerStatus.StopPending)
+                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+
+            if (sc.Status == ServiceControllerStatus.Stopped)
+                sc.Start();
+
+            sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+            return sc.Status == ServiceControllerStatus.Running;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("FileCleanerService", $"Could not start service '{serviceName}'", ex);
+            return false;
+        }
+    });
+
+    // ══════════════════════════════════════════
+    //  WINSXS (DISM)
+    // ══════════════════════════════════════════
+
+    /// <summary>
+    /// Runs DISM /AnalyzeComponentStore and returns the reclaimable size
+    /// ("Backups and Disabled Features" + "Cache and Temporary Data").
     /// </summary>
     private static async Task<long> GetWinSxSReclaimableSizeAsync(CancellationToken ct)
     {
         try
         {
-            var psi = new ProcessStartInfo
+            var result = await ProcessRunner.RunAsync(
+                ProcessRunner.SystemTool("Dism.exe"),
+                "/Online /Cleanup-Image /AnalyzeComponentStore /English",
+                ct, timeout: TimeSpan.FromMinutes(15));
+
+            if (!result.Succeeded)
             {
-                FileName = "Dism.exe",
-                Arguments = "/Online /Cleanup-Image /AnalyzeComponentStore",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start(psi);
-            if (process == null) return 0;
-
-            var output = await process.StandardOutput.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
-
-            // Parse "Reclaimable Packages : X.XX GB" or "X.XX MB"
-            // Also check "Component Store Cleanup Recommended : Yes"
-            foreach (var line in output.Split('\n'))
-            {
-                var trimmed = line.Trim();
-                if (trimmed.StartsWith("Reclaimable Packages", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ParseDismSize(trimmed);
-                }
+                DiagnosticLogger.Warn("FileCleanerService", $"DISM analyze exited with {result.ExitCode}: {result.CombinedMessage}");
+                return 0;
             }
 
-            // Fallback: if "Component Store Cleanup Recommended : Yes", estimate conservatively
-            if (output.Contains("Cleanup Recommended : Yes", StringComparison.OrdinalIgnoreCase))
-                return 500_000_000; // 500 MB estimate
-
-            return 0;
+            return ParseDismReclaimable(result.StandardOutput);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             DiagnosticLogger.Warn("FileCleanerService", "DISM AnalyzeComponentStore failed", ex);
@@ -663,106 +819,93 @@ public static class FileCleanerService
     }
 
     /// <summary>
-    /// Parses a DISM size line like "Reclaimable Packages : 1.23 GB" into bytes.
+    /// Extracts the reclaimable byte count from DISM /AnalyzeComponentStore output.
+    /// </summary>
+    internal static long ParseDismReclaimable(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+            return 0;
+
+        long reclaimable = 0;
+        bool found = false;
+        foreach (var line in output.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("Backups and Disabled Features", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("Cache and Temporary Data", StringComparison.OrdinalIgnoreCase))
+            {
+                reclaimable += ParseDismSize(trimmed);
+                found = true;
+            }
+        }
+
+        bool recommended = Regex.IsMatch(output, @"Cleanup Recommended\s*:\s*Yes", RegexOptions.IgnoreCase);
+        if (!recommended)
+            return 0;
+
+        // DISM recommends cleanup but the size lines were missing or unparsable.
+        return found && reclaimable > 0 ? reclaimable : 500L * 1024 * 1024;
+    }
+
+    /// <summary>
+    /// Parses a DISM size line like "Cache and Temporary Data : 1.23 GB" into bytes.
+    /// Supports bytes/KB/MB/GB/TB and either decimal separator.
     /// </summary>
     internal static long ParseDismSize(string line)
     {
-        // Extract the size portion after the colon
         var colonIdx = line.IndexOf(':');
         if (colonIdx < 0) return 0;
 
-        var sizePart = line[(colonIdx + 1)..].Trim();
+        var match = Regex.Match(line[(colonIdx + 1)..],
+            @"(?<value>\d+(?:[.,]\d+)?)\s*(?<unit>bytes|byte|KB|MB|GB|TB)\b",
+            RegexOptions.IgnoreCase);
+        if (!match.Success)
+            return 0;
 
-        if (double.TryParse(
-                sizePart.Replace(" GB", "").Replace(" MB", "").Replace(" KB", "").Trim(),
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out var value))
+        var numberText = match.Groups["value"].Value.Replace(',', '.');
+        if (!double.TryParse(numberText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            return 0;
+
+        var multiplier = match.Groups["unit"].Value.ToUpperInvariant() switch
         {
-            if (sizePart.Contains("GB", StringComparison.OrdinalIgnoreCase))
-                return (long)(value * 1_073_741_824);
-            if (sizePart.Contains("MB", StringComparison.OrdinalIgnoreCase))
-                return (long)(value * 1_048_576);
-            if (sizePart.Contains("KB", StringComparison.OrdinalIgnoreCase))
-                return (long)(value * 1024);
-        }
+            "TB" => 1_099_511_627_776d,
+            "GB" => 1_073_741_824d,
+            "MB" => 1_048_576d,
+            "KB" => 1024d,
+            _ => 1d
+        };
 
-        return 0;
+        return (long)(value * multiplier);
     }
 
     /// <summary>
-    /// Runs DISM /StartComponentCleanup to safely clean the WinSxS component store.
-    /// Returns (success, estimatedBytesFreed).
+    /// Runs DISM /StartComponentCleanup. The servicing stack must not be interrupted, so
+    /// cancellation stops waiting but lets DISM finish in the background.
     /// </summary>
-    private static async Task<(bool Success, long FreedBytes)> CleanWinSxSAsync(CancellationToken ct)
+    private static async Task<bool> CleanWinSxSAsync(CancellationToken ct)
     {
         try
         {
-            // Measure WinSxS size before cleanup
-            long sizeBefore = await GetWinSxSActualSizeAsync();
+            var result = await ProcessRunner.RunAsync(
+                ProcessRunner.SystemTool("Dism.exe"),
+                "/Online /Cleanup-Image /StartComponentCleanup /English",
+                ct, killOnCancel: false);
 
-            var psi = new ProcessStartInfo
+            if (result.Succeeded)
             {
-                FileName = "Dism.exe",
-                Arguments = "/Online /Cleanup-Image /StartComponentCleanup",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start(psi);
-            if (process == null) return (false, 0);
-
-            await process.WaitForExitAsync(ct);
-
-            if (process.ExitCode == 0)
-            {
-                long sizeAfter = await GetWinSxSActualSizeAsync();
-                long freed = sizeBefore > sizeAfter ? sizeBefore - sizeAfter : 0;
-                DiagnosticLogger.Info("FileCleanerService",
-                    $"WinSxS cleanup succeeded. Freed ~{freed / 1_048_576} MB");
-                return (true, freed);
+                DiagnosticLogger.Info("FileCleanerService", "WinSxS component cleanup completed.");
+                return true;
             }
 
-            var stderr = await process.StandardError.ReadToEndAsync(ct);
             DiagnosticLogger.Warn("FileCleanerService",
-                $"DISM cleanup exited with code {process.ExitCode}: {stderr}");
-            return (false, 0);
+                $"DISM cleanup exited with code {result.ExitCode}: {result.CombinedMessage}");
+            return false;
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             DiagnosticLogger.Warn("FileCleanerService", "DISM StartComponentCleanup failed", ex);
-            return (false, 0);
+            return false;
         }
-    }
-
-    /// <summary>
-    /// Quick estimation of WinSxS folder size by sampling top-level subdirectories.
-    /// </summary>
-    private static async Task<long> GetWinSxSActualSizeAsync()
-    {
-        return await Task.Run(() =>
-        {
-            long total = 0;
-            try
-            {
-                var winsxs = @"C:\Windows\WinSxS";
-                foreach (var file in Directory.EnumerateFiles(winsxs, "*", SearchOption.TopDirectoryOnly))
-                {
-                    try { total += new FileInfo(file).Length; } catch { }
-                }
-                // Sample first 200 subdirectories to estimate
-                foreach (var dir in Directory.EnumerateDirectories(winsxs).Take(200))
-                {
-                    foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Take(100))
-                    {
-                        try { total += new FileInfo(file).Length; } catch { }
-                    }
-                }
-            }
-            catch { }
-            return total;
-        });
     }
 }

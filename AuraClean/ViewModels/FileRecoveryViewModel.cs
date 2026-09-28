@@ -33,7 +33,9 @@ public partial class FileRecoveryViewModel : ObservableObject
     [RelayCommand]
     private async Task ScanRecycleBinAsync()
     {
-        _cts?.Cancel();
+        if (IsBusy) return;
+
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
         IsBusy = true;
         HasResults = false;
@@ -53,6 +55,7 @@ public partial class FileRecoveryViewModel : ObservableObject
                 FileName = f.FileName,
                 OriginalPath = f.OriginalPath,
                 RecycleBinPath = f.RecycleBinPath,
+                MetadataPath = f.MetadataPath,
                 SizeBytes = f.SizeBytes,
                 DeletedDate = f.DeletedDate,
                 FileType = f.FileType,
@@ -95,6 +98,8 @@ public partial class FileRecoveryViewModel : ObservableObject
     [RelayCommand]
     private async Task RestoreSelectedAsync()
     {
+        if (IsBusy) return;
+
         var selected = FilteredFiles.Where(f => f.IsSelected).ToList();
         if (selected.Count == 0)
         {
@@ -108,35 +113,37 @@ public partial class FileRecoveryViewModel : ObservableObject
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
+            var byPayload = selected.ToDictionary(s => s.RecycleBinPath, StringComparer.OrdinalIgnoreCase);
             var recoverableFiles = selected.Select(s => new FileRecoveryService.RecoverableFile
             {
                 FileName = s.FileName,
                 OriginalPath = s.OriginalPath,
                 RecycleBinPath = s.RecycleBinPath,
+                MetadataPath = s.MetadataPath,
                 SizeBytes = s.SizeBytes,
                 DeletedDate = s.DeletedDate,
                 FileType = s.FileType,
                 IsFolder = s.IsFolder
             });
 
-            var (success, failed) = await FileRecoveryService.RestoreFilesAsync(
-                recoverableFiles, progress);
+            var (restored, failures) = await FileRecoveryService.RestoreFilesAsync(recoverableFiles, progress);
 
-            // Remove successfully restored items from the list
-            if (success > 0)
+            foreach (var file in restored)
             {
-                foreach (var item in selected)
-                {
-                    AllFiles.Remove(item);
-                }
-                ApplyFilter();
-                TotalItems = AllFiles.Count;
-
-                NotificationService.ShowSuccess("File Recovery",
-                    $"{success} file(s) restored successfully.");
+                if (byPayload.TryGetValue(file.RecycleBinPath, out var entry))
+                    AllFiles.Remove(entry);
             }
+            ApplyFilter();
+            TotalItems = AllFiles.Count;
+            HasResults = AllFiles.Count > 0;
 
-            StatusMessage = $"Restore complete: {success} restored, {failed} failed.";
+            if (restored.Count > 0)
+                NotificationService.ShowSuccess("File Recovery", $"{restored.Count} item(s) restored.");
+
+            StatusMessage = $"Restore complete: {restored.Count} restored, {failures.Count} failed." +
+                            (failures.Count > 0 ? $" {failures[0]}" : string.Empty);
+            foreach (var failure in failures.Take(20))
+                DiagnosticLogger.Warn("FileRecoveryVM", failure);
         }
         catch (Exception ex)
         {
@@ -194,22 +201,16 @@ public partial class RecoverableFileEntry : ObservableObject
     [ObservableProperty] private string _fileName = string.Empty;
     [ObservableProperty] private string _originalPath = string.Empty;
     [ObservableProperty] private string _recycleBinPath = string.Empty;
+    [ObservableProperty] private string _metadataPath = string.Empty;
     [ObservableProperty] private long _sizeBytes;
     [ObservableProperty] private DateTime _deletedDate;
     [ObservableProperty] private string _fileType = string.Empty;
     [ObservableProperty] private bool _isFolder;
     [ObservableProperty] private bool _isSelected;
 
-    public string FormattedSize => SizeBytes switch
-    {
-        0 => "0 B",
-        < 1024 => $"{SizeBytes} B",
-        < 1_048_576 => $"{SizeBytes / 1024.0:F1} KB",
-        < 1_073_741_824 => $"{SizeBytes / 1_048_576.0:F1} MB",
-        _ => $"{SizeBytes / 1_073_741_824.0:F2} GB"
-    };
+    public string FormattedSize => FormatHelper.FormatBytes(SizeBytes);
 
-    public string DeletedDateDisplay => DeletedDate == DateTime.MinValue
+    public string DeletedDateDisplay => DeletedDate <= DateTime.MinValue.AddDays(1)
         ? "Unknown"
         : DeletedDate.ToString("yyyy-MM-dd HH:mm");
 }

@@ -1,5 +1,4 @@
 using AuraClean.Helpers;
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace AuraClean.Services;
@@ -20,25 +19,52 @@ public static class SoftwareUpdaterService
     }
 
     /// <summary>
+    /// winget is an App Execution Alias in the user's WindowsApps folder. Resolving it by full
+    /// path avoids launching a same-named executable planted next to AuraClean.
+    /// </summary>
+    private static string WingetExe
+    {
+        get
+        {
+            var alias = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Microsoft\WindowsApps\winget.exe");
+            return System.IO.File.Exists(alias) ? alias : "winget.exe";
+        }
+    }
+
+    private const string ModernFlags = " --accept-source-agreements --disable-interactivity";
+    private const string LegacyFlags = " --accept-source-agreements";
+
+    /// <summary>
+    /// Runs winget, retrying without flags that older winget builds reject.
+    /// </summary>
+    private static async Task<ProcessRunner.Result> RunWingetAsync(string arguments, TimeSpan timeout, CancellationToken ct)
+    {
+        var result = await ProcessRunner.RunAsync(WingetExe, arguments + ModernFlags, ct,
+            timeout: timeout, outputEncoding: System.Text.Encoding.UTF8);
+
+        if (!result.Succeeded &&
+            result.CombinedMessage.Contains("disable-interactivity", StringComparison.OrdinalIgnoreCase))
+        {
+            result = await ProcessRunner.RunAsync(WingetExe, arguments + LegacyFlags, ct,
+                timeout: timeout, outputEncoding: System.Text.Encoding.UTF8);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Checks if winget is available on the system.
     /// </summary>
     public static async Task<bool> IsWingetAvailableAsync()
     {
         try
         {
-            var psi = new ProcessStartInfo("winget", "--version")
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            using var proc = Process.Start(psi);
-            if (proc == null) return false;
-            await proc.WaitForExitAsync();
-            return proc.ExitCode == 0;
+            var result = await ProcessRunner.RunAsync(WingetExe, "--version", timeout: TimeSpan.FromSeconds(30));
+            return result.Succeeded;
         }
-        catch
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or TimeoutException)
         {
             return false;
         }
@@ -51,33 +77,17 @@ public static class SoftwareUpdaterService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        var results = new List<OutdatedProgram>();
-
         progress?.Report("Checking for outdated software via winget...");
 
         try
         {
-            var psi = new ProcessStartInfo("winget", "upgrade --include-unknown")
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                StandardOutputEncoding = System.Text.Encoding.UTF8
-            };
+            // Agreements are accepted non-interactively; without this winget waits on stdin
+            // for a Y/N answer on first use and the scan hangs forever.
+            var result = await RunWingetAsync("upgrade --include-unknown", TimeSpan.FromMinutes(5), ct);
 
-            using var proc = Process.Start(psi);
-            if (proc == null)
-            {
-                progress?.Report("Failed to start winget.");
-                return results;
-            }
-
-            var output = await proc.StandardOutput.ReadToEndAsync(ct);
-            await proc.WaitForExitAsync(ct);
-
-            results = ParseWingetUpgradeOutput(output);
+            var results = ParseWingetUpgradeOutput(result.StandardOutput);
             progress?.Report($"Found {results.Count} program(s) with available updates.");
+            return results;
         }
         catch (OperationCanceledException)
         {
@@ -85,11 +95,10 @@ public static class SoftwareUpdaterService
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Info("SoftwareUpdater", $"winget check failed: {ex.Message}");
-            progress?.Report($"Error checking updates: {ex.Message}");
+            DiagnosticLogger.Warn("SoftwareUpdater", "winget check failed", ex);
+            progress?.Report("Couldn't check for updates. Make sure App Installer (winget) is up to date.");
+            return [];
         }
-
-        return results;
     }
 
     /// <summary>
@@ -100,33 +109,27 @@ public static class SoftwareUpdaterService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
+        if (!IsValidPackageId(program.Id))
+            return (false, $"'{program.Id}' is not a valid package identifier (it may be truncated in winget's output).");
+
         progress?.Report($"Updating {program.Name}...");
 
         try
         {
-            var psi = new ProcessStartInfo("winget", $"upgrade --id \"{program.Id}\" --accept-package-agreements --accept-source-agreements --silent")
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+            var result = await RunWingetAsync(
+                $"upgrade --id \"{program.Id}\" --exact --silent --accept-package-agreements",
+                TimeSpan.FromMinutes(30), ct);
 
-            using var proc = Process.Start(psi);
-            if (proc == null) return (false, "Failed to start winget.");
-
-            var output = await proc.StandardOutput.ReadToEndAsync(ct);
-            var error = await proc.StandardError.ReadToEndAsync(ct);
-            await proc.WaitForExitAsync(ct);
-
-            if (proc.ExitCode == 0)
+            if (result.Succeeded)
             {
                 progress?.Report($"{program.Name} updated successfully.");
                 return (true, $"{program.Name} updated to {program.AvailableVersion}.");
             }
 
-            var msg = string.IsNullOrWhiteSpace(error) ? output : error;
-            return (false, $"Update failed: {msg.Trim()}");
+            var detail = CleanWingetOutput(result.CombinedMessage)
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .LastOrDefault()?.Trim() ?? $"exit code {result.ExitCode}";
+            return (false, $"Update failed: {detail}");
         }
         catch (OperationCanceledException)
         {
@@ -139,11 +142,20 @@ public static class SoftwareUpdaterService
     }
 
     /// <summary>
+    /// winget package IDs never contain whitespace, quotes, or the "…" truncation marker.
+    /// </summary>
+    internal static bool IsValidPackageId(string id) =>
+        !string.IsNullOrWhiteSpace(id) &&
+        id.Length <= 128 &&
+        !id.Contains('…') &&
+        id.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' or '+' or '{' or '}');
+
+    /// <summary>
     /// Cleans winget output by splitting on both \n and \r to handle progress spinners
     /// that use carriage returns to overwrite text on the same line.
     /// Returns clean individual lines ready for column-based parsing.
     /// </summary>
-    private static string CleanWingetOutput(string rawOutput)
+    internal static string CleanWingetOutput(string rawOutput)
     {
         // winget uses \r to overwrite progress/spinner text on the same line,
         // so a single \n-delimited "line" can contain multiple \r-separated segments.
@@ -155,7 +167,7 @@ public static class SoftwareUpdaterService
     /// <summary>
     /// Parses the tabular output of 'winget upgrade'.
     /// </summary>
-    private static List<OutdatedProgram> ParseWingetUpgradeOutput(string output)
+    internal static List<OutdatedProgram> ParseWingetUpgradeOutput(string output)
     {
         // Clean up winget output (handles \r progress spinners)
         output = CleanWingetOutput(output);
@@ -214,7 +226,7 @@ public static class SoftwareUpdaterService
                     ? SafeSubstring(line, sourceCol, line.Length).Trim()
                     : "";
 
-                if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(name))
+                if (!string.IsNullOrEmpty(name) && IsValidPackageId(id))
                 {
                     results.Add(new OutdatedProgram
                     {

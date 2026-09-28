@@ -19,7 +19,25 @@ public partial class CleanerViewModel : IExperienceModeAware
         }
     }
     public bool IsNormalMode => !IsAdvancedMode;
-    public void SetExperienceMode(bool isAdvancedMode) => IsAdvancedMode = isAdvancedMode;
+
+    public void SetExperienceMode(bool isAdvancedMode)
+    {
+        if (IsAdvancedMode == isAdvancedMode)
+            return;
+
+        IsAdvancedMode = isAdvancedMode;
+
+        // Results gathered in the other mode may include review-only categories (or hide
+        // selectable ones), so they are discarded rather than silently reused.
+        if (HasResults && !IsBusy)
+        {
+            Categories = [];
+            HasResults = false;
+            TotalJunkSize = 0;
+            TotalJunkCount = 0;
+            StatusMessage = "Mode changed — run Analyze again to refresh the results.";
+        }
+    }
 }
 
 public partial class BrowserCleanerViewModel : IExperienceModeAware

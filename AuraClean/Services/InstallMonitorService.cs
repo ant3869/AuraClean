@@ -167,6 +167,21 @@ public static class InstallMonitorService
         var before = JsonSerializer.Deserialize<SystemSnapshot>(json)
             ?? throw new InvalidOperationException("Failed to deserialize snapshot.");
 
+        return await CompareAndGenerateDeltaAsync(before, snapshotId, dryRun, progress, ct);
+    }
+
+    /// <summary>
+    /// Compares an in-memory "Before" snapshot with the current system state.
+    /// Used directly by dry-run monitoring, which never writes the snapshot to disk.
+    /// </summary>
+    public static async Task<SnapshotDelta> CompareAndGenerateDeltaAsync(
+        SystemSnapshot before,
+        string snapshotId,
+        bool dryRun = false,
+        IProgress<string>? progress = null,
+        CancellationToken ct = default)
+    {
+
         // Take the "After" snapshot (current state)
         progress?.Report("Capturing current state for comparison...");
         var (_, after) = await TakeSnapshotAsync(before.Label + " (After)", dryRun: true, progress, ct);
@@ -193,16 +208,17 @@ public static class InstallMonitorService
             {
                 // Check for new values within existing keys
                 var beforeValues = before.RegistryEntries[key];
-                foreach (var v in values.Except(beforeValues))
+                foreach (var v in values.Except(beforeValues, StringComparer.OrdinalIgnoreCase))
                     delta.NewRegistryValues.Add($"{key}\\{v}");
             }
         }
 
-        // New files
+        // New files (paths compared case-insensitively, as Windows does)
+        var beforeFiles = new HashSet<string>(before.FileEntries.Keys, StringComparer.OrdinalIgnoreCase);
         foreach (var (path, size) in after.FileEntries)
         {
             ct.ThrowIfCancellationRequested();
-            if (!before.FileEntries.ContainsKey(path))
+            if (!beforeFiles.Contains(path))
             {
                 delta.NewFiles.Add(new FileChange { Path = path, SizeBytes = size });
                 delta.TotalNewFileSizeBytes += size;
@@ -210,7 +226,7 @@ public static class InstallMonitorService
         }
 
         // New directories
-        foreach (var dir in after.DirectoryEntries.Except(before.DirectoryEntries))
+        foreach (var dir in after.DirectoryEntries.Except(before.DirectoryEntries, StringComparer.OrdinalIgnoreCase))
         {
             delta.NewDirectories.Add(dir);
         }
@@ -326,16 +342,18 @@ public static class InstallMonitorService
                 catch { }
             }
 
-            foreach (var dir in Directory.EnumerateDirectories(directory))
+            foreach (var dir in Directory.EnumerateDirectories(directory, "*", PathSafety.TopLevelNoReparse))
             {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
                     SnapshotFileSystemRecursive(dir, snapshot, depth + 1, maxDepth, ct);
                 }
-                catch { }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             }
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex) { DiagnosticLogger.Warn("InstallMonitor", $"Filesystem snapshot failed at: {directory}", ex); }
     }
 

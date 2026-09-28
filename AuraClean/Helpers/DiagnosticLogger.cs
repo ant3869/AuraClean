@@ -6,23 +6,33 @@ namespace AuraClean.Helpers;
 
 /// <summary>
 /// Lightweight diagnostic logger for AuraClean.
-/// Writes warnings/errors to Debug output and to a daily log file.
+/// Writes to Debug output and to a daily log file under %LocalAppData%\AuraClean\Logs.
 /// Uses a buffered write queue to reduce disk I/O under heavy logging load.
 /// Thread-safe for use from multiple async operations.
 /// </summary>
 public static class DiagnosticLogger
 {
-    private static readonly string LogDirectory = Path.Combine(
+    /// <summary>Directory that holds daily logs, crash logs, and cleanup audits.</summary>
+    public static readonly string LogDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AuraClean", "Logs");
 
-    private static readonly string LogFilePath = Path.Combine(
-        LogDirectory, $"AuraClean_{DateTime.Now:yyyy-MM-dd}.log");
+    /// <summary>Crash log written synchronously for unhandled exceptions.</summary>
+    public static readonly string CrashLogPath = Path.Combine(LogDirectory, "crash.log");
 
     private static readonly ConcurrentQueue<string> _buffer = new();
     private static readonly object _flushLock = new();
     private static int _pendingCount;
     private const int FlushThreshold = 5;
+    private const long MaxCrashLogBytes = 2 * 1024 * 1024;
+
+    static DiagnosticLogger()
+    {
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Flush();
+    }
+
+    private static string CurrentLogFilePath =>
+        Path.Combine(LogDirectory, $"AuraClean_{DateTime.Now:yyyy-MM-dd}.log");
 
     /// <summary>
     /// Logs a warning-level message with optional exception details.
@@ -55,6 +65,35 @@ public static class DiagnosticLogger
     {
         var entry = $"[{DateTime.Now:HH:mm:ss}] INFO [{source}] {message}";
         Debug.WriteLine(entry);
+        BufferWrite(entry);
+    }
+
+    /// <summary>
+    /// Writes an unhandled-exception report immediately (bypassing the buffer) so the
+    /// details survive even if the process terminates right afterwards.
+    /// </summary>
+    public static void Crash(string source, Exception ex)
+    {
+        Flush();
+
+        try
+        {
+            Directory.CreateDirectory(LogDirectory);
+
+            var info = new FileInfo(CrashLogPath);
+            if (info.Exists && info.Length > MaxCrashLogBytes)
+                File.Move(CrashLogPath, CrashLogPath + ".old", overwrite: true);
+
+            lock (_flushLock)
+            {
+                File.AppendAllText(CrashLogPath,
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}");
+            }
+        }
+        catch (Exception logEx)
+        {
+            Debug.WriteLine($"[AuraClean] Failed to write crash log: {logEx.Message}");
+        }
     }
 
     /// <summary>
@@ -64,6 +103,40 @@ public static class DiagnosticLogger
     public static void Flush()
     {
         FlushBuffer();
+    }
+
+    /// <summary>
+    /// Deletes daily logs and cleanup audits older than the given age.
+    /// Keeps the crash log so post-mortem information is never lost silently.
+    /// </summary>
+    public static void PruneOldLogs(TimeSpan maxAge)
+    {
+        try
+        {
+            if (!Directory.Exists(LogDirectory))
+                return;
+
+            var cutoff = DateTime.Now - maxAge;
+            foreach (var file in Directory.EnumerateFiles(LogDirectory, "*.log"))
+            {
+                if (file.Equals(CrashLogPath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                try
+                {
+                    if (File.GetLastWriteTime(file) < cutoff)
+                        File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Debug.WriteLine($"[AuraClean] Could not prune log {file}: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"[AuraClean] Log pruning failed: {ex.Message}");
+        }
     }
 
     private static void BufferWrite(string entry)
@@ -83,7 +156,7 @@ public static class DiagnosticLogger
             try
             {
                 Directory.CreateDirectory(LogDirectory);
-                using var writer = new StreamWriter(LogFilePath, append: true);
+                using var writer = new StreamWriter(CurrentLogFilePath, append: true);
                 while (_buffer.TryDequeue(out var entry))
                 {
                     writer.WriteLine(entry);

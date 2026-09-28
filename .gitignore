@@ -40,3 +40,8 @@ build_output.txt
 skills/
 .wednesday/
 AuraClean/_build.log
+
+## Local build/diagnostic outputs
+appcheck.txt
+build_check.txt
+test_result.txt

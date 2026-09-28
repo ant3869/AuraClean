@@ -154,6 +154,7 @@
                         <!-- ─── CLEANUP section (collapsible) ─── -->
                         <Button Command="{Binding ToggleCleanupCommand}"
                                 AutomationProperties.Name="Toggle Cleanup section"
+                                ToolTip="Show or hide cleanup tools"
                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
                                 HorizontalContentAlignment="Stretch"
                                 Margin="10,14,10,2" Padding="18,6">
@@ -169,7 +170,7 @@
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="CleanupChevronRotate" Angle="0" />
+                                        <RotateTransform x:Name="CleanupChevronRotate" Angle="{Binding IsCleanupExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -219,6 +220,7 @@
                         <!-- ─── ANALYZE section (collapsible) ─── -->
                         <Button Command="{Binding ToggleAnalyzeCommand}"
                                 AutomationProperties.Name="Toggle Analyze section"
+                                ToolTip="Show or hide analyze tools"
                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
                                 HorizontalContentAlignment="Stretch"
                                 Margin="10,14,10,2" Padding="18,6">
@@ -234,7 +236,7 @@
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="AnalyzeChevronRotate" Angle="0" />
+                                        <RotateTransform x:Name="AnalyzeChevronRotate" Angle="{Binding IsAnalyzeExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -268,6 +270,7 @@
                         <!-- ─── OPTIMIZE section (collapsible, expanded by default) ─── -->
                         <Button Command="{Binding ToggleOptimizeCommand}"
                                 AutomationProperties.Name="Toggle Optimize section"
+                                ToolTip="Show or hide optimize tools"
                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
                                 HorizontalContentAlignment="Stretch"
                                 Margin="10,14,10,2" Padding="18,6">
@@ -283,7 +286,7 @@
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="OptimizeChevronRotate" Angle="0" />
+                                        <RotateTransform x:Name="OptimizeChevronRotate" Angle="{Binding IsOptimizeExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -330,6 +333,7 @@
                         <!-- ─── UTILITIES section (collapsible, collapsed by default) ─── -->
                         <Button Command="{Binding ToggleUtilitiesCommand}"
                                 AutomationProperties.Name="Toggle Utilities section"
+                                ToolTip="Show or hide utilities tools"
                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
                                 HorizontalContentAlignment="Stretch"
                                 Margin="10,14,10,2" Padding="18,6">
@@ -345,7 +349,7 @@
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="UtilitiesChevronRotate" Angle="0" />
+                                        <RotateTransform x:Name="UtilitiesChevronRotate" Angle="{Binding IsUtilitiesExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -656,6 +660,8 @@
                 <TextBlock Text="{Binding StatusBarText}"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource AuraTextSecondary}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding StatusBarText}"
                            FontSize="11.5" />
             </Border>
         </Grid>

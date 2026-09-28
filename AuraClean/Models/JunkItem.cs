@@ -35,8 +35,13 @@ public partial class JunkItem : ObservableObject
     [ObservableProperty] private bool _isSelected = true;
     [ObservableProperty] private string _path = string.Empty;
     [ObservableProperty] private string _description = string.Empty;
-    [ObservableProperty] private JunkType _type;
-    [ObservableProperty] private long _sizeBytes;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Category))]
+    private JunkType _type;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FormattedSize))]
+    private long _sizeBytes;
     [ObservableProperty] private bool _isLocked;
     [ObservableProperty] private string _lockingProcess = string.Empty;
     [ObservableProperty] private DateTime _lastModified;
@@ -70,12 +75,5 @@ public partial class JunkItem : ObservableObject
         set => _categoryOverride = value;
     }
 
-    public string FormattedSize => SizeBytes switch
-    {
-        0 => "",
-        < 1024 => $"{SizeBytes} B",
-        < 1_048_576 => $"{SizeBytes / 1024.0:F1} KB",
-        < 1_073_741_824 => $"{SizeBytes / 1_048_576.0:F1} MB",
-        _ => $"{SizeBytes / 1_073_741_824.0:F2} GB"
-    };
+    public string FormattedSize => SizeBytes <= 0 ? string.Empty : Helpers.FormatHelper.FormatBytes(SizeBytes);
 }

@@ -105,6 +105,18 @@ public partial class AppInstallerViewModel : ObservableObject
             return;
         }
 
+        if (IsBusy) return;
+
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Download and install {toInstall.Count} application(s)?\n\n• " +
+                string.Join("\n• ", toInstall.Take(12).Select(a => a.Name)) +
+                (toInstall.Count > 12 ? $"\n…and {toInstall.Count - 12} more" : string.Empty),
+                "Confirm installation"))
+        {
+            StatusMessage = "Installation cancelled.";
+            return;
+        }
+
         IsBusy = true;
         IsInstalling = true;
         InstalledCount = 0;
@@ -134,16 +146,23 @@ public partial class AppInstallerViewModel : ObservableObject
 
                 try
                 {
-                    await AppInstallerService.InstallAppAsync(app, appProgress, _cts.Token);
+                    await AppInstallerService.InstallAppAsync(app, appProgress, _cts.Token,
+                        confirmUntrusted: message => SafetyPromptService.ConfirmSecurityDecision(message, "Unverified installer"));
                     app.Status = InstallStatus.Completed;
                     app.StatusMessage = "Installed!";
                     InstalledCount++;
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (_cts.IsCancellationRequested)
                 {
                     app.Status = InstallStatus.Skipped;
                     app.StatusMessage = "Cancelled";
                     throw;
+                }
+                catch (OperationCanceledException ex)
+                {
+                    // Skipped by the user (e.g. declined an unsigned installer) — continue with the rest.
+                    app.Status = InstallStatus.Skipped;
+                    app.StatusMessage = ex.Message;
                 }
                 catch (Exception ex)
                 {
@@ -159,12 +178,18 @@ public partial class AppInstallerViewModel : ObservableObject
             StatusMessage = $"Done! {InstalledCount} installed" +
                             (FailedCount > 0 ? $", {FailedCount} failed" : "") + ".";
 
-            NotificationService.ShowSuccess("App Bundle Installer",
-                $"Installed {InstalledCount} of {toInstall.Count} application(s).");
+            if (InstalledCount > 0)
+                NotificationService.ShowSuccess("App Bundle Installer",
+                    $"Installed {InstalledCount} of {toInstall.Count} application(s).");
         }
         catch (OperationCanceledException)
         {
             StatusMessage = $"Installation cancelled. {InstalledCount} installed before cancel.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Installation stopped unexpectedly. See the log for details.";
+            DiagnosticLogger.Error("AppInstaller", "InstallSelectedAsync failed", ex);
         }
         finally
         {

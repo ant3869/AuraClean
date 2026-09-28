@@ -137,10 +137,16 @@ public partial class StartupManagerViewModel : ObservableObject
     [RelayCommand]
     private async Task ToggleSelectedAsync()
     {
+        if (IsBusy) return;
+
         var checkedEntries = FilteredEntries.Where(e => e.IsSelected).ToList();
         if (checkedEntries.Count == 0 && SelectedEntry != null)
             checkedEntries = [SelectedEntry];
-        if (checkedEntries.Count == 0) return;
+        if (checkedEntries.Count == 0)
+        {
+            StatusMessage = "Select a startup item first.";
+            return;
+        }
 
         if (!IsAdvancedMode)
         {
@@ -154,35 +160,40 @@ public partial class StartupManagerViewModel : ObservableObject
 
         IsBusy = true;
         int toggled = 0;
+        string? lastError = null;
 
-        foreach (var entry in checkedEntries)
+        try
         {
-            bool newState = IsAdvancedMode ? !entry.IsEnabled : false;
-            StatusMessage = newState
-                ? $"Enabling {entry.Name}..."
-                : $"Disabling {entry.Name}...";
-
-            try
+            foreach (var entry in checkedEntries)
             {
+                bool newState = IsAdvancedMode && !entry.IsEnabled;
+                StatusMessage = newState ? $"Enabling {entry.Name}..." : $"Disabling {entry.Name}...";
+
                 var (success, message) = await StartupManagerService.ToggleStartupEntryAsync(entry, newState);
                 if (success) toggled++;
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Couldn't toggle {entry.Name}. It may be protected.";
-                DiagnosticLogger.Error("StartupManagerVM", $"Toggle failed for {entry.Name}", ex);
+                else lastError = message;
             }
         }
-
-        UpdateStats();
-        ApplyFilter();
-        StatusMessage = $"Toggled {toggled} startup item(s).";
-        IsBusy = false;
+        catch (Exception ex)
+        {
+            lastError = ex.Message;
+            DiagnosticLogger.Error("StartupManagerVM", "Toggle failed", ex);
+        }
+        finally
+        {
+            UpdateStats();
+            ApplyFilter();
+            StatusMessage = $"Changed {toggled} of {checkedEntries.Count} startup item(s)." +
+                            (lastError != null ? $" Last error: {lastError}" : string.Empty);
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
+        if (IsBusy) return;
+
         if (!IsAdvancedMode)
         {
             StatusMessage = "Turn on Advanced mode to delete startup entries. Normal mode can disable them instead.";
@@ -192,7 +203,11 @@ public partial class StartupManagerViewModel : ObservableObject
         var checkedEntries = FilteredEntries.Where(e => e.IsSelected).ToList();
         if (checkedEntries.Count == 0 && SelectedEntry != null)
             checkedEntries = [SelectedEntry];
-        if (checkedEntries.Count == 0) return;
+        if (checkedEntries.Count == 0)
+        {
+            StatusMessage = "Select a startup item first.";
+            return;
+        }
 
         if (SafetyPromptService.IsDryRunEnabled())
         {
@@ -201,7 +216,8 @@ public partial class StartupManagerViewModel : ObservableObject
         }
 
         if (!SafetyPromptService.ConfirmDestructiveAction(
-                $"Delete {checkedEntries.Count} selected startup item(s)?"))
+                $"Permanently delete {checkedEntries.Count} startup item(s)? Disabling is reversible; deleting is not " +
+                "(registry entries are backed up to %LocalAppData%\\AuraClean\\Backups)."))
         {
             StatusMessage = "Startup deletion cancelled.";
             return;
@@ -209,54 +225,89 @@ public partial class StartupManagerViewModel : ObservableObject
 
         IsBusy = true;
         int deleted = 0;
+        string? lastError = null;
 
-        foreach (var entry in checkedEntries)
+        try
         {
-            StatusMessage = $"Deleting {entry.Name}...";
-
-            try
+            foreach (var entry in checkedEntries)
             {
+                StatusMessage = $"Deleting {entry.Name}...";
                 var (success, message) = await StartupManagerService.DeleteStartupEntryAsync(entry);
                 if (success)
                 {
+                    entry.PropertyChanged -= OnEntryPropertyChanged;
                     Entries.Remove(entry);
                     deleted++;
                 }
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Couldn't remove {entry.Name}. It may be protected.";
-                DiagnosticLogger.Error("StartupManagerVM", $"Delete failed for {entry.Name}", ex);
+                else
+                {
+                    lastError = message;
+                }
             }
         }
-
-        ApplyFilter();
-        UpdateStats();
-        SelectedEntry = null;
-        StatusMessage = $"Deleted {deleted} startup item(s).";
-        IsBusy = false;
+        catch (Exception ex)
+        {
+            lastError = ex.Message;
+            DiagnosticLogger.Error("StartupManagerVM", "Delete failed", ex);
+        }
+        finally
+        {
+            ApplyFilter();
+            UpdateStats();
+            SelectedEntry = null;
+            StatusMessage = $"Deleted {deleted} startup item(s)." +
+                            (lastError != null ? $" Last error: {lastError}" : string.Empty);
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
     private async Task DisableAllHighImpactAsync()
     {
-        IsBusy = true;
-        int disabled = 0;
+        if (IsBusy) return;
 
         var highImpact = Entries.Where(e =>
             e.IsEnabled && e.Impact == StartupManagerService.StartupImpact.High).ToList();
 
-        foreach (var entry in highImpact)
+        if (highImpact.Count == 0)
         {
-            StatusMessage = $"Disabling {entry.Name}...";
-            var (success, _) = await StartupManagerService.ToggleStartupEntryAsync(entry, false);
-            if (success) disabled++;
+            StatusMessage = "No enabled high-impact startup items.";
+            return;
         }
 
-        UpdateStats();
-        ApplyFilter();
-        StatusMessage = $"Disabled {disabled} high-impact startup items.";
-        IsBusy = false;
+        if (!SafetyPromptService.ConfirmDestructiveAction(
+                $"Disable {highImpact.Count} high-impact startup item(s)?\n\n• " +
+                string.Join("\n• ", highImpact.Take(10).Select(e => e.Name)) +
+                "\n\nThey can be re-enabled later in Advanced mode.",
+                "Disable startup items"))
+        {
+            StatusMessage = "No changes made.";
+            return;
+        }
+
+        IsBusy = true;
+        int disabled = 0;
+
+        try
+        {
+            foreach (var entry in highImpact)
+            {
+                StatusMessage = $"Disabling {entry.Name}...";
+                var (success, _) = await StartupManagerService.ToggleStartupEntryAsync(entry, false);
+                if (success) disabled++;
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("StartupManagerVM", "DisableAllHighImpact failed", ex);
+        }
+        finally
+        {
+            UpdateStats();
+            ApplyFilter();
+            StatusMessage = $"Disabled {disabled} of {highImpact.Count} high-impact startup item(s).";
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
@@ -264,16 +315,7 @@ public partial class StartupManagerViewModel : ObservableObject
     {
         if (SelectedEntry == null || string.IsNullOrEmpty(SelectedEntry.FilePath)) return;
 
-        try
-        {
-            if (System.IO.File.Exists(SelectedEntry.FilePath))
-            {
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{SelectedEntry.FilePath}\"");
-            }
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("StartupManagerVM", "Failed to open file location", ex);
-        }
+        if (!ShellHelper.RevealInExplorer(SelectedEntry.FilePath))
+            StatusMessage = "The program file could not be found.";
     }
 }

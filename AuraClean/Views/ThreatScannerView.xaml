@@ -348,7 +348,7 @@
                              Foreground="{StaticResource AuraWarning}"
                              HorizontalAlignment="Center"
                              Margin="0,0,0,16" />
-                <TextBlock Text="{Binding StatusMessage}"
+                <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
                            AutomationProperties.LiveSetting="Polite"
                            FontSize="14"
                            Foreground="{DynamicResource AuraTextSecondary}"
@@ -631,8 +631,25 @@
                                                                            FontSize="10"
                                                                            Foreground="{DynamicResource AuraTextMuted}"
                                                                            TextTrimming="CharacterEllipsis"
+                                                                           ToolTip="{Binding Path}"
                                                                            Opacity="0.7"
                                                                            Margin="0,1,0,0" />
+                                                                <TextBlock Text="{Binding RemediationNote}"
+                                                                           FontSize="10.5"
+                                                                           FontStyle="Italic"
+                                                                           Foreground="{StaticResource AuraAmber}"
+                                                                           TextWrapping="Wrap"
+                                                                           Margin="0,2,0,0">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding RemediationNote}" Value="">
+                                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
                                                             </StackPanel>
 
                                                             <!-- Detection method badge -->

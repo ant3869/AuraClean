@@ -116,29 +116,15 @@ public partial class FileShredderViewModel : ObservableObject
 
         if (dialog.ShowDialog() == true)
         {
+            int skipped = 0;
             foreach (var path in dialog.FileNames)
             {
-                if (Files.Any(f => f.FullPath.Equals(path, StringComparison.OrdinalIgnoreCase)))
-                    continue;
-
-                try
-                {
-                    var info = new FileInfo(path);
-                    Files.Add(new ShredFileItem
-                    {
-                        FullPath = path,
-                        FileName = info.Name,
-                        SizeBytes = info.Length,
-                        FormattedSize = FormatHelper.FormatBytes(info.Length),
-                    });
-                }
-                catch (Exception ex)
-                {
-                    DiagnosticLogger.Warn("FileShredder", $"Could not add file: {path}", ex);
-                }
+                if (!TryAddFile(path) && !Files.Any(f => f.FullPath.Equals(path, StringComparison.OrdinalIgnoreCase)))
+                    skipped++;
             }
 
-            StatusMessage = $"{Files.Count} file(s) ready to shred.";
+            StatusMessage = $"{Files.Count} file(s) ready to shred." +
+                            (skipped > 0 ? $" {skipped} Windows/system file(s) were not added." : string.Empty);
             HookSelectionEvents();
             UpdateSelectionCount();
         }
@@ -147,53 +133,29 @@ public partial class FileShredderViewModel : ObservableObject
     [RelayCommand]
     private void AddFolder()
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog
+        var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "Select a folder (select any file inside it)",
-            Filter = "All Files (*.*)|*.*",
-            CheckFileExists = true,
+            Title = "Select a folder — its files (not subfolders) will be added",
+            Multiselect = false
         };
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.FolderName))
+            return;
+
+        try
         {
-            var dir = Path.GetDirectoryName(dialog.FileName);
-            if (dir == null) return;
+            int added = 0;
+            foreach (var path in Directory.EnumerateFiles(dialog.FolderName, "*", PathSafety.TopLevelNoReparse))
+                added += TryAddFile(path) ? 1 : 0;
 
-            try
-            {
-                var folderFiles = Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly);
-                int added = 0;
-
-                foreach (var path in folderFiles)
-                {
-                    if (Files.Any(f => f.FullPath.Equals(path, StringComparison.OrdinalIgnoreCase)))
-                        continue;
-
-                    try
-                    {
-                        var info = new FileInfo(path);
-                        Files.Add(new ShredFileItem
-                        {
-                            FullPath = path,
-                            FileName = info.Name,
-                            SizeBytes = info.Length,
-                            FormattedSize = FormatHelper.FormatBytes(info.Length),
-                        });
-                        added++;
-                    }
-                    catch (Exception ex)
-                    {
-                        DiagnosticLogger.Warn("FileShredderVM", $"Failed to read file info: {path}", ex);
-                    }
-                }
-                HookSelectionEvents();
-                UpdateSelectionCount();
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = "Couldn't read the folder contents. Check permissions and try again.";
-                DiagnosticLogger.Error("FileShredderVM", "Error reading folder", ex);
-            }
+            StatusMessage = $"Added {added} file(s). Total: {Files.Count} file(s).";
+            HookSelectionEvents();
+            UpdateSelectionCount();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            StatusMessage = "Couldn't read the folder contents. Check permissions and try again.";
+            DiagnosticLogger.Error("FileShredderVM", "Error reading folder", ex);
         }
     }
 
@@ -218,6 +180,8 @@ public partial class FileShredderViewModel : ObservableObject
     [RelayCommand]
     private async Task ShredAllAsync()
     {
+        if (IsBusy) return;
+
         if (!IsAdvancedMode)
         {
             StatusMessage = "Turn on Advanced mode to permanently shred files. Normal mode avoids irreversible deletion.";
@@ -276,6 +240,11 @@ public partial class FileShredderViewModel : ObservableObject
             LastBytesOverwritten = result.TotalBytesOverwritten;
             HasResults = true;
 
+            CleanupHistoryService.Record(CleanupOperationType.FileShred, result.FilesShredded,
+                result.TotalBytesOverwritten, $"{SelectedAlgorithmOption?.Name ?? SelectedAlgorithm.ToString()} shred");
+            foreach (var error in result.Errors.Take(20))
+                DiagnosticLogger.Warn("FileShredderVM", error);
+
             OnPropertyChanged(nameof(FormattedBytesOverwritten));
 
             // Remove successfully shredded files from the list
@@ -317,7 +286,7 @@ public partial class FileShredderViewModel : ObservableObject
             {
                 if (Directory.Exists(path))
                 {
-                    foreach (var file in Directory.GetFiles(path, "*", SearchOption.TopDirectoryOnly))
+                    foreach (var file in Directory.EnumerateFiles(path, "*", PathSafety.TopLevelNoReparse))
                         added += TryAddFile(file) ? 1 : 0;
                 }
                 else if (File.Exists(path))
@@ -342,6 +311,12 @@ public partial class FileShredderViewModel : ObservableObject
     {
         if (Files.Any(f => f.FullPath.Equals(path, StringComparison.OrdinalIgnoreCase)))
             return false;
+
+        if (!PathSafety.IsSafeToDeleteFile(path, out var reason))
+        {
+            DiagnosticLogger.Warn("FileShredderVM", $"Not adding {path}: {reason}");
+            return false;
+        }
 
         try
         {
