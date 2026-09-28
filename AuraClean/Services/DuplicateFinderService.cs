@@ -23,6 +23,8 @@ public static partial class DuplicateFinderService
         public long FileSize { get; set; }
         public List<DuplicateFileEntry> Files { get; set; } = [];
         public int Count => Files.Count;
+        /// <summary>Shared file name of the group (copies differ only by folder), for group headers.</summary>
+        public string DisplayName => Files.Count > 0 ? Files[0].FileName : Hash;
         public long WastedBytes => FileSize * Math.Max(0, Count - 1); // All copies except one are "wasted"
         public string FormattedSize => FormatHelper.FormatBytes(FileSize);
         public string FormattedWasted => FormatHelper.FormatBytes(WastedBytes);

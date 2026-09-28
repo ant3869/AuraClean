@@ -259,7 +259,8 @@
                             <DataTemplate>
                                 <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
                                         Margin="0,0,0,8">
-                                    <Expander IsExpanded="True" Foreground="{DynamicResource AuraTextPrimary}">
+                                    <Expander IsExpanded="True" Style="{StaticResource AuraGroupExpander}"
+                                              AutomationProperties.Name="{Binding DisplayName, StringFormat='Duplicates of {0}'}">
                                         <Expander.Header>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -269,26 +270,35 @@
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
 
-                                                <TextBlock Grid.Column="0" FontSize="14" FontWeight="Medium"
-                                                           Foreground="{DynamicResource AuraTextPrimary}"
-                                                           VerticalAlignment="Center">
-                                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding Count, Mode=OneWay}" />
-                                                    <Run Text=" identical files" />
-                                                </TextBlock>
+                                                <Grid Grid.Column="0" Margin="0,0,12,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Style="{StaticResource AuraPill}" Margin="0,0,10,0">
+                                                        <TextBlock VerticalAlignment="Center">
+                                                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" FontWeight="SemiBold" Text="{Binding Count, Mode=OneWay}" />
+                                                            <Run Text=" copies" />
+                                                        </TextBlock>
+                                                    </Border>
+                                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}"
+                                                               Style="{StaticResource AuraGroupTitle}"
+                                                               ToolTip="{Binding DisplayName}" />
+                                                </Grid>
 
                                                 <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="1" Text="{Binding FormattedSize}"
                                                            Foreground="{DynamicResource AuraTextSecondary}"
                                                            VerticalAlignment="Center" Margin="0,0,16,0" FontSize="13" />
 
-                                                <TextBlock Grid.Column="2" FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource AuraWarning}"
-                                                           VerticalAlignment="Center" Margin="0,0,8,0">
-                                                    <Run Text="Wasted: " />
-                                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedWasted, Mode=OneWay}" />
-                                                </TextBlock>
+                                                <Border Grid.Column="2" Style="{StaticResource AuraPillWarn}" Margin="0,0,12,0">
+                                                    <TextBlock VerticalAlignment="Center">
+                                                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" FontWeight="SemiBold" Text="{Binding FormattedWasted, Mode=OneWay}" />
+                                                        <Run Text=" wasted" />
+                                                    </TextBlock>
+                                                </Border>
 
                                                 <TextBlock Grid.Column="3" Text="{Binding Hash}"
-                                                           Foreground="{DynamicResource AuraTextMuted}" FontSize="11" FontFamily="Consolas"
+                                                           Foreground="{DynamicResource AuraTextMuted}" FontSize="11" FontFamily="{StaticResource AuraFontFamilyMono}"
                                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                            ToolTip="{Binding Hash}" MaxWidth="200" />
                                             </Grid>
@@ -297,7 +307,7 @@
                                         <ItemsControl ItemsSource="{Binding Files}" Margin="40,0,16,8">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border BorderBrush="{DynamicResource AuraBorder}" BorderThickness="0,0,0,1" Padding="4,6">
+                                                    <Border BorderBrush="{DynamicResource AuraRowDivider}" BorderThickness="0,0,0,1" Padding="4,8">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto" />
@@ -330,8 +340,9 @@
                                                                            FontSize="13" TextTrimming="CharacterEllipsis"
                                                                            ToolTip="{Binding FileName}" />
                                                                 <TextBlock Text="{Binding Directory}"
-                                                                           Foreground="{DynamicResource AuraTextSecondary}"
-                                                                           FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                                           Foreground="{DynamicResource AuraTextMuted}"
+                                                                           FontSize="11" TextTrimming="CharacterEllipsis"
+                                                                           ToolTip="{Binding Directory}" Margin="0,2,0,0" />
                                                             </StackPanel>
 
                                                             <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="3"

@@ -163,7 +163,8 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <materialDesign:PackIcon Kind="ViewDashboard" Width="16" Height="16" VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="ViewDashboard" Width="18" Height="18" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource AuraAccentSoft}" />
                                 <TextBlock Grid.Column="1" Text="Dashboard" Margin="8,0,0,0"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -184,7 +185,8 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <materialDesign:PackIcon Kind="ShieldSearch" Width="16" Height="16" VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="ShieldSearch" Width="18" Height="18" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource AuraErr}" />
                                 <TextBlock Grid.Column="1" Text="Threat Scanner" Margin="8,0,0,0"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -200,8 +202,11 @@
                                 AutomationProperties.HelpText="Show or hide cleanup tools"
                                 ToolTip="Show or hide cleanup tools">
                             <Grid>
-                                <controls:TrackedText Text="Cleanup" Tracking="0.1" VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Cleanup" Tracking="0.1" VerticalAlignment="Center"
+                                                      FontWeight="SemiBold"
+                                                      Foreground="{DynamicResource AuraAccentSoft}" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraAccentSoft}"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
@@ -224,7 +229,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="Broom" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraAccentSoft}" />
                                     <TextBlock Grid.Column="1" Text="System Cleaner" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -244,7 +250,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="Web" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="Web" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraAccentSoft}" />
                                     <TextBlock Grid.Column="1" Text="Privacy Clean" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -264,7 +271,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="DeleteForever" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraAccentSoft}" />
                                     <TextBlock Grid.Column="1" Text="Uninstaller" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -281,8 +289,11 @@
                                 AutomationProperties.HelpText="Show or hide analyze tools"
                                 ToolTip="Show or hide analyze tools">
                             <Grid>
-                                <controls:TrackedText Text="Analyze" Tracking="0.1" VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Analyze" Tracking="0.1" VerticalAlignment="Center"
+                                                      FontWeight="SemiBold"
+                                                      Foreground="{DynamicResource AuraInfo}" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraInfo}"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
@@ -305,7 +316,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="ChartDonut" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraInfo}" />
                                     <TextBlock Grid.Column="1" Text="Storage Map" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -324,7 +336,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="ContentDuplicate" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="ContentDuplicate" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraInfo}" />
                                     <TextBlock Grid.Column="1" Text="Duplicate Finder" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -338,8 +351,11 @@
                                 AutomationProperties.HelpText="Show or hide optimize tools"
                                 ToolTip="Show or hide optimize tools">
                             <Grid>
-                                <controls:TrackedText Text="Optimize" Tracking="0.1" VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Optimize" Tracking="0.1" VerticalAlignment="Center"
+                                                      FontWeight="SemiBold"
+                                                      Foreground="{DynamicResource AuraOk}" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraOk}"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
@@ -362,7 +378,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="Memory" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="Memory" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraOk}" />
                                     <TextBlock Grid.Column="1" Text="RAM Booster" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -381,7 +398,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="Harddisk" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="Harddisk" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraOk}" />
                                     <TextBlock Grid.Column="1" Text="Disk Optimizer" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -398,7 +416,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="RocketLaunch" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="RocketLaunch" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraOk}" />
                                     <TextBlock Grid.Column="1" Text="Startup Manager" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -415,8 +434,11 @@
                                 AutomationProperties.HelpText="Show or hide utilities"
                                 ToolTip="Show or hide utilities">
                             <Grid>
-                                <controls:TrackedText Text="Utilities" Tracking="0.1" VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Utilities" Tracking="0.1" VerticalAlignment="Center"
+                                                      FontWeight="SemiBold"
+                                                      Foreground="{DynamicResource AuraWarn}" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraWarn}"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
@@ -438,7 +460,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="FileFind" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="FileFind" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="Large File Finder" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -455,7 +478,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="ShieldLock" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="ShieldLock" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="File Shredder" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
@@ -474,7 +498,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="InformationOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="InformationOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="System Info" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -490,7 +515,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="ShieldOff" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="ShieldOff" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="Quarantine" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -506,7 +532,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="Update" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="Update" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="Software Updater" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -522,7 +549,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="FileRestore" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="FileRestore" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="File Recovery" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -538,7 +566,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="FolderRemove" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="Empty Folders" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -554,7 +583,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="PackageDown" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="PackageDown" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="App Installer" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -570,7 +600,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="CameraOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="CameraOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="Install Monitor" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
@@ -591,7 +622,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <materialDesign:PackIcon Kind="ClipboardTextClock" Width="16" Height="16" VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="ClipboardTextClock" Width="18" Height="18" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="Cleanup History" Margin="8,0,0,0"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             </Grid>
@@ -609,7 +640,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <materialDesign:PackIcon Kind="CogOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="Settings" Margin="8,0,0,0"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <Border Grid.Column="2" Style="{StaticResource NavShortcut}">

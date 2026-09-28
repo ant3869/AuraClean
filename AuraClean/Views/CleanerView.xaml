@@ -140,7 +140,8 @@
                         <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
                                 Margin="0,0,0,8">
                             <Expander IsExpanded="{Binding IsExpanded}"
-                                      Foreground="{DynamicResource AuraTextPrimary}">
+                                      Style="{StaticResource AuraGroupExpander}"
+                                      AutomationProperties.Name="{Binding Name}">
                                 <Expander.Header>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -159,11 +160,7 @@
 
                                         <TextBlock Grid.Column="1"
                                                    Text="{Binding Name}"
-                                                   FontSize="15"
-                                                   FontWeight="Medium"
-                                                   Foreground="{DynamicResource AuraTextPrimary}"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
+                                                   Style="{StaticResource AuraGroupTitle}" />
 
                                         <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="2"
                                                    Text="{Binding ItemCount, StringFormat='{}{0} items'}"
@@ -174,7 +171,7 @@
 
                                         <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="3"
                                                    Text="{Binding FormattedTotalSize}"
-                                                   Foreground="{StaticResource AuraAccentTeal}"
+                                                   Foreground="{DynamicResource AuraAccentSoft}"
                                                    FontSize="14"
                                                    FontWeight="SemiBold"
                                                    VerticalAlignment="Center" />

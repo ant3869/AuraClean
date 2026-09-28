@@ -352,36 +352,61 @@
         <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraPrimaryHoverOverlay}" />
     </Style>
 
-    <!-- Secondary: bordered, muted text; hover = bg-elev blend, stronger border, full-contrast text -->
+    <!-- Secondary: filled surface, visible border and full-contrast text so it reads as a button -->
     <Style x:Key="AuraSecondaryButton" TargetType="Button" BasedOn="{StaticResource AuraButtonBase}">
-        <Setter Property="Foreground" Value="{DynamicResource AuraTextSecondary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraBorder}" />
-        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraHoverBackground}" />
-        <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraHoverBorder}" />
-        <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource AuraTextBright}" />
-            </Trigger>
-        </Style.Triggers>
+        <Setter Property="Foreground" Value="{DynamicResource AuraTextBright}" />
+        <Setter Property="Background" Value="{DynamicResource AuraButtonBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AuraButtonBorder}" />
+        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraButtonHoverBackground}" />
+        <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraButtonHoverBorder}" />
     </Style>
 
     <!-- Ghost: the everyday secondary action (same recipe as Secondary) -->
     <Style x:Key="AuraGhostButton" TargetType="Button" BasedOn="{StaticResource AuraSecondaryButton}" />
 
-    <!-- Link-ish action: accent-soft text, accent-tinted border -->
+    <!-- Link-ish action: accent-soft text on an accent-tinted surface -->
     <Style x:Key="AuraOutlinedButton" TargetType="Button" BasedOn="{StaticResource AuraButtonBase}">
         <Setter Property="Foreground" Value="{DynamicResource AuraAccentSoft}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AuraLinkBorder}" />
-        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraHoverBackground}" />
-        <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraActiveBorder}" />
+        <Setter Property="Background" Value="{DynamicResource AuraAccentTint}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AuraAccentLine}" />
+        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraAccentStrong}" />
+        <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraAccentLine}" />
     </Style>
 
-    <!-- Danger: tone pattern (err 38% border, err 10% fill, err text) for destructive actions -->
+    <!-- Tone buttons: tone text, tone 10% fill, tone 38% border; stronger fill on hover.
+         Use to tell neighboring actions apart by meaning (accent / ok / warn / info / danger). -->
+    <Style x:Key="AuraAccentToneButton" TargetType="Button" BasedOn="{StaticResource AuraOutlinedButton}" />
+
+    <Style x:Key="AuraOkButton" TargetType="Button" BasedOn="{StaticResource AuraButtonBase}">
+        <Setter Property="Foreground" Value="{DynamicResource AuraOk}" />
+        <Setter Property="Background" Value="{DynamicResource AuraOkTint}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AuraOkLine}" />
+        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraOkStrong}" />
+        <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraOkLine}" />
+    </Style>
+
+    <Style x:Key="AuraWarnButton" TargetType="Button" BasedOn="{StaticResource AuraButtonBase}">
+        <Setter Property="Foreground" Value="{DynamicResource AuraWarn}" />
+        <Setter Property="Background" Value="{DynamicResource AuraWarnTint}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AuraWarnLine}" />
+        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraWarnStrong}" />
+        <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraWarnLine}" />
+    </Style>
+
+    <Style x:Key="AuraInfoButton" TargetType="Button" BasedOn="{StaticResource AuraButtonBase}">
+        <Setter Property="Foreground" Value="{DynamicResource AuraInfo}" />
+        <Setter Property="Background" Value="{DynamicResource AuraInfoTint}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AuraInfoLine}" />
+        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraInfoStrong}" />
+        <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraInfoLine}" />
+    </Style>
+
+    <!-- Danger: err tone for permanent, destructive actions -->
     <Style x:Key="AuraDangerButton" TargetType="Button" BasedOn="{StaticResource AuraButtonBase}">
         <Setter Property="Foreground" Value="{DynamicResource AuraErr}" />
         <Setter Property="Background" Value="{DynamicResource AuraErrTint}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AuraErrLine}" />
-        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraCriticalSeverity}" />
+        <Setter Property="helpers:ControlAssist.HoverBackground" Value="{DynamicResource AuraErrStrong}" />
         <Setter Property="helpers:ControlAssist.HoverBorderBrush" Value="{DynamicResource AuraErrLine}" />
     </Style>
 
@@ -481,6 +506,96 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource AuraCardHoverBorder}" />
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- Group expander: a shaded, accent-edged header band (chevron + title) above the rows it
+         owns, so a group's heading never blends into its content. Put it inside a flush card. -->
+    <Style x:Key="AuraGroupExpander" TargetType="Expander">
+        <Setter Property="Foreground" Value="{DynamicResource AuraTextPrimary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontFamily" Value="{StaticResource AuraFontFamily}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Expander">
+                    <DockPanel>
+                        <ToggleButton x:Name="HeaderSite"
+                                      DockPanel.Dock="Top"
+                                      IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                      Content="{TemplateBinding Header}"
+                                      ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                      FocusVisualStyle="{StaticResource AuraFocusVisual}"
+                                      Cursor="Hand"
+                                      Foreground="{DynamicResource AuraTextBright}"
+                                      AutomationProperties.Name="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
+                                      AutomationProperties.HelpText="Show or hide this group">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="Band"
+                                            Background="{DynamicResource AuraGroupHeaderBackground}"
+                                            BorderBrush="{DynamicResource AuraBorderSubtle}"
+                                            BorderThickness="0,0,0,1"
+                                            CornerRadius="7,7,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <!-- Accent edge marks the band as a heading -->
+                                            <Border Width="3" CornerRadius="1.5" Margin="0,8"
+                                                    Background="{DynamicResource AuraAccentSoft}" />
+                                            <materialDesign:PackIcon x:Name="Chevron" Grid.Column="1"
+                                                                     Kind="ChevronDown" Width="18" Height="18"
+                                                                     Foreground="{DynamicResource AuraAccentSoft}"
+                                                                     Margin="10,0,10,0"
+                                                                     VerticalAlignment="Center"
+                                                                     RenderTransformOrigin="0.5,0.5">
+                                            </materialDesign:PackIcon>
+                                            <ContentPresenter Grid.Column="2" Margin="0,10,14,10"
+                                                              VerticalAlignment="Center"
+                                                              RecognizesAccessKey="True" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Band" Property="Background" Value="{DynamicResource AuraGroupHeaderHover}" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="False">
+                                            <Setter TargetName="Chevron" Property="RenderTransform">
+                                                <Setter.Value>
+                                                    <RotateTransform Angle="-90" />
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Setter TargetName="Band" Property="CornerRadius" Value="7" />
+                                            <Setter TargetName="Band" Property="BorderThickness" Value="0" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="ExpandSite"
+                                          Margin="{TemplateBinding Padding}"
+                                          Visibility="Collapsed"
+                                          Focusable="False" />
+                    </DockPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Group title inside an AuraGroupExpander header: 14 semibold, full contrast -->
+    <Style x:Key="AuraGroupTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource AuraFontSizeMD}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource AuraTextBright}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
     <!-- Caveat banners: amber for warnings, red for errors. Pair with an icon and a title. -->

@@ -201,7 +201,8 @@
                   Header="{Binding PostUninstallJunk.Count, StringFormat='Leftovers Found ({0} items)'}"
                   Visibility="{Binding ShowPostUninstallResults, Converter={StaticResource BoolToVis}}"
                   IsExpanded="True"
-                  Foreground="{DynamicResource AuraTextPrimary}"
+                  Style="{StaticResource AuraGroupExpander}"
+                  AutomationProperties.Name="Leftovers found"
                   Margin="0,0,0,12">
             <Border Style="{StaticResource AuraGlassCardCompact}"
                     CornerRadius="8" Padding="8" MaxHeight="200">

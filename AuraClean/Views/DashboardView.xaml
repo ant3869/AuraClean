@@ -271,10 +271,10 @@
         <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0"
                    helpers:AnimationHelper.AnimateOnVisible="True"
                    helpers:AnimationHelper.StaggerIndex="4">
-            <Button Style="{StaticResource AuraGhostButton}"
+            <Button Style="{StaticResource AuraAccentToneButton}"
                     Command="{Binding QuickCleanCommand}"
                     ToolTip="Analyze if needed, then clean the selected low-risk items"
-                    Margin="0,0,8,8">
+                    Padding="14,8" Margin="0,0,8,8">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Broom" Width="16" Height="16"
                                              VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -282,10 +282,10 @@
                 </StackPanel>
             </Button>
 
-            <Button Style="{StaticResource AuraGhostButton}"
+            <Button Style="{StaticResource AuraOkButton}"
                     Command="{Binding RunHealthCheckCommand}"
                     ToolTip="Scan junk, threats, startup load and browser caches"
-                    Margin="0,0,8,8">
+                    Padding="14,8" Margin="0,0,8,8">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16"
                                              VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -293,9 +293,9 @@
                 </StackPanel>
             </Button>
 
-            <Button Style="{StaticResource AuraGhostButton}"
+            <Button Style="{StaticResource AuraWarnButton}"
                     Command="{Binding BoostMemoryCommand}"
-                    Margin="0,0,8,8">
+                    Padding="14,8" Margin="0,0,8,8">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="RocketLaunch" Width="16" Height="16"
                                              VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -303,10 +303,10 @@
                 </StackPanel>
             </Button>
 
-            <Button Style="{StaticResource AuraGhostButton}"
+            <Button Style="{StaticResource AuraInfoButton}"
                     Command="{Binding NavigateToCommand}"
                     CommandParameter="StorageMap"
-                    Margin="0,0,8,8">
+                    Padding="14,8" Margin="0,0,8,8">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16"
                                              VerticalAlignment="Center" Margin="0,0,6,0" />

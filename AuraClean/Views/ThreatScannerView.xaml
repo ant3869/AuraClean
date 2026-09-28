@@ -529,7 +529,8 @@
                                 <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
                                         Margin="0,0,0,8" Padding="0">
                                     <Expander IsExpanded="{Binding IsExpanded}"
-                                              Foreground="{DynamicResource AuraTextPrimary}">
+                                              Style="{StaticResource AuraGroupExpander}"
+                                              AutomationProperties.Name="{Binding Name}">
                                         <Expander.Header>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -547,7 +548,7 @@
 
                                                 <TextBlock Grid.Column="1"
                                                            Text="{Binding Name}"
-                                                           FontSize="15" FontWeight="Medium" />
+                                                           Style="{StaticResource AuraGroupTitle}" />
 
                                                 <TextBlock Grid.Column="2"
                                                            Text="{Binding SeveritySummary}"
@@ -556,13 +557,12 @@
                                                            VerticalAlignment="Center"
                                                            Margin="0,0,16,0" />
 
-                                                <TextBlock Grid.Column="3"
-                                                           Foreground="{StaticResource AuraAmber}"
-                                                           FontSize="14" FontWeight="SemiBold"
-                                                           VerticalAlignment="Center">
-                                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ItemCount, Mode=OneWay}" />
-                                                    <Run Text=" items" />
-                                                </TextBlock>
+                                                <Border Grid.Column="3" Style="{StaticResource AuraPillWarn}">
+                                                    <TextBlock VerticalAlignment="Center">
+                                                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" FontWeight="SemiBold" Text="{Binding ItemCount, Mode=OneWay}" />
+                                                        <Run Text=" items" />
+                                                    </TextBlock>
+                                                </Border>
                                             </Grid>
                                         </Expander.Header>
 
@@ -571,8 +571,8 @@
                                                       Margin="40,0,16,8">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border Padding="0,6" BorderThickness="0,0,0,1"
-                                                            BorderBrush="{DynamicResource AuraBorder}">
+                                                    <Border Padding="0,8" BorderThickness="0,0,0,1"
+                                                            BorderBrush="{DynamicResource AuraRowDivider}">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto" />

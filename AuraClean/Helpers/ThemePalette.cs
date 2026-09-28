@@ -153,6 +153,8 @@ public static class ThemePalette
         var activeBg = M(t.Accent, 14, t.BgSubtle);
         var activeBd = M(t.Accent, 24, t.Bd);
         var rowHover = M(t.BgElev, 66, t.BgSubtle);
+        // Body text sits one step below headings (AuraTextBright) so titles stand out from content.
+        var bodyText = M(t.Fg, 78, t.FgMuted);
 
         Rgba Tint(Rgba tone) => M(tone, 10, t.BgSubtle);
         Rgba Line(Rgba tone) => M(tone, 38, t.Bd);
@@ -176,7 +178,7 @@ public static class ThemePalette
             ["AuraCoralColor"] = t.Err,
             ["AuraCriticalColor"] = t.Err,
             ["AuraTextBrightColor"] = t.Fg,
-            ["AuraTextColor"] = t.Fg,
+            ["AuraTextColor"] = bodyText,
             ["AuraTextDimColor"] = t.FgMuted,
             ["AuraTextMutedColor"] = t.FgDim,
             ["AuraBorderColor"] = t.Bd,
@@ -213,6 +215,23 @@ public static class ThemePalette
             ["AuraPageIconBorder"] = M(t.Accent, 24, t.BdSubtle),
             ["AuraLinkBorder"] = M(t.Accent, 40, t.Bd),
             ["AuraSelectedBackground"] = M(t.Accent, 6, t.Bg),
+            // Secondary buttons: filled surface + visible border so they read as clickable
+            ["AuraButtonBackground"] = t.BgElev,
+            ["AuraButtonHoverBackground"] = M(t.Fg, 10, t.BgElev),
+            ["AuraButtonBorder"] = hoverBd,
+            ["AuraButtonHoverBorder"] = M(t.FgDim, 60, t.Bd),
+
+            // Group headers (expanders): accent-tinted band above the rows they own
+            ["AuraGroupHeaderBackground"] = M(t.Accent, 8, t.BgElev),
+            ["AuraGroupHeaderHover"] = M(t.Accent, 14, t.BgElev),
+
+            // Tone buttons: stronger tone fill on hover
+            ["AuraAccentStrong"] = M(t.Accent, 18, t.BgSubtle),
+            ["AuraOkStrong"] = M(t.Ok, 18, t.BgSubtle),
+            ["AuraWarnStrong"] = M(t.Warn, 18, t.BgSubtle),
+            ["AuraErrStrong"] = M(t.Err, 18, t.BgSubtle),
+            ["AuraInfoStrong"] = M(t.Info, 18, t.BgSubtle),
+
             ["AuraSegmentBorder"] = M(t.Bd, 86, t.FgDim),
             ["AuraSegmentHoverBorder"] = M(t.Bd, 82, t.FgDim),
             ["AuraSegmentHoverBackground"] = M(t.BgElev, 78, t.BgSubtle),
@@ -228,7 +247,7 @@ public static class ThemePalette
 
             // Text
             ["AuraTextBright"] = t.Fg,
-            ["AuraTextPrimary"] = t.Fg,
+            ["AuraTextPrimary"] = bodyText,
             ["AuraTextSecondary"] = t.FgMuted,
             ["AuraTextMuted"] = t.FgDim,
 
