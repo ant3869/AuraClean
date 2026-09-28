@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using AuraClean.Helpers;
@@ -9,8 +10,8 @@ using AuraClean.Services;
 namespace TestFeatures;
 
 /// <summary>
-/// Pure-logic tests with no dependency on the Windows desktop runtime, the registry, or
-/// the file system. They can run on any OS against the built AuraClean assembly.
+/// Pure-logic tests with no dependency on the Windows desktop runtime or the registry; the only
+/// file-system access is a private temp folder. They can run on any OS against the built AuraClean assembly.
 /// </summary>
 public static class LogicTests
 {
@@ -24,6 +25,7 @@ public static class LogicTests
 
         Section("DISM reclaimable parsing", TestDismParsing);
         Section("Hosts file editing", TestHostsEditing);
+        Section("Hosts backup naming", TestHostsBackupNaming);
         Section("Registry key protection", TestRegistryKeyProtection);
         Section("Recycle Bin $I parsing", TestRecycleBinParsing);
         Section("winget output parsing", TestWingetParsing);
@@ -113,6 +115,34 @@ public static class LogicTests
 
         var (commented, removedCommented) = HostsFileEditor.RemoveHostEntries("# 10.0.0.1 evil.com\n", "evil.com");
         Check(removedCommented == 0 && commented.Contains("evil.com"), "Commented-out mappings are ignored");
+    }
+
+    private static void TestHostsBackupNaming()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "AuraCleanTests_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var hostsPath = Path.Combine(dir, "hosts");
+            File.WriteAllText(hostsPath, "original");
+            var first = HostsFileEditor.CreateBackup(hostsPath);
+
+            File.WriteAllText(hostsPath, "edited");
+            var backups = new List<string> { first };
+            for (int i = 0; i < 5; i++)
+                backups.Add(HostsFileEditor.CreateBackup(hostsPath));
+
+            Check(backups.Distinct(StringComparer.OrdinalIgnoreCase).Count() == backups.Count,
+                "Back-to-back backups get distinct names");
+            Check(File.ReadAllText(first) == "original", "First backup still holds the original mappings");
+            Check(backups.Skip(1).All(b => File.ReadAllText(b) == "edited"), "Later backups hold the edited file");
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     private static void TestRegistryKeyProtection()

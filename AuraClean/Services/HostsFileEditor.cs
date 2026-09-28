@@ -1,4 +1,5 @@
 using AuraClean.Helpers;
+using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -7,10 +8,16 @@ namespace AuraClean.Services;
 /// <summary>
 /// Surgically removes host-name mappings from the Windows hosts file. Only the offending
 /// host name is removed; every other line (including the user's own entries and comments)
-/// is preserved, and a timestamped backup is written first.
+/// is preserved, and a uniquely named backup is written first so batch remediation never
+/// replaces the backup that still holds the user's original mappings.
 /// </summary>
 public static class HostsFileEditor
 {
+    private const int MaxBackupNameAttempts = 100;
+
+    // Serializes read-modify-write cycles so concurrent removals cannot lose each other's edits.
+    private static readonly object EditGate = new();
+
     public static string HostsPath => Path.Combine(Environment.SystemDirectory, "drivers", "etc", "hosts");
 
     /// <summary>
@@ -22,6 +29,14 @@ public static class HostsFileEditor
             return (false, "No host name specified.");
 
         var path = HostsPath;
+        lock (EditGate)
+        {
+            return RemoveEntriesCore(path, hostName);
+        }
+    }
+
+    private static (bool Ok, string Message) RemoveEntriesCore(string path, string hostName)
+    {
         try
         {
             if (!File.Exists(path))
@@ -37,8 +52,7 @@ public static class HostsFileEditor
             if (removed == 0)
                 return (true, "The hosts entry was already removed.");
 
-            var backup = $"{path}.auraclean-{DateTime.Now:yyyyMMdd-HHmmss}.bak";
-            File.Copy(path, backup, overwrite: true);
+            var backup = CreateBackup(path);
 
             var attributes = File.GetAttributes(path);
             if (attributes.HasFlag(FileAttributes.ReadOnly))
@@ -61,6 +75,33 @@ public static class HostsFileEditor
         {
             DiagnosticLogger.Warn("HostsFileEditor", $"Could not edit hosts file for {hostName}", ex);
             return (false, $"The hosts file could not be edited ({ex.Message}). Security software may be protecting it.");
+        }
+    }
+
+    /// <summary>
+    /// Copies <paramref name="path"/> to a new <c>.auraclean-&lt;timestamp&gt;.bak</c> file next to it
+    /// and returns the backup path. Existing backups are never overwritten: names that already
+    /// exist get a numeric suffix. Throws <see cref="IOException"/> when no free name is found,
+    /// so callers never edit without a backup.
+    /// </summary>
+    internal static string CreateBackup(string path)
+    {
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+
+        for (int attempt = 0; ; attempt++)
+        {
+            var backup = attempt == 0
+                ? $"{path}.auraclean-{stamp}.bak"
+                : $"{path}.auraclean-{stamp}-{attempt}.bak";
+            try
+            {
+                File.Copy(path, backup, overwrite: false);
+                return backup;
+            }
+            catch (IOException) when (attempt < MaxBackupNameAttempts - 1 && File.Exists(backup))
+            {
+                // Name taken by an earlier backup in the same millisecond — try the next suffix.
+            }
         }
     }
 

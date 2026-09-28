@@ -380,8 +380,10 @@ public static class FileCleanerService
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
+                    skipped++;
                     item.IsLocked = true;
                     item.LockingProcess = "Directory could not be removed";
+                    DiagnosticLogger.Warn("FileCleanerService", $"Emptied folder could not be removed: {item.Path}", ex);
                 }
             }
             return;
