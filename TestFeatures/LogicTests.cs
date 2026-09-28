@@ -309,10 +309,13 @@ public static class LogicTests
         Check(light.Brushes["AuraAccentSoft"] == Rgba.Parse("#6344E6"),
             "Light accent text uses the AA-safe #6344E6");
         Check(dark.Brushes["AuraAccent"] == light.Brushes["AuraAccent"], "Accent fill is the same in both themes");
+        Check(dark.Brushes["AuraTextPrimary"] != dark.Brushes["AuraTextBright"] &&
+              light.Brushes["AuraTextPrimary"] != light.Brushes["AuraTextBright"],
+            "Body text is a distinct step below headings in both themes");
 
         foreach (var (name, palette) in new[] { ("dark", dark), ("light", light) })
         {
-            foreach (var key in new[] { "AuraTextBright", "AuraTextSecondary", "AuraTextMuted", "AuraAccentSoft",
+            foreach (var key in new[] { "AuraTextBright", "AuraTextPrimary", "AuraTextSecondary", "AuraTextMuted", "AuraAccentSoft",
                                         "AuraOk", "AuraWarn", "AuraErr", "AuraInfo" })
             {
                 var onPage = Contrast(palette.Brushes[key], palette.Brushes["AuraBackground"]);

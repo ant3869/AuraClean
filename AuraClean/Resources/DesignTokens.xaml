@@ -52,7 +52,7 @@
     <Color x:Key="AuraCoralColor">#F85149</Color>
     <Color x:Key="AuraCriticalColor">#F85149</Color>
     <Color x:Key="AuraTextBrightColor">#E8E8EA</Color>
-    <Color x:Key="AuraTextColor">#E8E8EA</Color>
+    <Color x:Key="AuraTextColor">#D4D4D7</Color>
     <Color x:Key="AuraTextDimColor">#8B8B94</Color>
     <Color x:Key="AuraTextMutedColor">#82828C</Color>
     <Color x:Key="AuraBorderColor">#26262B</Color>
@@ -95,6 +95,23 @@
     <SolidColorBrush x:Key="AuraLinkBorder" Color="#483C80" />
     <SolidColorBrush x:Key="AuraSelectedBackground" Color="#110F1A" />
 
+    <!-- Secondary buttons: filled surface + visible border so they read as clickable -->
+    <SolidColorBrush x:Key="AuraButtonBackground" Color="#16161A" />
+    <SolidColorBrush x:Key="AuraButtonHoverBackground" Color="#2B2B2F" />
+    <SolidColorBrush x:Key="AuraButtonBorder" Color="#38383E" />
+    <SolidColorBrush x:Key="AuraButtonHoverBorder" Color="#5D5D65" />
+
+    <!-- Group headers (expanders): accent-tinted band above the rows they own -->
+    <SolidColorBrush x:Key="AuraGroupHeaderBackground" Color="#1E1C2C" />
+    <SolidColorBrush x:Key="AuraGroupHeaderHover" Color="#24203A" />
+
+    <!-- Tone buttons: stronger tone fill on hover (tone 18% over bg-subtle) -->
+    <SolidColorBrush x:Key="AuraAccentStrong" Color="#241E3D" />
+    <SolidColorBrush x:Key="AuraOkStrong" Color="#192F1E" />
+    <SolidColorBrush x:Key="AuraWarnStrong" Color="#342916" />
+    <SolidColorBrush x:Key="AuraErrStrong" Color="#3B1D1D" />
+    <SolidColorBrush x:Key="AuraInfoStrong" Color="#203232" />
+
     <!-- Segmented control (tabs / theme picker) -->
     <SolidColorBrush x:Key="AuraSegmentBorder" Color="#333339" />
     <SolidColorBrush x:Key="AuraSegmentHoverBorder" Color="#37373C" />
@@ -113,7 +130,7 @@
 
     <!-- Text: fg / fg-muted / fg-dim -->
     <SolidColorBrush x:Key="AuraTextBright" Color="#E8E8EA" />
-    <SolidColorBrush x:Key="AuraTextPrimary" Color="#E8E8EA" />
+    <SolidColorBrush x:Key="AuraTextPrimary" Color="#D4D4D7" />
     <SolidColorBrush x:Key="AuraTextSecondary" Color="#8B8B94" />
     <SolidColorBrush x:Key="AuraTextMuted" Color="#82828C" />
 
