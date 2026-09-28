@@ -19,16 +19,13 @@
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentTeal}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Empty Folder " /><Run Text="Finder" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Empty Folder Finder" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Clean up empty folders left behind by uninstalled programs"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13" Margin="0,4,0,0" />
+            <TextBlock Text="Clean up empty folders left behind by uninstalled programs" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Scan Paths Card -->
@@ -57,7 +54,7 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <materialDesign:PackIcon Kind="Folder" Width="16" Height="16"
-                                                             Foreground="{StaticResource AuraAccentTeal}"
+                                                             Foreground="{DynamicResource AuraTextMuted}"
                                                              VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12"
                                                Foreground="{DynamicResource AuraTextSecondary}"
@@ -130,7 +127,7 @@
                 <DockPanel Grid.Column="0" VerticalAlignment="Center" LastChildFill="True">
                     <materialDesign:PackIcon Kind="InformationOutline" Width="16" Height="16"
                                              DockPanel.Dock="Left"
-                                             Foreground="{StaticResource AuraAccentTeal}"
+                                             Foreground="{DynamicResource AuraTextMuted}"
                                              VerticalAlignment="Center" Margin="0,0,8,0" />
                     <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}" FontSize="12"
                                AutomationProperties.LiveSetting="Polite"
@@ -142,7 +139,7 @@
                            Foreground="{StaticResource AuraAccentPurple}"
                            VerticalAlignment="Center" Margin="0,0,16,0"
                            Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
-                    <Run Text="{Binding TotalFound, Mode=OneWay}" />
+                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalFound, Mode=OneWay}" />
                     <Run Text=" folders found" />
                 </TextBlock>
 
@@ -197,7 +194,7 @@
         <StackPanel Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{Binding HasResults, Converter={StaticResource InverseBoolToVis}}">
             <materialDesign:PackIcon Kind="FolderRemove" Width="64" Height="64"
-                                     Foreground="{StaticResource AuraAccentTeal}"
+                                     Foreground="{DynamicResource AuraTextMuted}"
                                      HorizontalAlignment="Center" Opacity="0.5" />
             <TextBlock Text="No empty folders found yet" FontSize="14"
                        Foreground="{DynamicResource AuraTextMuted}"
@@ -223,7 +220,7 @@
                       Foreground="{DynamicResource AuraTextSecondary}"
                       VerticalAlignment="Center" FontSize="12" />
 
-            <Button Grid.Column="2" Style="{StaticResource AuraOutlinedButton}"
+            <Button Grid.Column="2" Style="{StaticResource AuraDangerButton}"
                     Command="{Binding DeleteSelectedCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
                     Padding="20,10">

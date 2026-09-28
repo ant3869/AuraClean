@@ -16,16 +16,13 @@
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraSuccess}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="File " /><Run Text="Recovery" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="FileRestore" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="File Recovery" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Recover recently deleted files from the Recycle Bin"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13" Margin="0,4,0,0" />
+            <TextBlock Text="Recover recently deleted files from the Recycle Bin" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Action Bar -->
@@ -103,9 +100,9 @@
             <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
                     Padding="14,8" Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="DeleteRestore" Foreground="{StaticResource AuraAccentPurple}"
+                    <materialDesign:PackIcon Kind="DeleteRestore" Foreground="{DynamicResource AuraInfo}"
                                              VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBlock Text="{Binding TotalItems}" FontWeight="SemiBold" FontSize="14"
+                    <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalItems}" FontWeight="SemiBold" FontSize="14"
                                Foreground="{DynamicResource AuraTextPrimary}" VerticalAlignment="Center" />
                     <TextBlock Text=" items" Foreground="{DynamicResource AuraTextSecondary}"
                                VerticalAlignment="Center" FontSize="12" />
@@ -205,7 +202,7 @@
                 <materialDesign:PackIcon Kind="DeleteRestore"
                                          Width="48" Height="48"
                                          HorizontalAlignment="Center"
-                                         Foreground="{StaticResource AuraSuccess}"
+                                         Foreground="{DynamicResource AuraTextMuted}"
                                          Opacity="0.5" />
                 <TextBlock Text="No recoverable files"
                            FontSize="15" Margin="0,10,0,4"

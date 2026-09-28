@@ -9,7 +9,6 @@
 
     <UserControl.Resources>
         <!-- Threat level colors — ThreatHigh reuses AuraWarning, ThreatMedium reuses AuraAmber, ThreatLow reuses AuraSuccess -->
-        <SolidColorBrush x:Key="ThreatCriticalBrush" Color="{StaticResource AuraCriticalColor}" />
     </UserControl.Resources>
 
     <Grid Margin="32">
@@ -33,17 +32,13 @@
 
             <StackPanel Grid.Column="0">
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="8" Height="8" Fill="{StaticResource AuraWarning}"
-                             VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <TextBlock FontSize="26" FontWeight="Light"
-                               Foreground="{DynamicResource AuraTextBright}">
-                        <Run Text="Threat " /><Run Text="Scanner" FontWeight="SemiBold" />
-                    </TextBlock>
+                    <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="ShieldSearch" Width="16" Height="16"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Threat Scanner" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Text="Scan for malware, adware, and unwanted programs — quarantine anything suspicious"
-                           Foreground="{DynamicResource AuraTextSecondary}"
-                           FontSize="13"
-                           Margin="0,4,0,0" />
+                <TextBlock Text="Scan for malware, adware, and unwanted programs — quarantine anything suspicious" Style="{StaticResource AuraPageSubtitle}" />
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -53,7 +48,7 @@
                 <TextBlock Foreground="{DynamicResource AuraTextMuted}" FontSize="11"
                            VerticalAlignment="Center">
                     <Run Text="Last scan: " />
-                    <Run Text="{Binding LastScanDate, Mode=OneWay}"
+                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LastScanDate, Mode=OneWay}"
                          Foreground="{DynamicResource AuraTextSecondary}" />
                 </TextBlock>
             </StackPanel>
@@ -84,7 +79,7 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <materialDesign:PackIcon Kind="FlashOutline" Width="22" Height="22"
-                                                             Foreground="{StaticResource AuraAccentTeal}" />
+                                                             Foreground="{DynamicResource AuraAccentSoft}" />
                                     <TextBlock Text="Quick Scan" FontSize="14" FontWeight="Medium"
                                                Foreground="{DynamicResource AuraTextBright}"
                                                Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -119,7 +114,7 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <materialDesign:PackIcon Kind="ShieldSearch" Width="22" Height="22"
-                                                             Foreground="{StaticResource AuraAccentPurple}" />
+                                                             Foreground="{DynamicResource AuraAccentSoft}" />
                                     <TextBlock Text="Full Scan" FontSize="14" FontWeight="Medium"
                                                Foreground="{DynamicResource AuraTextBright}"
                                                Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -154,7 +149,7 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <materialDesign:PackIcon Kind="FolderSearch" Width="22" Height="22"
-                                                             Foreground="{StaticResource AuraWarning}" />
+                                                             Foreground="{DynamicResource AuraAccentSoft}" />
                                     <TextBlock Text="Custom Scan" FontSize="14" FontWeight="Medium"
                                                Foreground="{DynamicResource AuraTextBright}"
                                                Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -189,7 +184,7 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <materialDesign:PackIcon Kind="Web" Width="22" Height="22"
-                                                             Foreground="{StaticResource AuraAmber}" />
+                                                             Foreground="{DynamicResource AuraAccentSoft}" />
                                     <TextBlock Text="Browser Scan" FontSize="14" FontWeight="Medium"
                                                Foreground="{DynamicResource AuraTextBright}"
                                                Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -248,7 +243,7 @@
                     Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ShieldSearch" Margin="0,0,6,0" Width="18" Height="18" />
-                    <TextBlock Text="SCAN NOW" />
+                    <TextBlock Text="Scan Now" />
                 </StackPanel>
             </Button>
 
@@ -259,7 +254,7 @@
                     Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Stop" Margin="0,0,6,0" Width="18" Height="18" />
-                    <TextBlock Text="CANCEL" />
+                    <TextBlock Text="Cancel" />
                 </StackPanel>
             </Button>
 
@@ -310,18 +305,15 @@
             <!-- Clean state -->
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                         Visibility="{Binding IsClean, Converter={StaticResource BoolToVis}}">
-                <materialDesign:PackIcon Kind="ShieldCheckOutline"
-                                         Width="80" Height="80"
-                                         HorizontalAlignment="Center"
-                                         Margin="0,0,0,16">
-                    <materialDesign:PackIcon.Foreground>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="{StaticResource AuraCyanColor}" Offset="0" />
-                            <GradientStop Color="{StaticResource AuraMintColor}" Offset="1" />
-                        </LinearGradientBrush>
-                    </materialDesign:PackIcon.Foreground>
-                </materialDesign:PackIcon>
-                <TextBlock Text="No Threats Detected" FontSize="22" FontWeight="Light"
+                <Border Width="48" Height="48" CornerRadius="12" Margin="0,0,0,12"
+                        HorizontalAlignment="Center"
+                        Background="{DynamicResource AuraOkTint}"
+                        BorderBrush="{DynamicResource AuraOkLine}" BorderThickness="1">
+                    <materialDesign:PackIcon Kind="ShieldCheckOutline" Width="24" Height="24"
+                                             Foreground="{DynamicResource AuraOk}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="No Threats Detected" FontSize="16" FontWeight="SemiBold"
                            Foreground="{DynamicResource AuraTextBright}"
                            HorizontalAlignment="Center" />
                 <TextBlock Text="Your system appears to be clean."
@@ -330,11 +322,11 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
                     <TextBlock Foreground="{DynamicResource AuraTextMuted}" FontSize="11">
                         <Run Text="Scanned " />
-                        <Run Text="{Binding FilesScanned, Mode=OneWay}" Foreground="{DynamicResource AuraTextSecondary}" />
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FilesScanned, Mode=OneWay}" Foreground="{DynamicResource AuraTextSecondary}" />
                         <Run Text=" files, " />
-                        <Run Text="{Binding ProcessesScanned, Mode=OneWay}" Foreground="{DynamicResource AuraTextSecondary}" />
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ProcessesScanned, Mode=OneWay}" Foreground="{DynamicResource AuraTextSecondary}" />
                         <Run Text=" processes in " />
-                        <Run Text="{Binding ScanDuration, Mode=OneWay}" Foreground="{DynamicResource AuraTextSecondary}" />
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ScanDuration, Mode=OneWay}" Foreground="{DynamicResource AuraTextSecondary}" />
                     </TextBlock>
                 </StackPanel>
             </StackPanel>
@@ -374,7 +366,7 @@
                            Foreground="{DynamicResource AuraTextBright}"
                            Margin="0,0,0,12">
                     <Run Text="Whitelisted Items " />
-                    <Run Text="{Binding WhitelistEntries.Count, StringFormat='({0})', Mode=OneWay}"
+                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding WhitelistEntries.Count, StringFormat='({0})', Mode=OneWay}"
                          Foreground="{DynamicResource AuraTextMuted}" />
                 </TextBlock>
 
@@ -400,7 +392,7 @@
                                             <TextBlock FontSize="11" Margin="0,2,0,0">
                                                 <Run Text="{Binding Reason}" Foreground="{DynamicResource AuraTextMuted}" />
                                                 <Run Text=" — " Foreground="{DynamicResource AuraTextMuted}" />
-                                                <Run Text="{Binding AddedAt}" Foreground="{DynamicResource AuraTextMuted}" />
+                                                <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding AddedAt}" Foreground="{DynamicResource AuraTextMuted}" />
                                             </TextBlock>
                                         </StackPanel>
 
@@ -471,53 +463,61 @@
                                                          VerticalAlignment="Center" />
                                 <TextBlock VerticalAlignment="Center" Margin="10,0,0,0"
                                            Foreground="{DynamicResource AuraTextSecondary}" FontSize="15">
-                                    <Run Text="{Binding TotalThreats, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource AuraWarning}" />
-                                    <Run Text=" threat(s) found" FontWeight="Light" />
+                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalThreats, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource AuraWarning}" />
+                                    <Run Text=" threat(s) found" FontWeight="Normal" />
                                 </TextBlock>
                             </StackPanel>
 
                             <!-- Severity badges -->
-                            <Border Grid.Column="1" Background="{StaticResource AuraCriticalSeverity}" CornerRadius="4"
-                                    Padding="8,3" Margin="6,0"
+                            <Border Grid.Column="1" Style="{StaticResource AuraPillErr}" Margin="6,0"
                                     Visibility="{Binding CriticalCount, Converter={StaticResource IntToVisibilityConverter}}">
-                                <TextBlock FontSize="11" Foreground="{StaticResource ThreatCriticalBrush}">
-                                    <Run Text="{Binding CriticalCount, Mode=OneWay}" FontWeight="Bold" />
+                                <StackPanel Orientation="Horizontal">
+                                <Ellipse Style="{StaticResource AuraPillDot}" />
+                                <TextBlock VerticalAlignment="Center">
+                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding CriticalCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" Critical" />
                                 </TextBlock>
+                                </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="2" Background="{StaticResource AuraCoralSeverity}" CornerRadius="4"
-                                    Padding="8,3" Margin="6,0"
+                            <Border Grid.Column="2" Style="{StaticResource AuraPillErr}" Margin="6,0"
                                     Visibility="{Binding HighCount, Converter={StaticResource IntToVisibilityConverter}}">
-                                <TextBlock FontSize="11" Foreground="{StaticResource AuraWarning}">
-                                    <Run Text="{Binding HighCount, Mode=OneWay}" FontWeight="Bold" />
+                                <StackPanel Orientation="Horizontal">
+                                <Ellipse Style="{StaticResource AuraPillDot}" />
+                                <TextBlock VerticalAlignment="Center">
+                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding HighCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" High" />
                                 </TextBlock>
+                                </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="3" Background="{StaticResource AuraAmberSeverity}" CornerRadius="4"
-                                    Padding="8,3" Margin="6,0"
+                            <Border Grid.Column="3" Style="{StaticResource AuraPillWarn}" Margin="6,0"
                                     Visibility="{Binding MediumCount, Converter={StaticResource IntToVisibilityConverter}}">
-                                <TextBlock FontSize="11" Foreground="{StaticResource AuraAmber}">
-                                    <Run Text="{Binding MediumCount, Mode=OneWay}" FontWeight="Bold" />
+                                <StackPanel Orientation="Horizontal">
+                                <Ellipse Style="{StaticResource AuraPillDot}" />
+                                <TextBlock VerticalAlignment="Center">
+                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding MediumCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" Medium" />
                                 </TextBlock>
+                                </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="4" Background="{StaticResource AuraSuccessSeverity}" CornerRadius="4"
-                                    Padding="8,3" Margin="6,0"
+                            <Border Grid.Column="4" Style="{StaticResource AuraPillInfo}" Margin="6,0"
                                     Visibility="{Binding LowCount, Converter={StaticResource IntToVisibilityConverter}}">
-                                <TextBlock FontSize="11" Foreground="{StaticResource AuraSuccess}">
-                                    <Run Text="{Binding LowCount, Mode=OneWay}" FontWeight="Bold" />
+                                <StackPanel Orientation="Horizontal">
+                                <Ellipse Style="{StaticResource AuraPillDot}" />
+                                <TextBlock VerticalAlignment="Center">
+                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LowCount, Mode=OneWay}" FontWeight="SemiBold" />
                                     <Run Text=" Low" />
                                 </TextBlock>
+                                </StackPanel>
                             </Border>
 
                             <TextBlock Grid.Column="5" FontSize="11" VerticalAlignment="Center"
                                        Foreground="{DynamicResource AuraTextMuted}" Margin="12,0,0,0">
-                                <Run Text="{Binding FilesScanned, Mode=OneWay}" />
+                                <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FilesScanned, Mode=OneWay}" />
                                 <Run Text=" files, " />
-                                <Run Text="{Binding ScanDuration, Mode=OneWay}" />
+                                <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ScanDuration, Mode=OneWay}" />
                             </TextBlock>
                         </Grid>
                     </Border>
@@ -560,7 +560,7 @@
                                                            Foreground="{StaticResource AuraAmber}"
                                                            FontSize="14" FontWeight="SemiBold"
                                                            VerticalAlignment="Center">
-                                                    <Run Text="{Binding ItemCount, Mode=OneWay}" />
+                                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ItemCount, Mode=OneWay}" />
                                                     <Run Text=" items" />
                                                 </TextBlock>
                                             </Grid>
@@ -605,7 +605,7 @@
                                                                                 <Setter Property="Fill" Value="{StaticResource AuraWarning}" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
-                                                                                <Setter Property="Fill" Value="{StaticResource ThreatCriticalBrush}" />
+                                                                                <Setter Property="Fill" Value="{DynamicResource AuraErr}" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
                                                                     </Style>
@@ -695,7 +695,7 @@
                                                                                     <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
                                                                                 </DataTrigger>
                                                                                 <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
-                                                                                    <Setter Property="Foreground" Value="{StaticResource ThreatCriticalBrush}" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource AuraErr}" />
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>
@@ -704,7 +704,7 @@
                                                             </Border>
 
                                                             <!-- File size -->
-                                                            <TextBlock Grid.Column="5"
+                                                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="5"
                                                                        Text="{Binding FormattedSize}"
                                                                        FontSize="11"
                                                                        Foreground="{DynamicResource AuraTextMuted}"
@@ -743,25 +743,21 @@
                     </Style>
                 </StackPanel.Style>
 
-                <materialDesign:PackIcon Kind="ShieldSearch"
-                                         Width="64" Height="64"
-                                         HorizontalAlignment="Center"
-                                         Margin="0,0,0,16">
-                    <materialDesign:PackIcon.Foreground>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
-                            <GradientStop Color="{StaticResource AuraCyanColor}" Offset="1" />
-                        </LinearGradientBrush>
-                    </materialDesign:PackIcon.Foreground>
-                </materialDesign:PackIcon>
+                <Border Width="48" Height="48" CornerRadius="12" Margin="0,0,0,12"
+                        HorizontalAlignment="Center"
+                        Background="{DynamicResource AuraBgElev}">
+                    <materialDesign:PackIcon Kind="ShieldSearch" Width="24" Height="24"
+                                             Foreground="{DynamicResource AuraTextMuted}" Opacity="0.6"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
                 <TextBlock Text="Select a scan mode and click Scan Now"
-                           FontSize="16" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextSecondary}"
+                           FontSize="14" FontWeight="Medium"
+                           Foreground="{DynamicResource AuraTextBright}"
                            HorizontalAlignment="Center" />
                 <TextBlock Text="Multi-layered detection: signatures, heuristics, entropy analysis, behavioral checks"
-                           FontSize="12"
-                           Foreground="{DynamicResource AuraTextMuted}"
-                           HorizontalAlignment="Center" Margin="0,6,0,0" />
+                           FontSize="12" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
+                           Foreground="{DynamicResource AuraTextSecondary}"
+                           HorizontalAlignment="Center" Margin="0,4,0,0" />
             </StackPanel>
         </Grid>
 
@@ -811,7 +807,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16"
                                                  Margin="0,0,6,0" />
-                        <TextBlock Text="WHITELIST" FontSize="12" />
+                        <TextBlock Text="Whitelist" FontSize="12" />
                     </StackPanel>
                 </Button>
 
@@ -822,7 +818,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ShieldLock" Width="16" Height="16"
                                                  Margin="0,0,6,0" />
-                        <TextBlock Text="QUARANTINE" FontSize="12" />
+                        <TextBlock Text="Quarantine" FontSize="12" />
                     </StackPanel>
                 </Button>
 
@@ -833,7 +829,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ShieldLock" Width="16" Height="16"
                                                  Margin="0,0,6,0" />
-                        <TextBlock Text="QUARANTINE ALL" FontSize="12" />
+                        <TextBlock Text="Quarantine All" FontSize="12" />
                     </StackPanel>
                 </Button>
 
@@ -843,28 +839,26 @@
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}" />
 
                 <Button Grid.Column="5"
-                        Style="{StaticResource AuraGhostButton}"
+                        Style="{StaticResource AuraDangerButton}"
                         Command="{Binding DeleteSelectedCommand}"
-                        Foreground="{StaticResource AuraWarning}"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                         Padding="10,5" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"
                                                  Margin="0,0,6,0" />
-                        <TextBlock Text="DELETE" FontSize="12" />
+                        <TextBlock Text="Delete" FontSize="12" />
                     </StackPanel>
                 </Button>
 
                 <Button Grid.Column="6"
-                        Style="{StaticResource AuraGhostButton}"
+                        Style="{StaticResource AuraDangerButton}"
                         Command="{Binding DeleteAllCommand}"
-                        Foreground="{StaticResource AuraWarning}"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                         Padding="10,5">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"
                                                  Margin="0,0,6,0" />
-                        <TextBlock Text="DELETE ALL" FontSize="12" />
+                        <TextBlock Text="Delete All" FontSize="12" />
                     </StackPanel>
                 </Button>
             </Grid>

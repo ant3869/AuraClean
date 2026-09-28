@@ -15,17 +15,13 @@
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,24">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentPurple}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Install " /><Run Text="Monitor" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="CameraOutline" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Install Monitor" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Record what a program adds to your system so you can fully remove it later"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13"
-                       Margin="0,4,0,0" />
+            <TextBlock Text="Record what a program adds to your system so you can fully remove it later" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Monitor Controls -->
@@ -59,7 +55,7 @@
                 <!-- Action Buttons -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <!-- Start Monitoring Button -->
-                    <Button Content="START MONITORING"
+                    <Button Content="Start Monitoring"
                             Style="{StaticResource AuraPrimaryButton}"
                             Padding="24,10"
                             Command="{Binding StartMonitoringCommand}"
@@ -96,9 +92,9 @@
                 <StackPanel HorizontalAlignment="Center">
                     <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                                  IsIndeterminate="True" Width="64" Height="64"
-                                 Foreground="{StaticResource AuraAccentPurple}"
+                                 Foreground="{DynamicResource AuraAccent}"
                                  HorizontalAlignment="Center" />
-                    <TextBlock Text="Monitoring Active" FontSize="18" FontWeight="SemiBold"
+                    <TextBlock Text="Monitoring Active" FontSize="16" FontWeight="SemiBold"
                                Foreground="{StaticResource AuraAccentPurple}"
                                HorizontalAlignment="Center" Margin="0,16,0,4" />
                     <TextBlock Text="Install your software now, then click 'Stop &amp; Compare'"
@@ -129,7 +125,7 @@
                             Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Registry Keys" FontSize="12" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding NewRegistryKeysCount}" FontSize="32" FontWeight="Bold"
+                            <TextBlock Text="{Binding NewRegistryKeysCount}" FontSize="24" FontWeight="SemiBold"
                                        FontFamily="{DynamicResource AuraFontFamilyMono}"
                                        Foreground="{StaticResource AuraAccentPurple}" Margin="0,4,0,2" />
                             <TextBlock Text="new entries detected" FontSize="11" Foreground="{DynamicResource AuraTextMuted}" />
@@ -142,7 +138,7 @@
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="New Files" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding NewFilesCount}" FontSize="22" FontWeight="Bold"
+                            <TextBlock Text="{Binding NewFilesCount}" FontSize="22" FontWeight="SemiBold"
                                        FontFamily="{DynamicResource AuraFontFamilyMono}"
                                        Foreground="{StaticResource AuraAccentTeal}" Margin="0,4,0,0" />
                         </StackPanel>
@@ -154,7 +150,7 @@
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Total Size" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding FormattedNewFileSize}" FontSize="22" FontWeight="Bold"
+                            <TextBlock Text="{Binding FormattedNewFileSize}" FontSize="22" FontWeight="SemiBold"
                                        FontFamily="{DynamicResource AuraFontFamilyMono}"
                                        Foreground="{StaticResource AuraWarning}" Margin="0,4,0,0" />
                         </StackPanel>
@@ -166,7 +162,7 @@
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Directories" FontSize="11" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding NewDirectoriesCount}" FontSize="22" FontWeight="Bold"
+                            <TextBlock Text="{Binding NewDirectoriesCount}" FontSize="22" FontWeight="SemiBold"
                                        FontFamily="{DynamicResource AuraFontFamilyMono}"
                                        Foreground="{StaticResource AuraAccentPurple}" Margin="0,4,0,0" />
                         </StackPanel>
@@ -193,9 +189,7 @@
                 </DataGrid>
 
                 <Button Content="Delete Selected"
-                        Style="{StaticResource AuraOutlinedButton}"
-                        BorderBrush="{StaticResource AuraWarning}"
-                        Foreground="{StaticResource AuraWarning}"
+                        Style="{StaticResource AuraDangerButton}"
                         Padding="12,6"
                         Command="{Binding DeleteSnapshotCommand}"
                         HorizontalAlignment="Left" Margin="0,8,0,0" />
