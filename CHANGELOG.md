@@ -14,9 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenEval visual system (foundation)** — charcoal dark and white light palettes with a violet accent and semantic green / amber / red, blended (color-mix) surfaces for cards, sidebar, hover and active states, 12px cards, 8px actions, 6px controls, pill-shaped status badges, thin scrollbars, themed tooltips, and short `cubic-bezier(.2,0,0,1)` motion with a .96 press. All text colors meet WCAG AA on page and card surfaces in both themes.
 - **Theme preference** — Auto (follows the Windows app theme live), Light, or Dark, chosen in Settings → Appearance or with the sidebar toggle; applies and saves immediately and themes the window title bar. Existing light-theme settings migrate automatically; new installs start in Dark.
 - Honors Windows "Show animations": control transitions become instant when animations are off.
+- **Sidebar (OpenEval shell)** — gradient brand mark with tracked "SYSTEM UTILITY" subtitle, letter-spaced section labels (new `TrackedText` control; screen readers get normal casing), 16px icons that follow the item state, keyboard hints as kbd chips, an Administrator status pill, and version + theme toggle in the footer. Sidebar and status bar use the shell surface.
 
 ### Fixed
 
+- **Sidebar selection** — only the current page is highlighted; previously one item stayed highlighted in every section you had visited.
+- **Sidebar labels** — the keyboard-shortcut hint no longer draws on top of the item name on hover.
 - **File shredder** — dragging non-file content (such as text) over the drop zone and away no longer crashes the app (it animated a frozen brush).
 - Health score, trend arrow and hardware grade colors now follow the active theme instead of fixed hex values.
 
