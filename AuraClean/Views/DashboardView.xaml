@@ -3,14 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
-             xmlns:helpers="clr-namespace:AuraClean.Helpers">
+             xmlns:helpers="clr-namespace:AuraClean.Helpers"
+             xmlns:controls="clr-namespace:AuraClean.Views.Controls">
 
     <!-- HealthColorConverter and BoolToVis are defined globally in App.xaml -->
 
     <ScrollViewer VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
                   Focusable="False">
-    <Grid Margin="36,28,36,16">
+    <Grid Margin="32,24,32,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -22,36 +23,24 @@
         </Grid.RowDefinitions>
 
         <!-- ═══ HEADER ═══ -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,28"
+        <StackPanel Grid.Row="0" Margin="0,0,0,24"
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8"
-                         Fill="{Binding DataContext.SystemHealthScore, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource HealthColorConverter}}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="{StaticResource AuraFontSizeDisplay}" FontWeight="Light"
-                           FontFamily="{StaticResource AuraFontFamily}"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="System " /><Run Text="Health" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="ViewDashboard" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="System Health" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Monitor and optimize your system performance"
-                       FontFamily="{StaticResource AuraFontFamily}"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="{StaticResource AuraFontSizeMD}" Margin="0,4,0,0" />
+            <TextBlock Text="Monitor and optimize your system performance" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
-        <!-- ═══ STATUS STRIP — hero focal point with atmospheric glow ═══ -->
-        <Grid Grid.Row="1" Margin="0,0,0,20">
-            <!-- Atmospheric glow tinted by health score -->
-            <Border CornerRadius="28" Margin="-12,-8,-12,-8"
-                    Background="{Binding DataContext.SystemHealthScore, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource HealthGlowBrushConverter}}" />
-            <Border
+        <!-- ═══ HERO: health score, bar, primary action ═══ -->
+        <Border Grid.Row="1" Margin="0,0,0,16"
+                Style="{StaticResource AuraHeroCard}"
                 helpers:AnimationHelper.AnimateOnVisible="True"
-                helpers:AnimationHelper.StaggerIndex="1"
-                Background="{DynamicResource AuraSurface}"
-                BorderBrush="{DynamicResource AuraBorder}" BorderThickness="1"
-                CornerRadius="20" Padding="36,32">
+                helpers:AnimationHelper.StaggerIndex="1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -60,325 +49,282 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Health score number — dominant hero typography -->
+                <!-- Health score — the one hero number in the app -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding SystemHealthScore}"
-                               FontFamily="{StaticResource AuraFontFamilyMono}"
-                               FontSize="{StaticResource AuraFontSizeHero}" FontWeight="ExtraLight"
+                               Style="{StaticResource AuraMono}"
+                               FontSize="{StaticResource AuraFontSizeHero}" FontWeight="SemiBold"
                                Foreground="{DynamicResource AuraTextBright}"
+                               AutomationProperties.Name="System score"
                                ToolTip="Based on disk space, memory usage, startup load, and system hygiene" />
 
-                    <!-- Trend arrow — shows ↑/↓/— vs previous score -->
-                    <TextBlock Text="{Binding ScoreTrendArrow}"
-                               FontSize="14" FontWeight="SemiBold"
-                               Foreground="{Binding ScoreTrendArrow, Converter={StaticResource TrendArrowColorConverter}}"
-                               ToolTip="{Binding ScoreTrendTooltip}"
-                               Visibility="{Binding HasScoreTrend, Converter={StaticResource BoolToVis}}"
-                               VerticalAlignment="Center" Margin="6,0,0,0"
-                               Opacity="0">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
+                    <!-- Trend vs the previous session: up / down / flat -->
+                    <materialDesign:PackIcon Width="20" Height="20"
+                                             Foreground="{Binding ScoreTrendArrow, Converter={StaticResource TrendArrowColorConverter}}"
+                                             ToolTip="{Binding ScoreTrendTooltip}"
+                                             AutomationProperties.Name="{Binding ScoreTrendTooltip}"
+                                             Visibility="{Binding HasScoreTrend, Converter={StaticResource BoolToVis}}"
+                                             VerticalAlignment="Center" Margin="8,0,0,0">
+                        <materialDesign:PackIcon.Style>
+                            <Style TargetType="materialDesign:PackIcon">
+                                <Setter Property="Kind" Value="Minus" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HasScoreTrend}" Value="True">
-                                        <DataTrigger.EnterActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                     From="0" To="1" Duration="0:0:0.2"
-                                                                     BeginTime="0:0:0.8" />
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </DataTrigger.EnterActions>
+                                    <DataTrigger Binding="{Binding ScoreTrendArrow}" Value="↑">
+                                        <Setter Property="Kind" Value="TrendingUp" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ScoreTrendArrow}" Value="↓">
+                                        <Setter Property="Kind" Value="TrendingDown" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                        </materialDesign:PackIcon.Style>
+                    </materialDesign:PackIcon>
                 </StackPanel>
 
-                <!-- Score context -->
+                <!-- Score context: tone label + eyebrow -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="20,0,0,0">
                     <TextBlock Text="{Binding HealthLabel}"
-                               FontFamily="{StaticResource AuraFontFamily}"
-                               FontSize="{StaticResource AuraFontSizeXL}" FontWeight="SemiBold"
+                               FontSize="{StaticResource AuraFontSizeKpi}" FontWeight="SemiBold"
                                Foreground="{Binding SystemHealthScore, Converter={StaticResource HealthColorConverter}}" />
-                    <TextBlock Text="System Score"
-                               FontFamily="{StaticResource AuraFontFamily}"
-                               FontSize="{StaticResource AuraFontSizeCaption}"
-                               Foreground="{DynamicResource AuraTextMuted}"
-                               Margin="0,2,0,0" />
+                    <controls:TrackedText Text="System score"
+                                          FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                          Foreground="{DynamicResource AuraTextMuted}"
+                                          Margin="0,4,0,0" />
                 </StackPanel>
 
-                <!-- Progress bar — horizontal replacement for circular gauge -->
-                <Grid Grid.Column="2" VerticalAlignment="Center" Margin="40,0">
-                    <Border Background="{DynamicResource AuraBorderSubtle}"
-                            CornerRadius="4" Height="8" />
+                <!-- Score bar: 8px track on bg-elev -->
+                <Grid Grid.Column="2" VerticalAlignment="Center" Margin="32,0">
+                    <Border Background="{DynamicResource AuraTrackBg}" CornerRadius="3" Height="8" />
                     <ProgressBar Value="{Binding SystemHealthScore}"
                                  Minimum="0" Maximum="100"
                                  Height="8"
                                  Foreground="{Binding SystemHealthScore, Converter={StaticResource HealthColorConverter}}"
                                  Background="Transparent"
                                  BorderThickness="0"
+                                 AutomationProperties.Name="System score"
                                  helpers:AnimationHelper.SmoothProgress="True" />
                 </Grid>
 
-                <!-- Primary action — commanding CTA -->
                 <Button Grid.Column="3"
                         Style="{StaticResource AuraPrimaryButton}"
                         Command="{Binding QuickAnalyzeCommand}"
-                        Padding="32,16"
+                        Padding="18,10"
                         VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Magnify" Width="20" Height="20"
-                                                 VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
-                        <TextBlock Text="Analyze &amp; Clean" VerticalAlignment="Center"
-                                   FontFamily="{StaticResource AuraFontFamily}"
-                                   FontSize="{StaticResource AuraFontSizeLG}" FontWeight="SemiBold" Foreground="White" />
+                        <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="Analyze &amp; Clean" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </Grid>
         </Border>
-        </Grid>
 
-        <!-- ═══ STAT CARDS — varied sizes ═══ -->
-        <Grid Grid.Row="2" Margin="0,0,0,20"
+        <!-- ═══ STAT CARDS ═══ -->
+        <Grid Grid.Row="2" Margin="0,0,0,16"
               helpers:AnimationHelper.AnimateOnVisible="True"
               helpers:AnimationHelper.StaggerIndex="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Junk Found — hero stat (larger) -->
-            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="32,26"
-                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}">
+            <!-- Junk found -->
+            <Border Grid.Column="0" Style="{StaticResource AuraCard}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Background="{StaticResource AuraAccentPurpleSemi}" CornerRadius="{StaticResource AuraRadiusL}"
-                            Width="60" Height="60"
-                            VerticalAlignment="Center" Margin="0,0,24,0">
-                        <materialDesign:PackIcon Kind="DeleteSweep"
-                                                 Width="30" Height="30"
-                                                 Foreground="{StaticResource AuraAccentPurple}"
+                    <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16"
                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Junk Found"
-                                   FontFamily="{StaticResource AuraFontFamily}"
-                                   FontSize="{StaticResource AuraFontSizeLabel}"
-                                   Foreground="{DynamicResource AuraTextSecondary}" />
+                        <controls:TrackedText Text="Junk found"
+                                              FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}" />
                         <TextBlock Text="{Binding Cleaner.FormattedTotalSize}"
-                                   FontFamily="{StaticResource AuraFontFamilyMono}"
-                                   FontSize="{StaticResource AuraFontSizeDisplay}" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AuraTextBright}" />
+                                   Style="{StaticResource AuraMono}"
+                                   FontSize="24" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AuraTextBright}"
+                                   Margin="0,4,0,0" />
                         <TextBlock Text="across system temp, cache &amp; logs"
-                                   FontFamily="{StaticResource AuraFontFamily}"
-                                   FontSize="{StaticResource AuraFontSizeCaption}"
-                                   Foreground="{DynamicResource AuraTextMuted}"
+                                   FontSize="{StaticResource AuraFontSizeLabel}"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
                                    Margin="0,2,0,0" />
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Programs Installed — compact (no icon badge for variety) -->
-            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="20,18"
-                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
+            <!-- Programs installed -->
+            <Border Grid.Column="2" Style="{StaticResource AuraCard}">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <materialDesign:PackIcon Kind="Apps"
-                                                 Width="16" Height="16"
-                                                 Foreground="{StaticResource AuraAccentTeal}"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="Programs"
-                                   FontFamily="{StaticResource AuraFontFamily}"
-                                   FontSize="{StaticResource AuraFontSizeLabel}"
-                                   Foreground="{DynamicResource AuraTextSecondary}"
-                                   VerticalAlignment="Center" />
+                        <materialDesign:PackIcon Kind="Apps" Width="16" Height="16"
+                                                 Foreground="{DynamicResource AuraTextMuted}"
+                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <controls:TrackedText Text="Programs"
+                                              FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}"
+                                              VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding Uninstaller.Programs.Count}"
-                               FontFamily="{StaticResource AuraFontFamilyMono}"
-                               FontSize="{StaticResource AuraFontSizeTitle}" FontWeight="SemiBold"
-                               Foreground="{DynamicResource AuraTextBright}" />
+                               Style="{StaticResource AuraStatValue}"
+                               FontSize="20" />
                 </StackPanel>
             </Border>
 
-            <!-- Last Cleaned — compact (no icon badge for variety) -->
-            <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="20,18"
-                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAmber}">
+            <!-- Last cleaned -->
+            <Border Grid.Column="4" Style="{StaticResource AuraCard}">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <materialDesign:PackIcon Kind="ClockOutline"
-                                                 Width="16" Height="16"
-                                                 Foreground="{StaticResource AuraAmber}"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="Last Cleaned"
-                                   FontFamily="{StaticResource AuraFontFamily}"
-                                   FontSize="{StaticResource AuraFontSizeLabel}"
-                                   Foreground="{DynamicResource AuraTextSecondary}"
-                                   VerticalAlignment="Center" />
+                        <materialDesign:PackIcon Kind="ClockOutline" Width="16" Height="16"
+                                                 Foreground="{DynamicResource AuraTextMuted}"
+                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <controls:TrackedText Text="Last cleaned"
+                                              FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}"
+                                              VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding LastCleanedDisplay}"
-                               FontFamily="{StaticResource AuraFontFamily}"
+                               Style="{StaticResource AuraMono}"
                                FontSize="{StaticResource AuraFontSizeLG}" FontWeight="SemiBold"
-                               Foreground="{DynamicResource AuraTextBright}" />
+                               Foreground="{DynamicResource AuraTextBright}"
+                               TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
         </Grid>
 
         <!-- ═══ SYSTEM INFO STRIP ═══ -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="3" Style="{StaticResource AuraCard}" Padding="4,14"
                 helpers:AnimationHelper.AnimateOnVisible="True"
-                helpers:AnimationHelper.StaggerIndex="3"
-                CornerRadius="{StaticResource AuraRadiusL}"
-                Background="{DynamicResource AuraSurface}"
-                BorderBrush="{DynamicResource AuraBorder}" BorderThickness="1"
-                Padding="0" VerticalAlignment="Top">
-                <Grid>
-                    <!-- Subtle gradient top edge — monochromatic violet -->
-                    <Rectangle Height="1" VerticalAlignment="Top" Opacity="0.5" RadiusX="6" RadiusY="6">
-                        <Rectangle.Fill>
-                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
-                                <GradientStop Color="{StaticResource AuraVioletDarkColor}" Offset="0.6" />
-                                <GradientStop Color="Transparent" Offset="1" />
-                            </LinearGradientBrush>
-                        </Rectangle.Fill>
-                    </Rectangle>
+                helpers:AnimationHelper.StaggerIndex="3">
+            <UniformGrid Rows="1">
+                <!-- OS -->
+                <StackPanel Margin="16,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <materialDesign:PackIcon Kind="MicrosoftWindows" Width="14" Height="14"
+                                                 Foreground="{DynamicResource AuraInfo}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <controls:TrackedText Text="OS" FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding OsName}"
+                               Foreground="{DynamicResource AuraTextPrimary}"
+                               FontSize="{StaticResource AuraFontSizeLabel}"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding OsName}" />
+                </StackPanel>
 
-                    <UniformGrid Rows="1" Margin="6,12">
-                        <!-- OS -->
-                        <StackPanel Margin="16,0">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                                <materialDesign:PackIcon Kind="MicrosoftWindows" Width="16" Height="16"
-                                                         Foreground="{StaticResource AuraAccentPurple}"
-                                                         Opacity="0.85"
-                                                         VerticalAlignment="Center" Margin="0,0,5,0" />
-                                <TextBlock Text="OS" FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding OsName}"
-                                       Foreground="{DynamicResource AuraTextPrimary}"
-                                       FontSize="11.5" TextTrimming="CharacterEllipsis" MaxWidth="240" />
-                        </StackPanel>
+                <!-- CPU -->
+                <StackPanel Margin="16,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <materialDesign:PackIcon Kind="Chip" Width="14" Height="14"
+                                                 Foreground="{DynamicResource AuraInfo}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <controls:TrackedText Text="CPU" FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding CpuName}"
+                               Foreground="{DynamicResource AuraTextPrimary}"
+                               FontSize="{StaticResource AuraFontSizeLabel}"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding CpuName}" />
+                </StackPanel>
 
-                        <!-- CPU -->
-                        <StackPanel Margin="16,0">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                                <materialDesign:PackIcon Kind="Chip" Width="16" Height="16"
-                                                         Foreground="{StaticResource AuraAccentTeal}"
-                                                         Opacity="0.85"
-                                                         VerticalAlignment="Center" Margin="0,0,5,0" />
-                                <TextBlock Text="CPU" FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding CpuName}"
-                                       Foreground="{DynamicResource AuraTextPrimary}"
-                                       FontSize="11.5" TextTrimming="CharacterEllipsis" MaxWidth="240" />
-                        </StackPanel>
+                <!-- RAM -->
+                <StackPanel Margin="16,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <materialDesign:PackIcon Kind="Memory" Width="14" Height="14"
+                                                 Foreground="{DynamicResource AuraInfo}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <controls:TrackedText Text="RAM" FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding TotalRam}"
+                               Style="{StaticResource AuraMono}"
+                               Foreground="{DynamicResource AuraTextBright}"
+                               FontSize="{StaticResource AuraFontSizeBody}" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
 
-                        <!-- RAM -->
-                        <StackPanel Margin="16,0">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                                <materialDesign:PackIcon Kind="Memory" Width="16" Height="16"
-                                                         Foreground="{StaticResource AuraAmber}"
-                                                         Opacity="0.85"
-                                                         VerticalAlignment="Center" Margin="0,0,5,0" />
-                                <TextBlock Text="RAM" FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding TotalRam}"
-                                       Foreground="{DynamicResource AuraTextBright}"
-                                       FontSize="13" FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-
-                        <!-- Uptime -->
-                        <StackPanel Margin="16,0">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                                <materialDesign:PackIcon Kind="TimerOutline" Width="16" Height="16"
-                                                         Foreground="{StaticResource AuraAccentPurple}"
-                                                         Opacity="0.85"
-                                                         VerticalAlignment="Center" Margin="0,0,5,0" />
-                                <TextBlock Text="UPTIME" FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding SystemUptime}"
-                                       Foreground="{DynamicResource AuraTextBright}"
-                                       FontSize="13" FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </UniformGrid>
-                </Grid>
-            </Border>
+                <!-- Uptime -->
+                <StackPanel Margin="16,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <materialDesign:PackIcon Kind="TimerOutline" Width="14" Height="14"
+                                                 Foreground="{DynamicResource AuraInfo}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <controls:TrackedText Text="Uptime" FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding SystemUptime}"
+                               Style="{StaticResource AuraMono}"
+                               Foreground="{DynamicResource AuraTextBright}"
+                               FontSize="{StaticResource AuraFontSizeBody}" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </UniformGrid>
+        </Border>
 
         <!-- ═══ SECONDARY ACTIONS ═══ -->
         <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0"
                    helpers:AnimationHelper.AnimateOnVisible="True"
                    helpers:AnimationHelper.StaggerIndex="4">
-                <Button Style="{StaticResource AuraGhostButton}"
-                        Command="{Binding QuickCleanCommand}"
-                        ToolTip="Analyze if needed, then clean the selected low-risk items"
-                        Margin="0,0,10,8">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Broom" Width="16" Height="16"
-                                                 Foreground="{StaticResource AuraAccentTeal}"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="QUICK CLEAN" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+            <Button Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding QuickCleanCommand}"
+                    ToolTip="Analyze if needed, then clean the selected low-risk items"
+                    Margin="0,0,8,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Broom" Width="16" Height="16"
+                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Quick Clean" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
 
-                <Button Style="{StaticResource AuraGhostButton}"
-                        Command="{Binding RunHealthCheckCommand}"
-                        ToolTip="Scan junk, threats, startup load and browser caches"
-                        Margin="0,0,10,8">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16"
-                                                 Foreground="{StaticResource AuraAccentPurple}"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="HEALTH CHECK" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+            <Button Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding RunHealthCheckCommand}"
+                    ToolTip="Scan junk, threats, startup load and browser caches"
+                    Margin="0,0,8,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ShieldCheck" Width="16" Height="16"
+                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Health Check" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
 
-                <Button Style="{StaticResource AuraGhostButton}"
-                        Command="{Binding BoostMemoryCommand}"
-                        Margin="0,0,10,8">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="RocketLaunch" Width="16" Height="16"
-                                                 Foreground="{StaticResource AuraAmber}"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="BOOST RAM" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+            <Button Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding BoostMemoryCommand}"
+                    Margin="0,0,8,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="RocketLaunch" Width="16" Height="16"
+                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Boost RAM" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
 
-                <Button Style="{StaticResource AuraGhostButton}"
-                        Command="{Binding NavigateToCommand}"
-                        CommandParameter="StorageMap"
-                        Margin="0,0,10,8">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16"
-                                                 Foreground="{StaticResource AuraWarning}"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="STORAGE MAP" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+            <Button Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding NavigateToCommand}"
+                    CommandParameter="StorageMap"
+                    Margin="0,0,8,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16"
+                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Storage Map" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
 
-                <Button Style="{StaticResource AuraGhostButton}"
-                        Command="{Binding UndoLastCleanCommand}"
-                        Margin="0,0,10,8"
-                        Visibility="{Binding Cleaner.CanUndoLastClean, Converter={StaticResource BoolToVis}}"
-                        ToolTip="{Binding Cleaner.LastCleanedSummary}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="UndoVariant" Width="16" Height="16"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="UNDO CLEAN" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+            <Button Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding UndoLastCleanCommand}"
+                    Margin="0,0,8,8"
+                    Visibility="{Binding Cleaner.CanUndoLastClean, Converter={StaticResource BoolToVis}}"
+                    ToolTip="{Binding Cleaner.LastCleanedSummary}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="UndoVariant" Width="16" Height="16"
+                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Undo Clean" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
         </WrapPanel>
 
         <!-- ═══ HEALTH CHECK STATUS ═══ -->
@@ -386,7 +332,8 @@
             <StackPanel Visibility="{Binding IsHealthCheckRunning, Converter={StaticResource BoolToVis}}">
                 <ProgressBar IsIndeterminate="True" Width="300"
                              Height="4" Margin="0,0,0,6"
-                             Foreground="{StaticResource AuraAccentPurple}" />
+                             Foreground="{DynamicResource AuraAccent}"
+                             AutomationProperties.Name="Health check in progress" />
                 <TextBlock Text="{Binding HealthCheckProgress}"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource AuraTextMuted}" FontSize="11"
@@ -407,10 +354,26 @@
             <TextBlock Text="Explorer &quot;Deep Uninstall&quot; menu:"
                        Foreground="{DynamicResource AuraTextMuted}" FontSize="11"
                        VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBlock Text="{Binding ContextMenuStatus}"
-                       AutomationProperties.LiveSetting="Polite"
-                       Foreground="{DynamicResource AuraTextSecondary}" FontSize="11"
-                       FontWeight="Medium" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <!-- Status pill: green when installed, neutral otherwise -->
+            <Border Margin="0,0,12,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AuraPillNeutral}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsContextMenuInstalled}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource AuraOkTint}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource AuraOkLine}" />
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraOk}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Style="{StaticResource AuraPillDot}" />
+                    <TextBlock Text="{Binding ContextMenuStatus}"
+                               AutomationProperties.LiveSetting="Polite"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
             <Button Style="{StaticResource AuraGhostButton}"
                     Command="{Binding ToggleContextMenuCommand}"
                     Content="{Binding ContextMenuToggleLabel}"

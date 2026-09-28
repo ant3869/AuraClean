@@ -16,16 +16,13 @@
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="8" Height="8" Fill="{StaticResource AuraWarning}"
-                             VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <TextBlock FontSize="26" FontWeight="Light"
-                               Foreground="{DynamicResource AuraTextBright}">
-                        <Run Text="Quarantine " /><Run Text="Manager" FontWeight="SemiBold" />
-                    </TextBlock>
+                    <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="ShieldOff" Width="16" Height="16"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Quarantine Manager" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Text="Safely isolate suspicious files — restore or permanently delete them later"
-                           Foreground="{DynamicResource AuraTextSecondary}"
-                           FontSize="13" Margin="0,4,0,0" />
+                <TextBlock Text="Safely isolate suspicious files — restore or permanently delete them later" Style="{StaticResource AuraPageSubtitle}" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -67,14 +64,14 @@
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="ShieldOff" Width="18" Height="18"
-                                                 Foreground="{StaticResource AuraAccentPurple}" />
+                                                 Foreground="{DynamicResource AuraInfo}" />
                         <TextBlock Text="Quarantined" FontSize="11" Margin="6,0,0,0"
                                    Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
-                    <TextBlock FontSize="24" FontWeight="Bold"
+                    <TextBlock FontSize="24" FontWeight="SemiBold"
                                Foreground="{StaticResource AuraWarning}">
-                        <Run Text="{Binding TotalItems, Mode=OneWay}" />
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalItems, Mode=OneWay}" />
                         <Run Text=" files" FontSize="13" FontWeight="Normal"
                              Foreground="{DynamicResource AuraTextSecondary}" />
                     </TextBlock>
@@ -87,12 +84,12 @@
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="DatabaseClock" Width="18" Height="18"
-                                                 Foreground="{StaticResource AuraAccentTeal}" />
+                                                 Foreground="{DynamicResource AuraInfo}" />
                         <TextBlock Text="Storage Used" FontSize="11" Margin="6,0,0,0"
                                    Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
-                    <TextBlock Text="{Binding TotalSizeDisplay}" FontSize="24" FontWeight="Bold"
+                    <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalSizeDisplay}" FontSize="24" FontWeight="SemiBold"
                                Foreground="{StaticResource AuraAccentTeal}" />
                 </StackPanel>
             </Border>
@@ -108,9 +105,9 @@
                                    Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
-                    <TextBlock FontSize="24" FontWeight="Bold"
+                    <TextBlock FontSize="24" FontWeight="SemiBold"
                                Foreground="{StaticResource AuraAmber}">
-                        <Run Text="{Binding ExpiredCount, Mode=OneWay}" />
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ExpiredCount, Mode=OneWay}" />
                         <Run Text=" items" FontSize="13" FontWeight="Normal"
                              Foreground="{DynamicResource AuraTextSecondary}" />
                     </TextBlock>
@@ -138,11 +135,9 @@
                     </StackPanel>
                 </Button>
 
-                <Button Style="{StaticResource AuraGhostButton}"
+                <Button Style="{StaticResource AuraDangerButton}"
                         Command="{Binding PurgeSelectedCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
-                        Foreground="{StaticResource AuraWarning}"
-                        BorderBrush="{StaticResource AuraWarning}"
                         Padding="16,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16"
@@ -151,7 +146,7 @@
                     </StackPanel>
                 </Button>
 
-                <Button Style="{StaticResource AuraGhostButton}"
+                <Button Style="{StaticResource AuraDangerButton}"
                         Command="{Binding PurgeExpiredCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
                         Padding="16,8" Margin="0,0,8,0">
@@ -193,7 +188,7 @@
                                     <ControlTemplate TargetType="ListViewItem">
                                         <Border x:Name="Bd" Background="Transparent"
                                                 Padding="{TemplateBinding Padding}"
-                                                BorderBrush="{DynamicResource AuraBorderSubtle}"
+                                                BorderBrush="{DynamicResource AuraRowDivider}"
                                                 BorderThickness="0,0,0,1">
                                             <ContentPresenter />
                                         </Border>
@@ -212,8 +207,8 @@
                             <Grid>
                                 <Grid.ToolTip>
                                     <TextBlock>
-                                        <Run Text="Quarantined " /><Run Text="{Binding QuarantinedAtDisplay, Mode=OneWay}" /><LineBreak />
-                                        <Run Text="Expires: " /><Run Text="{Binding ExpiresIn, Mode=OneWay}" />
+                                        <Run Text="Quarantined " /><Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding QuarantinedAtDisplay, Mode=OneWay}" /><LineBreak />
+                                        <Run Text="Expires: " /><Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ExpiresIn, Mode=OneWay}" />
                                     </TextBlock>
                                 </Grid.ToolTip>
                                 <Grid.ColumnDefinitions>
@@ -245,13 +240,13 @@
                                                    Foreground="{DynamicResource AuraTextMuted}" />
                                         <TextBlock Text=" · " FontSize="10"
                                                    Foreground="{DynamicResource AuraTextMuted}" />
-                                        <TextBlock Text="{Binding QuarantinedAtDisplay}" FontSize="10"
+                                        <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding QuarantinedAtDisplay}" FontSize="10"
                                                    Foreground="{DynamicResource AuraTextMuted}" />
                                     </StackPanel>
                                 </StackPanel>
 
                                 <!-- Size -->
-                                <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
+                                <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="2" Text="{Binding SizeDisplay}"
                                            FontSize="12" VerticalAlignment="Center"
                                            Foreground="{DynamicResource AuraTextSecondary}"
                                            Margin="0,0,12,0" />
@@ -269,7 +264,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <TextBlock Text="{Binding ExpiresIn}" FontSize="10" FontWeight="SemiBold">
+                                    <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ExpiresIn}" FontSize="10" FontWeight="SemiBold">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="{StaticResource AuraAccentTeal}" />
@@ -295,7 +290,7 @@
                 <materialDesign:PackIcon Kind="ShieldCheckOutline"
                                          Width="48" Height="48"
                                          HorizontalAlignment="Center"
-                                         Foreground="{StaticResource AuraWarning}"
+                                         Foreground="{DynamicResource AuraTextMuted}"
                                          Opacity="0.5" />
                 <TextBlock Text="Quarantine is empty"
                            FontSize="15" Margin="0,10,0,4"

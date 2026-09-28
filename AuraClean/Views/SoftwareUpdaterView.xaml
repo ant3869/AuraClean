@@ -15,16 +15,13 @@
         <!-- Title -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{DynamicResource AuraAccentTeal}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Software " /><Run Text="Updater" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="Update" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Software Updater" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Check for newer versions of your installed programs and update them"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13" Margin="0,4,0,0" />
+            <TextBlock Text="Check for newer versions of your installed programs and update them" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Action Bar -->
@@ -64,7 +61,7 @@
 
         <!-- Results List -->
         <Border Grid.Row="2" Background="{DynamicResource AuraSurface}"
-                CornerRadius="14" Padding="4">
+                CornerRadius="12" Padding="4">
             <Grid>
                 <DataGrid ItemsSource="{Binding Programs}"
                       AutoGenerateColumns="False"
@@ -114,7 +111,7 @@
                     <materialDesign:PackIcon Kind="PackageVariantPlus"
                                              Width="48" Height="48"
                                              HorizontalAlignment="Center"
-                                             Foreground="{StaticResource AuraAccentTeal}"
+                                             Foreground="{DynamicResource AuraTextMuted}"
                                              Opacity="0.5" />
                     <TextBlock Text="Check for software updates"
                                FontSize="15" Margin="0,10,0,4"
@@ -137,7 +134,7 @@
                        FontSize="12"
                        Foreground="{DynamicResource AuraTextMuted}">
                 <Run Text="Outdated: " />
-                <Run Text="{Binding OutdatedCount, Mode=OneWay}" FontWeight="SemiBold" />
+                <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding OutdatedCount, Mode=OneWay}" FontWeight="SemiBold" />
             </TextBlock>
         </StackPanel>
     </Grid>

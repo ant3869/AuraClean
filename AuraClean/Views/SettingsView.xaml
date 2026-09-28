@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:converters="clr-namespace:AuraClean.Converters">
+             xmlns:converters="clr-namespace:AuraClean.Converters"
+             xmlns:controls="clr-namespace:AuraClean.Views.Controls">
 
     <UserControl.Resources>
         <!-- Toggle style matching Aura theme -->
@@ -15,7 +16,7 @@
 
         <!-- Section header -->
         <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource AuraTextBright}" />
             <Setter Property="Margin" Value="0,16,0,8" />
@@ -40,23 +41,23 @@
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock FontSize="26" FontWeight="Light"
-                               Foreground="{DynamicResource AuraTextBright}">
-                        <Run Text="App " /><Run Text="Settings" FontWeight="SemiBold" />
-                    </TextBlock>
+                    <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="CogOutline" Width="16" Height="16"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="App Settings" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Text="Configure AuraClean preferences and defaults"
-                           Foreground="{DynamicResource AuraTextSecondary}"
-                           FontSize="13" Margin="0,4,0,0" />
+                <TextBlock Text="Configure AuraClean preferences and defaults" Style="{StaticResource AuraPageSubtitle}" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <!-- Unsaved indicator -->
                 <Border Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BoolToVis}}"
-                        CornerRadius="8" Padding="10,4" Margin="0,0,12,0"
-                        Background="{StaticResource AuraAmberSeverity}">
-                    <TextBlock Text="Unsaved changes" FontSize="11"
-                               Foreground="{StaticResource AuraAmber}" />
+                        Style="{StaticResource AuraPillWarn}" Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Style="{StaticResource AuraPillDot}" />
+                        <TextBlock Text="Unsaved changes" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Border>
 
                 <Button Style="{StaticResource AuraPrimaryButton}"
@@ -90,14 +91,14 @@
                 <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <materialDesign:PackIcon Kind="ThemeLightDark" Width="20" Height="20"
-                                                     Foreground="{DynamicResource AuraAccentSoft}"
+                            <materialDesign:PackIcon Kind="ThemeLightDark" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
                                                      VerticalAlignment="Center" />
                             <TextBlock Text="Appearance" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource SectionDesc}"
                                    Text="Auto follows the Windows app theme and switches with it. Applies immediately." />
-                        <TextBlock Text="THEME" Style="{StaticResource AuraEyebrow}" Margin="0,0,0,6" />
+                        <controls:TrackedText Text="Theme" FontSize="{StaticResource AuraFontSizeEyebrow}" Foreground="{DynamicResource AuraTextMuted}" Margin="0,0,0,6" />
                         <Border Style="{StaticResource AuraSegmented}">
                             <StackPanel Orientation="Horizontal"
                                         AutomationProperties.Name="Theme">
@@ -137,8 +138,8 @@
                 <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <materialDesign:PackIcon Kind="CogOutline" Width="20" Height="20"
-                                                     Foreground="{StaticResource AuraAccentPurple}"
+                            <materialDesign:PackIcon Kind="CogOutline" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
                                                      VerticalAlignment="Center" />
                             <TextBlock Text="General" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
                         </StackPanel>
@@ -171,8 +172,8 @@
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <materialDesign:PackIcon Kind="Broom" Width="20" Height="20"
-                                                     Foreground="{StaticResource AuraAccentTeal}"
+                            <materialDesign:PackIcon Kind="Broom" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
                                                      VerticalAlignment="Center" />
                             <TextBlock Text="Cleaner Defaults" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
                         </StackPanel>
@@ -208,7 +209,7 @@
                             <TextBlock Text="Abandoned file threshold:"
                                        FontSize="12" VerticalAlignment="Center"
                                        Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBox Width="60" Margin="8,0"
+                            <TextBox FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Width="60" Margin="8,0"
                                      Text="{Binding AbandonedFileDaysThreshold, UpdateSourceTrigger=PropertyChanged}"
                                      materialDesign:HintAssist.Hint="Days"
                                      MaxLength="4"
@@ -231,8 +232,8 @@
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <materialDesign:PackIcon Kind="Toolbox" Width="20" Height="20"
-                                                     Foreground="{StaticResource AuraWarning}"
+                            <materialDesign:PackIcon Kind="Toolbox" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
                                                      VerticalAlignment="Center" />
                             <TextBlock Text="Tool Defaults" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
                         </StackPanel>
@@ -269,7 +270,7 @@
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Min Duplicate Size (MB)" FontSize="12"
                                            Foreground="{DynamicResource AuraTextSecondary}" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding DefaultMinDuplicateSizeMb, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding DefaultMinDuplicateSizeMb, UpdateSourceTrigger=PropertyChanged}"
                                          FontSize="13"
                                          MaxLength="6"
                                          Foreground="{DynamicResource AuraTextPrimary}"
@@ -286,8 +287,8 @@
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <materialDesign:PackIcon Kind="ShieldOff" Width="20" Height="20"
-                                                     Foreground="{StaticResource AuraSuccess}"
+                            <materialDesign:PackIcon Kind="ShieldOff" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
                                                      VerticalAlignment="Center" />
                             <TextBlock Text="Quarantine" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
                         </StackPanel>
@@ -320,8 +321,8 @@
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <materialDesign:PackIcon Kind="ClipboardTextClock" Width="20" Height="20"
-                                                     Foreground="{StaticResource AuraAmber}"
+                            <materialDesign:PackIcon Kind="ClipboardTextClock" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
                                                      VerticalAlignment="Center" />
                             <TextBlock Text="History &amp; Logging" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
                         </StackPanel>
@@ -353,8 +354,8 @@
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <materialDesign:PackIcon Kind="ClockOutline" Width="20" Height="20"
-                                                     Foreground="{StaticResource AuraAccentTeal}"
+                            <materialDesign:PackIcon Kind="ClockOutline" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
                                                      VerticalAlignment="Center" />
                             <TextBlock Text="Scheduled Cleanup" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
                         </StackPanel>
@@ -383,7 +384,7 @@
                             <TextBlock Text="Time:"
                                        FontSize="12" VerticalAlignment="Center"
                                        Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBox Text="{Binding ScheduledCleanupTime, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ScheduledCleanupTime, UpdateSourceTrigger=PropertyChanged}"
                                      Width="70" Margin="8,0"
                                      MaxLength="5"
                                      AutomationProperties.Name="Scheduled cleanup time"

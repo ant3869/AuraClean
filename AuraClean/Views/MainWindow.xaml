@@ -5,6 +5,7 @@
         xmlns:vm="clr-namespace:AuraClean.ViewModels"
         xmlns:views="clr-namespace:AuraClean.Views"
         xmlns:converters="clr-namespace:AuraClean.Converters"
+        xmlns:controls="clr-namespace:AuraClean.Views.Controls"
         Title="AuraClean"
         Icon="/Assets/icon.ico"
         Width="1280" Height="780"
@@ -23,31 +24,68 @@
     </Window.DataContext>
 
     <Window.Resources>
-        <!-- Keyboard shortcut badge — fades in on nav hover, monospace -->
-        <Style x:Key="NavShortcutText" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="{StaticResource AuraFontFamilyMono}" />
-            <Setter Property="FontSize" Value="10" />
-            <Setter Property="Foreground" Value="{DynamicResource AuraTextMuted}" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
+        <!-- Keyboard hint chip (kbd): bg-elev, 4px radius, mono 10px; fades in on hover -->
+        <Style x:Key="NavShortcut" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource AuraBgElev}" />
+            <Setter Property="CornerRadius" Value="{StaticResource AuraRadiusXS}" />
+            <Setter Property="Padding" Value="4,1" />
+            <Setter Property="Margin" Value="8,0,0,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Opacity" Value="0" />
+            <Setter Property="TextElement.FontFamily" Value="{StaticResource AuraFontFamilyMono}" />
+            <Setter Property="TextElement.FontSize" Value="10" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource AuraTextMuted}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=RadioButton}}" Value="True">
                     <DataTrigger.EnterActions>
                         <BeginStoryboard>
                             <Storyboard>
-                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.7" Duration="0:0:0.15" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1"
+                                                 Duration="{StaticResource AuraMotionControl}"
+                                                 EasingFunction="{StaticResource AuraEaseControl}" />
                             </Storyboard>
                         </BeginStoryboard>
                     </DataTrigger.EnterActions>
                     <DataTrigger.ExitActions>
                         <BeginStoryboard>
                             <Storyboard>
-                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.15" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0"
+                                                 Duration="{StaticResource AuraMotionControl}"
+                                                 EasingFunction="{StaticResource AuraEaseControl}" />
                             </Storyboard>
                         </BeginStoryboard>
                     </DataTrigger.ExitActions>
                 </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Collapsible sidebar group header: tracked 10px label + chevron, dim → muted on hover -->
+        <Style x:Key="NavGroupHeader" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource AuraFocusVisual}" />
+            <Setter Property="Foreground" Value="{DynamicResource AuraTextMuted}" />
+            <Setter Property="FontFamily" Value="{StaticResource AuraFontFamily}" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="8,12,8,2" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent"
+                                CornerRadius="{StaticResource AuraRadiusControl}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource AuraTextSecondary}" />
+                </Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
@@ -75,8 +113,8 @@
 
         <!-- ═══ SIDEBAR ═══ -->
         <Border Grid.Column="0"
-                BorderBrush="{DynamicResource AuraBorder}" BorderThickness="0,0,1,0"
-                Background="{DynamicResource AuraSidebarGradient}">
+                BorderBrush="{DynamicResource AuraCardBorder}" BorderThickness="0,0,1,0"
+                Background="{DynamicResource AuraShellBackground}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -84,93 +122,90 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Brand -->
-                <StackPanel Grid.Row="0" Margin="24,32,24,24">
-                    <StackPanel Orientation="Horizontal">
-                        <Image Source="/Assets/icon2.png"
-                               Width="38" Height="38"
-                               RenderOptions.BitmapScalingMode="HighQuality"
-                               VerticalAlignment="Center" />
-                        <StackPanel Margin="14,0,0,0">
-                            <TextBlock FontSize="28" FontWeight="Bold">
-                                <TextBlock.Foreground>
-                                    <StaticResource ResourceKey="AuraGradientLogo" />
-                                </TextBlock.Foreground>
-                                <Run Text="Aura" /><Run Text="Clean" FontWeight="Light" />
-                            </TextBlock>
-                            <TextBlock Text="System Utility"
-                                       FontSize="10"
-                                       Foreground="{DynamicResource AuraTextMuted}"
-                                       Margin="0,-1,0,0" />
+                <!-- Brand: 28px gradient mark, 14px wordmark, tracked subtitle -->
+                <Border Grid.Row="0"
+                        BorderBrush="{DynamicResource AuraBorderSubtle}" BorderThickness="0,0,0,1"
+                        Padding="20,18,20,16">
+                    <StackPanel Orientation="Horizontal"
+                                AutomationProperties.Name="AuraClean">
+                        <Border Width="28" Height="28" CornerRadius="6"
+                                Background="{DynamicResource AuraGradientAccent}">
+                            <materialDesign:PackIcon Kind="Sparkles" Width="16" Height="16"
+                                                     Foreground="White"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="AuraClean"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AuraTextBright}" />
+                            <controls:TrackedText Text="System Utility"
+                                                  FontSize="10"
+                                                  Foreground="{DynamicResource AuraTextMuted}"
+                                                  Margin="0,1,0,0" />
                         </StackPanel>
                     </StackPanel>
-
-                    <!-- Gradient separator -->
-                    <Rectangle Height="1.5" Margin="0,22,0,0" RadiusX="1" RadiusY="1" Opacity="0.7">
-                        <Rectangle.Fill>
-                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                <GradientStop Color="{StaticResource AuraVioletColor}" Offset="0" />
-                                <GradientStop Color="Transparent" Offset="1" />
-                            </LinearGradientBrush>
-                        </Rectangle.Fill>
-                    </Rectangle>
-                </StackPanel>
+                </Border>
 
                 <!-- Navigation -->
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
-                              Margin="0,4,0,0">
-                    <StackPanel Margin="4,0">
-                        <!-- ─── Top-level: always visible ─── -->
+                              Focusable="False">
+                    <StackPanel Margin="0,10,0,10">
                         <RadioButton x:Name="NavDashboard"
-                                     Style="{StaticResource AuraNavButton}"
-                                     IsChecked="True"
+                                     Style="{StaticResource AuraNavButton}" IsChecked="True"
                                      Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Dashboard">
+                                     CommandParameter="Dashboard"
+                                     AutomationProperties.Name="Dashboard"
+                                     AutomationProperties.AcceleratorKey="Ctrl+1">
                             <Grid>
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="ViewDashboard" Width="20" Height="20" VerticalAlignment="Center"
-                                                             Foreground="{StaticResource AuraAccentPurple}" />
-                                    <TextBlock Text="Dashboard" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
-                                <TextBlock Text="Ctrl+1" Style="{StaticResource NavShortcutText}" />
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <materialDesign:PackIcon Kind="ViewDashboard" Width="16" Height="16" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="Dashboard" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                    <TextBlock Text="Ctrl+1" />
+                                </Border>
                             </Grid>
                         </RadioButton>
 
                         <RadioButton x:Name="NavThreatScanner"
                                      Style="{StaticResource AuraNavButton}"
                                      Command="{Binding NavigateToCommand}"
-                                     CommandParameter="ThreatScanner">
+                                     CommandParameter="ThreatScanner"
+                                     AutomationProperties.Name="Threat Scanner"
+                                     AutomationProperties.AcceleratorKey="Ctrl+2">
                             <Grid>
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="ShieldSearch" Width="20" Height="20" VerticalAlignment="Center"
-                                                             Foreground="{StaticResource AuraWarning}" />
-                                    <TextBlock Text="Threat Scanner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
-                                <TextBlock Text="Ctrl+2" Style="{StaticResource NavShortcutText}" />
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <materialDesign:PackIcon Kind="ShieldSearch" Width="16" Height="16" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="Threat Scanner" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                    <TextBlock Text="Ctrl+2" />
+                                </Border>
                             </Grid>
                         </RadioButton>
 
                         <!-- ─── CLEANUP section (collapsible) ─── -->
-                        <Button Command="{Binding ToggleCleanupCommand}"
-                                AutomationProperties.Name="Toggle Cleanup section"
-                                ToolTip="Show or hide cleanup tools"
-                                Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                HorizontalContentAlignment="Stretch"
-                                Margin="10,14,10,2" Padding="18,6">
+                        <Button Style="{StaticResource NavGroupHeader}"
+                                Command="{Binding ToggleCleanupCommand}"
+                                AutomationProperties.Name="Cleanup section"
+                                AutomationProperties.HelpText="Show or hide cleanup tools"
+                                ToolTip="Show or hide cleanup tools">
                             <Grid>
-                                <TextBlock Text="C L E A N U P"
-                                           FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}"
-                                           Opacity="0.8"
-                                           VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Cleanup" Tracking="0.1" VerticalAlignment="Center" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
-                                                         Foreground="{DynamicResource AuraTextMuted}"
-                                                         Opacity="0.8"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="CleanupChevronRotate" Angle="{Binding IsCleanupExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
+                                        <RotateTransform Angle="{Binding IsCleanupExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -180,63 +215,78 @@
                             <RadioButton x:Name="NavCleaner"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Cleaner">
+                                         CommandParameter="Cleaner"
+                                         AutomationProperties.Name="System Cleaner"
+                                         AutomationProperties.AcceleratorKey="Ctrl+4">
                                 <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Broom" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <TextBlock Text="System Cleaner" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                    </StackPanel>
-                                    <TextBlock Text="Ctrl+4" Style="{StaticResource NavShortcutText}" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="System Cleaner" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                        <TextBlock Text="Ctrl+4" />
+                                    </Border>
                                 </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavBrowser"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Browser">
+                                         CommandParameter="Browser"
+                                         AutomationProperties.Name="Privacy Clean"
+                                         AutomationProperties.AcceleratorKey="Ctrl+6">
                                 <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Web" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <TextBlock Text="Privacy Clean" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                    </StackPanel>
-                                    <TextBlock Text="Ctrl+6" Style="{StaticResource NavShortcutText}" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="Web" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Privacy Clean" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                        <TextBlock Text="Ctrl+6" />
+                                    </Border>
                                 </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavUninstaller"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Uninstaller">
+                                         CommandParameter="Uninstaller"
+                                         AutomationProperties.Name="Uninstaller"
+                                         AutomationProperties.AcceleratorKey="Ctrl+3">
                                 <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="DeleteForever" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <TextBlock Text="Uninstaller" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                    </StackPanel>
-                                    <TextBlock Text="Ctrl+3" Style="{StaticResource NavShortcutText}" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Uninstaller" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                        <TextBlock Text="Ctrl+3" />
+                                    </Border>
                                 </Grid>
                             </RadioButton>
                         </StackPanel>
 
                         <!-- ─── ANALYZE section (collapsible) ─── -->
-                        <Button Command="{Binding ToggleAnalyzeCommand}"
-                                AutomationProperties.Name="Toggle Analyze section"
-                                ToolTip="Show or hide analyze tools"
-                                Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                HorizontalContentAlignment="Stretch"
-                                Margin="10,14,10,2" Padding="18,6">
+                        <Button Style="{StaticResource NavGroupHeader}"
+                                Command="{Binding ToggleAnalyzeCommand}"
+                                AutomationProperties.Name="Analyze section"
+                                AutomationProperties.HelpText="Show or hide analyze tools"
+                                ToolTip="Show or hide analyze tools">
                             <Grid>
-                                <TextBlock Text="A N A L Y Z E"
-                                           FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}"
-                                           Opacity="0.8"
-                                           VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Analyze" Tracking="0.1" VerticalAlignment="Center" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
-                                                         Foreground="{DynamicResource AuraTextMuted}"
-                                                         Opacity="0.8"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="AnalyzeChevronRotate" Angle="{Binding IsAnalyzeExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
+                                        <RotateTransform Angle="{Binding IsAnalyzeExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -246,47 +296,54 @@
                             <RadioButton x:Name="NavStorage"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="StorageMap">
+                                         CommandParameter="StorageMap"
+                                         AutomationProperties.Name="Storage Map"
+                                         AutomationProperties.AcceleratorKey="Ctrl+7">
                                 <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="ChartDonut" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <TextBlock Text="Storage Map" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                    </StackPanel>
-                                    <TextBlock Text="Ctrl+7" Style="{StaticResource NavShortcutText}" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Storage Map" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                        <TextBlock Text="Ctrl+7" />
+                                    </Border>
                                 </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavDuplicates"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Duplicates">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="ContentDuplicate" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Duplicate Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="Duplicates"
+                                         AutomationProperties.Name="Duplicate Finder">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="ContentDuplicate" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Duplicate Finder" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
                         </StackPanel>
 
-                        <!-- ─── OPTIMIZE section (collapsible, expanded by default) ─── -->
-                        <Button Command="{Binding ToggleOptimizeCommand}"
-                                AutomationProperties.Name="Toggle Optimize section"
-                                ToolTip="Show or hide optimize tools"
-                                Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                HorizontalContentAlignment="Stretch"
-                                Margin="10,14,10,2" Padding="18,6">
+                        <!-- ─── OPTIMIZE section (collapsible) ─── -->
+                        <Button Style="{StaticResource NavGroupHeader}"
+                                Command="{Binding ToggleOptimizeCommand}"
+                                AutomationProperties.Name="Optimize section"
+                                AutomationProperties.HelpText="Show or hide optimize tools"
+                                ToolTip="Show or hide optimize tools">
                             <Grid>
-                                <TextBlock Text="O P T I M I Z E"
-                                           FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}"
-                                           Opacity="0.8"
-                                           VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Optimize" Tracking="0.1" VerticalAlignment="Center" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
-                                                         Foreground="{DynamicResource AuraTextMuted}"
-                                                         Opacity="0.8"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="OptimizeChevronRotate" Angle="{Binding IsOptimizeExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
+                                        <RotateTransform Angle="{Binding IsOptimizeExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -296,60 +353,74 @@
                             <RadioButton x:Name="NavMemory"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Memory">
+                                         CommandParameter="Memory"
+                                         AutomationProperties.Name="RAM Booster"
+                                         AutomationProperties.AcceleratorKey="Ctrl+5">
                                 <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Memory" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <TextBlock Text="RAM Booster" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                    </StackPanel>
-                                    <TextBlock Text="Ctrl+5" Style="{StaticResource NavShortcutText}" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="Memory" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="RAM Booster" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                        <TextBlock Text="Ctrl+5" />
+                                    </Border>
                                 </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavDiskOptimizer"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="DiskOptimizer">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="Harddisk" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Disk Optimizer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="DiskOptimizer"
+                                         AutomationProperties.Name="Disk Optimizer">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="Harddisk" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Disk Optimizer" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavStartup"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Startup">
+                                         CommandParameter="Startup"
+                                         AutomationProperties.Name="Startup Manager"
+                                         AutomationProperties.AcceleratorKey="Ctrl+8">
                                 <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="RocketLaunch" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <TextBlock Text="Startup Manager" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                    </StackPanel>
-                                    <TextBlock Text="Ctrl+8" Style="{StaticResource NavShortcutText}" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="RocketLaunch" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Startup Manager" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                        <TextBlock Text="Ctrl+8" />
+                                    </Border>
                                 </Grid>
                             </RadioButton>
                         </StackPanel>
 
-                        <!-- ─── UTILITIES section (collapsible, collapsed by default) ─── -->
-                        <Button Command="{Binding ToggleUtilitiesCommand}"
-                                AutomationProperties.Name="Toggle Utilities section"
-                                ToolTip="Show or hide utilities tools"
-                                Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                HorizontalContentAlignment="Stretch"
-                                Margin="10,14,10,2" Padding="18,6">
+                        <!-- ─── UTILITIES section (collapsible) ─── -->
+                        <Button Style="{StaticResource NavGroupHeader}"
+                                Command="{Binding ToggleUtilitiesCommand}"
+                                AutomationProperties.Name="Utilities section"
+                                AutomationProperties.HelpText="Show or hide utilities"
+                                ToolTip="Show or hide utilities">
                             <Grid>
-                                <TextBlock Text="U T I L I T I E S"
-                                           FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AuraTextMuted}"
-                                           Opacity="0.8"
-                                           VerticalAlignment="Center" />
+                                <controls:TrackedText Text="Utilities" Tracking="0.1" VerticalAlignment="Center" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
-                                                         Foreground="{DynamicResource AuraTextMuted}"
-                                                         Opacity="0.8"
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform x:Name="UtilitiesChevronRotate" Angle="{Binding IsUtilitiesExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
+                                        <RotateTransform Angle="{Binding IsUtilitiesExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
@@ -359,207 +430,279 @@
                             <RadioButton x:Name="NavLargeFiles"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="LargeFiles">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="FileFind" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Large File Finder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="LargeFiles"
+                                         AutomationProperties.Name="Large File Finder">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="FileFind" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Large File Finder" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavShredder"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Shredder">
+                                         CommandParameter="Shredder"
+                                         AutomationProperties.Name="File Shredder"
+                                         AutomationProperties.AcceleratorKey="Ctrl+9">
                                 <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="ShieldLock" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <TextBlock Text="File Shredder" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                    </StackPanel>
-                                    <TextBlock Text="Ctrl+9" Style="{StaticResource NavShortcutText}" />
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="ShieldLock" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="File Shredder" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                        <TextBlock Text="Ctrl+9" />
+                                    </Border>
                                 </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavSystemInfo"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="SystemInfo">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="InformationOutline" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="System Info" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="SystemInfo"
+                                         AutomationProperties.Name="System Info">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="InformationOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="System Info" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavQuarantine"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Quarantine">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="ShieldOff" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Quarantine" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="Quarantine"
+                                         AutomationProperties.Name="Quarantine">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="ShieldOff" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Quarantine" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavSoftwareUpdater"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="SoftwareUpdater">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="Update" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Software Updater" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="SoftwareUpdater"
+                                         AutomationProperties.Name="Software Updater">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="Update" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Software Updater" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavFileRecovery"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="FileRecovery">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="FileRestore" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="File Recovery" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="FileRecovery"
+                                         AutomationProperties.Name="File Recovery">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="FileRestore" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="File Recovery" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavEmptyFolders"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="EmptyFolders">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="FolderRemove" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Empty Folders" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="EmptyFolders"
+                                         AutomationProperties.Name="Empty Folders">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Empty Folders" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavAppInstaller"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="AppInstaller">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="PackageDown" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="App Installer" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="AppInstaller"
+                                         AutomationProperties.Name="App Installer">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="PackageDown" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="App Installer" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
-
                             <RadioButton x:Name="NavMonitor"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Monitor">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="CameraOutline" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Install Monitor" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
+                                         CommandParameter="Monitor"
+                                         AutomationProperties.Name="Install Monitor">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="CameraOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Install Monitor" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
                             </RadioButton>
                         </StackPanel>
 
-                        <!-- ─── Bottom-pinned: Settings & History ─── -->
-                        <Rectangle Height="1" Margin="14,16,14,8" Opacity="0.3"
-                                   Fill="{DynamicResource AuraBorder}" />
+                        <!-- ─── Bottom-pinned: History & Settings ─── -->
+                        <Rectangle Height="1" Margin="16,12,16,8" Fill="{DynamicResource AuraBorderSubtle}" />
 
                         <RadioButton x:Name="NavHistory"
                                      Style="{StaticResource AuraNavButton}"
                                      Command="{Binding NavigateToCommand}"
-                                     CommandParameter="History">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ClipboardTextClock" Width="20" Height="20" VerticalAlignment="Center" />
-                                <TextBlock Text="Cleanup History" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                            </StackPanel>
+                                     CommandParameter="History"
+                                     AutomationProperties.Name="Cleanup History">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <materialDesign:PackIcon Kind="ClipboardTextClock" Width="16" Height="16" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="Cleanup History" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </Grid>
                         </RadioButton>
 
                         <RadioButton x:Name="NavSettings"
                                      Style="{StaticResource AuraNavButton}"
                                      Command="{Binding NavigateToCommand}"
-                                     CommandParameter="Settings">
+                                     CommandParameter="Settings"
+                                     AutomationProperties.Name="Settings"
+                                     AutomationProperties.AcceleratorKey="Ctrl+0">
                             <Grid>
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="CogOutline" Width="20" Height="20" VerticalAlignment="Center" />
-                                    <TextBlock Text="Settings" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13" />
-                                </StackPanel>
-                                <TextBlock Text="Ctrl+0" Style="{StaticResource NavShortcutText}" />
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <materialDesign:PackIcon Kind="CogOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="Settings" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Border Grid.Column="2" Style="{StaticResource NavShortcut}">
+                                    <TextBlock Text="Ctrl+0" />
+                                </Border>
                             </Grid>
                         </RadioButton>
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- Footer -->
-                <StackPanel Grid.Row="2" Margin="24,0,24,18">
-                    <Rectangle Height="1" Margin="0,0,0,12" Opacity="0.3">
-                        <Rectangle.Fill>
-                            <SolidColorBrush Color="{StaticResource AuraBorderColor}" />
-                        </Rectangle.Fill>
-                    </Rectangle>
+                <!-- Footer: mode, admin status, version, theme -->
+                <Border Grid.Row="2"
+                        BorderBrush="{DynamicResource AuraBorderSubtle}" BorderThickness="0,1,0,0"
+                        Padding="12,12,12,10">
+                    <StackPanel>
+                        <Button Style="{StaticResource AuraGhostButton}"
+                                Command="{Binding ToggleExperienceModeCommand}"
+                                AutomationProperties.Name="{Binding ExperienceModeToggleLabel}"
+                                Padding="10,8"
+                                HorizontalContentAlignment="Stretch"
+                                ToolTip="{Binding ExperienceModeDescription}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <materialDesign:PackIcon Kind="Tune"
+                                                         Width="16" Height="16"
+                                                         Foreground="{DynamicResource AuraAccentSoft}"
+                                                         VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding ExperienceModeLabel, StringFormat='{}{0} Mode'}"
+                                               Foreground="{DynamicResource AuraTextBright}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding ExperienceModeDescription}"
+                                               Foreground="{DynamicResource AuraTextMuted}"
+                                               FontSize="11" FontWeight="Normal"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
 
-                    <Button Style="{StaticResource AuraGhostButton}"
-                            Command="{Binding ToggleExperienceModeCommand}"
-                            AutomationProperties.Name="{Binding ExperienceModeToggleLabel}"
-                            Padding="8,6"
-                            Margin="0,0,0,10"
-                            HorizontalContentAlignment="Stretch"
-                            ToolTip="{Binding ExperienceModeDescription}">
-                        <Grid>
+                        <Grid Margin="0,8,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <materialDesign:PackIcon Kind="Tune"
-                                                     Width="14" Height="14"
-                                                     Foreground="{StaticResource AuraAmber}"
-                                                     VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                <TextBlock Text="{Binding ExperienceModeLabel, StringFormat='{}{0} Mode'}"
-                                           Foreground="{DynamicResource AuraTextPrimary}"
-                                           FontSize="11"
-                                           FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding ExperienceModeDescription}"
-                                           Foreground="{DynamicResource AuraTextMuted}"
-                                           FontSize="9.5"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
+
+                            <Border Style="{StaticResource AuraPillOk}"
+                                    Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}"
+                                    AutomationProperties.Name="Running as administrator">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Style="{StaticResource AuraPillDot}" />
+                                    <TextBlock Text="Administrator" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding AppVersion}"
+                                       Style="{StaticResource AuraMono}"
+                                       Foreground="{DynamicResource AuraTextMuted}"
+                                       FontSize="10"
+                                       Margin="8,0,4,0"
+                                       VerticalAlignment="Center" />
+
+                            <!-- Theme toggle: Auto (system) → Light → Dark -->
+                            <Button Grid.Column="3"
+                                    Style="{StaticResource AuraIconButton}"
+                                    Command="{Binding CycleThemeCommand}"
+                                    ToolTip="{Binding ThemeToggleLabel}"
+                                    AutomationProperties.Name="{Binding ThemeToggleLabel}">
+                                <materialDesign:PackIcon Width="16" Height="16">
+                                    <materialDesign:PackIcon.Style>
+                                        <Style TargetType="materialDesign:PackIcon">
+                                            <Setter Property="Kind" Value="ThemeLightDark" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ThemeMode}" Value="Light">
+                                                    <Setter Property="Kind" Value="WeatherSunny" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ThemeMode}" Value="Dark">
+                                                    <Setter Property="Kind" Value="WeatherNight" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                            </Button>
                         </Grid>
-                    </Button>
-
-                    <StackPanel Orientation="Horizontal"
-                                Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}">
-                        <materialDesign:PackIcon Kind="ShieldKey"
-                                                 Width="14" Height="14"
-                                                 Foreground="{StaticResource AuraSuccess}"
-                                                 VerticalAlignment="Center" />
-                        <TextBlock Text="Administrator"
-                                   Foreground="{StaticResource AuraSuccess}"
-                                   FontSize="11"
-                                   Margin="6,0,0,0"
-                                   VerticalAlignment="Center" />
                     </StackPanel>
-
-                    <Grid Margin="0,4,0,0">
-                        <TextBlock Text="{Binding AppVersion}"
-                                   Style="{StaticResource AuraMono}"
-                                   Foreground="{DynamicResource AuraTextMuted}"
-                                   FontSize="10"
-                                   VerticalAlignment="Center" />
-
-                        <!-- Theme toggle: Auto (system) → Light → Dark -->
-                        <Button Style="{StaticResource AuraIconButton}"
-                                HorizontalAlignment="Right"
-                                Command="{Binding CycleThemeCommand}"
-                                ToolTip="{Binding ThemeToggleLabel}"
-                                AutomationProperties.Name="{Binding ThemeToggleLabel}">
-                            <materialDesign:PackIcon Width="16" Height="16">
-                                <materialDesign:PackIcon.Style>
-                                    <Style TargetType="materialDesign:PackIcon">
-                                        <Setter Property="Kind" Value="ThemeLightDark" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ThemeMode}" Value="Light">
-                                                <Setter Property="Kind" Value="WeatherSunny" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding ThemeMode}" Value="Dark">
-                                                <Setter Property="Kind" Value="WeatherNight" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </materialDesign:PackIcon.Style>
-                            </materialDesign:PackIcon>
-                        </Button>
-                    </Grid>
-                </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
@@ -680,15 +823,15 @@
 
             <!-- Status Bar -->
             <Border Grid.Row="1"
-                    Background="{DynamicResource AuraSurface}"
-                    BorderBrush="{DynamicResource AuraBorder}" BorderThickness="0,1,0,0"
+                    Background="{DynamicResource AuraShellBackground}"
+                    BorderBrush="{DynamicResource AuraCardBorder}" BorderThickness="0,1,0,0"
                     Padding="20,7">
                 <TextBlock Text="{Binding StatusBarText}"
                            AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource AuraTextSecondary}"
                            TextTrimming="CharacterEllipsis"
                            ToolTip="{Binding StatusBarText}"
-                           FontSize="11.5" />
+                           FontSize="11" />
             </Border>
         </Grid>
 

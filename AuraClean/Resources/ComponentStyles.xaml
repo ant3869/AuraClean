@@ -62,7 +62,11 @@
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Height" Value="{StaticResource AuraNavButtonHeight}" />
         <Setter Property="Margin" Value="0,1" />
-        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <!-- One selection group across every sidebar section (WPF otherwise groups radio
+             buttons per parent panel, leaving an item highlighted in each section). -->
+        <Setter Property="GroupName" Value="AuraMainNavigation" />
+        <!-- Content fills the row so trailing elements (shortcut hints) sit at the right edge. -->
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>

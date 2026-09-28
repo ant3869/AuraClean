@@ -19,17 +19,13 @@
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAmber}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Memory " /><Run Text="Optimizer" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="Memory" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Memory Optimizer" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Free up memory held by background processes to speed up your system"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13"
-                       Margin="0,4,0,0" />
+            <TextBlock Text="Free up memory held by background processes to speed up your system" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Content -->
@@ -42,9 +38,9 @@
 
             <!-- RAM Usage Gauge -->
             <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
-                    CornerRadius="16" Padding="24">
+                    CornerRadius="12" Padding="24">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="RAM Usage" FontSize="18" FontWeight="SemiBold"
+                    <TextBlock Text="RAM Usage" FontSize="16" FontWeight="SemiBold"
                                Foreground="{DynamicResource AuraTextPrimary}"
                                HorizontalAlignment="Center" Margin="0,0,0,16" />
 
@@ -57,8 +53,8 @@
                                      Foreground="{StaticResource AuraAmber}"
                                      IsIndeterminate="False" />
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:F0}%}"
-                                       FontSize="36" FontWeight="Bold"
+                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding UsagePercent, StringFormat={}{0:F0}%}"
+                                       FontSize="24" FontWeight="SemiBold"
                                        Foreground="{StaticResource AuraAmber}"
                                        HorizontalAlignment="Center" />
                             <TextBlock Text="in use"
@@ -71,17 +67,17 @@
                     <StackPanel Margin="0,20,0,0">
                         <Grid Margin="0,4">
                             <TextBlock Text="Total" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding FormattedTotal}" HorizontalAlignment="Right"
+                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedTotal}" HorizontalAlignment="Right"
                                        Foreground="{DynamicResource AuraTextPrimary}" FontWeight="SemiBold" />
                         </Grid>
                         <Grid Margin="0,4">
                             <TextBlock Text="Used" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding FormattedUsed}" HorizontalAlignment="Right"
+                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedUsed}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource AuraWarning}" FontWeight="SemiBold" />
                         </Grid>
                         <Grid Margin="0,4">
                             <TextBlock Text="Available" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding FormattedAvailable}" HorizontalAlignment="Right"
+                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedAvailable}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource AuraSuccess}" FontWeight="SemiBold" />
                         </Grid>
                     </StackPanel>
@@ -90,9 +86,9 @@
 
             <!-- Boost Results & Actions -->
             <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}"
-                    CornerRadius="16" Padding="24">
+                    CornerRadius="12" Padding="24">
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Boost Results" FontSize="18" FontWeight="SemiBold"
+                    <TextBlock Text="Boost Results" FontSize="16" FontWeight="SemiBold"
                                Foreground="{DynamicResource AuraTextPrimary}"
                                HorizontalAlignment="Center" Margin="0,0,0,20" />
 
@@ -105,7 +101,7 @@
                                 <StackPanel>
                                     <TextBlock Text="Memory Freed" FontSize="12"
                                                Foreground="{DynamicResource AuraTextSecondary}" />
-                                    <TextBlock Text="{Binding FormattedFreed}" FontSize="28" FontWeight="Bold"
+                                    <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedFreed}" FontSize="24" FontWeight="SemiBold"
                                                Foreground="{StaticResource AuraSuccess}" />
                                 </StackPanel>
                             </Grid>
@@ -113,7 +109,7 @@
 
                         <Grid Margin="0,4">
                             <TextBlock Text="Processes trimmed" Foreground="{DynamicResource AuraTextSecondary}" />
-                            <TextBlock Text="{Binding LastTrimmedCount}" HorizontalAlignment="Right"
+                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LastTrimmedCount}" HorizontalAlignment="Right"
                                        Foreground="{DynamicResource AuraTextPrimary}" FontWeight="SemiBold" />
                         </Grid>
                         <Grid Margin="0,4">
@@ -141,20 +137,17 @@
                     <Button Content="{materialDesign:PackIcon Kind=RocketLaunch}"
                             Style="{StaticResource MaterialDesignFloatingActionButton}"
                             Width="72" Height="72"
-                            Background="{StaticResource AuraAccentPurple}"
+                            Background="{DynamicResource AuraAccent}"
                             Foreground="White" BorderThickness="0"
                             Command="{Binding BoostMemoryCommand}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
                             AutomationProperties.Name="Boost Memory"
                             HorizontalAlignment="Center"
                             ToolTip="One-Click Boost">
-                        <Button.Effect>
-                            <DropShadowEffect Color="{StaticResource AuraVioletColor}" BlurRadius="24" ShadowDepth="0" Opacity="0.5" />
-                        </Button.Effect>
                     </Button>
-                    <TextBlock Text="BOOST" FontSize="14" FontWeight="Bold"
-                               Foreground="{StaticResource AuraAccentPurple}"
-                               HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    <controls:TrackedText Text="Boost" FontSize="11" FontWeight="Medium"
+                                          Foreground="{DynamicResource AuraAccentSoft}"
+                                          HorizontalAlignment="Center" Margin="0,10,0,0" />
 
                     <!-- Refresh -->
                     <Button Content="Refresh Stats"

@@ -19,17 +19,13 @@
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAmber}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Storage " /><Run Text="Map" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="ChartDonut" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Storage Map" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="See exactly what's using your disk space and where it's hiding"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13"
-                       Margin="0,4,0,0" />
+            <TextBlock Text="See exactly what's using your disk space and where it's hiding" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Controls -->
@@ -61,12 +57,12 @@
 
                 <!-- Buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="ANALYZE"
+                    <Button Content="Analyze"
                             Style="{StaticResource AuraPrimaryButton}"
                             Padding="24,8"
                             Command="{Binding AnalyzeCommand}"
                             Margin="0,0,8,0" />
-                    <Button Content="CANCEL"
+                    <Button Content="Cancel"
                             Style="{StaticResource AuraOutlinedButton}"
                             BorderBrush="{StaticResource AuraWarning}"
                             Foreground="{StaticResource AuraWarning}"
@@ -89,11 +85,11 @@
             <WrapPanel Grid.Row="0" Margin="0,0,0,12">
                 <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Harddisk" Foreground="{StaticResource AuraAccentPurple}"
+                        <materialDesign:PackIcon Kind="Harddisk" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Total: " />
-                            <Run Text="{Binding FormattedTotalSize, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedTotalSize, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
@@ -101,11 +97,11 @@
 
                 <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="File" Foreground="{StaticResource AuraAccentTeal}"
+                        <materialDesign:PackIcon Kind="File" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Files: " />
-                            <Run Text="{Binding TotalFileCount, StringFormat={}{0:N0}, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalFileCount, StringFormat={}{0:N0}, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
@@ -113,11 +109,11 @@
 
                 <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Folder" Foreground="{StaticResource AuraAccentPurple}"
+                        <materialDesign:PackIcon Kind="Folder" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Dirs: " />
-                            <Run Text="{Binding TotalDirCount, StringFormat={}{0:N0}, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalDirCount, StringFormat={}{0:N0}, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
@@ -125,11 +121,11 @@
 
                 <Border Style="{StaticResource AuraGlassCardCompact}">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Timer" Foreground="{StaticResource AuraAccentTeal}"
+                        <materialDesign:PackIcon Kind="Timer" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock Foreground="{DynamicResource AuraTextSecondary}" VerticalAlignment="Center">
                             <Run Text="Scan: " />
-                            <Run Text="{Binding ScanDuration, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ScanDuration, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
@@ -190,21 +186,27 @@
                                         Cursor="Hand" Margin="2">
                                     <Button.Template>
                                         <ControlTemplate>
+                                            <!-- Category tint over the card surface (theme-independent):
+                                                 16% fill + 50% border of the category color, theme text on top -->
+                                            <Grid MinWidth="80" MinHeight="50"
+                                                  Width="{Binding SizePercent, Converter={x:Static views:StorageMapView.PercentToWidthConverter}}"
+                                                  ToolTip="{Binding FullPath}">
                                             <Border Background="{Binding ColorIndex, Converter={StaticResource TreemapColorConverter}}"
-                                                    CornerRadius="6" Padding="8,6"
-                                                    MinWidth="80" MinHeight="50"
-                                                    Width="{Binding SizePercent, Converter={x:Static views:StorageMapView.PercentToWidthConverter}}"
-                                                    ToolTip="{Binding FullPath}">
+                                                    CornerRadius="6" Opacity="0.16" />
+                                            <Border BorderBrush="{Binding ColorIndex, Converter={StaticResource TreemapColorConverter}}"
+                                                    BorderThickness="1" CornerRadius="6" Opacity="0.5" />
+                                            <Border Padding="8,6">
                                                 <StackPanel VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
-                                                               Foreground="White" TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource AuraTextBright}" TextTrimming="CharacterEllipsis"
                                                                MaxWidth="200" />
-                                                    <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextPrimary}">
-                                                        <Run Text="{Binding FormattedSize, Mode=OneWay}" />
-                                                        <Run Text=" (" /><Run Text="{Binding PercentLabel, Mode=OneWay}" /><Run Text=")" />
+                                                    <TextBlock FontSize="11" Foreground="{DynamicResource AuraTextSecondary}">
+                                                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedSize, Mode=OneWay}" />
+                                                        <Run Text=" (" /><Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding PercentLabel, Mode=OneWay}" /><Run Text=")" />
                                                     </TextBlock>
                                                 </StackPanel>
                                             </Border>
+                                            </Grid>
                                         </ControlTemplate>
                                     </Button.Template>
                                 </Button>
@@ -243,7 +245,7 @@
                                                        FontSize="12" Foreground="{DynamicResource AuraTextPrimary}"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding FullPath}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding FormattedSize}"
+                                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="1" Text="{Binding FormattedSize}"
                                                        FontSize="12" Foreground="{StaticResource AuraWarning}"
                                                        Margin="8,0,0,0" />
                                         </Grid>
@@ -276,7 +278,7 @@
                                                        FontSize="12" Foreground="{DynamicResource AuraTextPrimary}"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding FullPath}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding FormattedSize}"
+                                            <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="1" Text="{Binding FormattedSize}"
                                                        FontSize="12" Foreground="{StaticResource AuraAccentTeal}"
                                                        Margin="8,0,0,0" />
                                         </Grid>

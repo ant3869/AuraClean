@@ -3,25 +3,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:helpers="clr-namespace:AuraClean.Helpers"
-             Background="Transparent">
+             Background="Transparent"
+             xmlns:controls="clr-namespace:AuraClean.Views.Controls">
 
     <UserControl.Resources>
         <!-- Shared typographic scale -->
         <Style x:Key="OnboardHeadline" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="38" />
-            <Setter Property="FontWeight" Value="Light" />
+            <Setter Property="FontSize" Value="28" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource AuraTextBright}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="OnboardBody" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Foreground" Value="{DynamicResource AuraTextSecondary}" />
             <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="LineHeight" Value="24" />
+            <Setter Property="LineHeight" Value="22" />
         </Style>
-        <Style x:Key="OnboardLabel" TargetType="TextBlock">
+        <Style x:Key="OnboardLabel" TargetType="controls:TrackedText">
             <Setter Property="FontSize" Value="10" />
-            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource AuraTextMuted}" />
         </Style>
 
@@ -36,7 +37,7 @@
         <Style x:Key="StepDotActive" TargetType="Ellipse" BasedOn="{StaticResource StepDot}">
             <Setter Property="Width" Value="24" />
             <Setter Property="Height" Value="8" />
-            <Setter Property="Fill" Value="{StaticResource AuraAccentPurple}" />
+            <Setter Property="Fill" Value="{DynamicResource AuraAccent}" />
         </Style>
 
         <!-- Feature row icon container -->
@@ -44,6 +45,9 @@
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />
             <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource AuraPageIconBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AuraPageIconBorder}" />
             <Setter Property="VerticalAlignment" Value="Top" />
             <Setter Property="Margin" Value="0,0,20,0" />
         </Style>
@@ -71,8 +75,8 @@
 
                     <StackPanel>
                         <!-- Tiny label -->
-                        <TextBlock Style="{StaticResource OnboardLabel}"
-                                   Text="WELCOME" Margin="0,0,0,20" />
+                        <controls:TrackedText Style="{StaticResource OnboardLabel}"
+                                   Text="Welcome" Margin="0,0,0,20" />
 
                         <!-- Greeting with machine name -->
                         <TextBlock Style="{StaticResource OnboardHeadline}">
@@ -90,11 +94,11 @@
                                 Background="Transparent"
                                 BorderBrush="{DynamicResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
                             <StackPanel Margin="0,24,0,0">
-                                <TextBlock Style="{StaticResource OnboardLabel}"
-                                           Text="WHAT YOU'LL LEARN" Margin="0,0,0,16" />
+                                <controls:TrackedText Style="{StaticResource OnboardLabel}"
+                                           Text="What you'll learn" Margin="0,0,0,16" />
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                    <TextBlock Text="01" FontSize="14" FontWeight="Bold"
+                                    <TextBlock Text="01" FontSize="14" FontWeight="SemiBold"
                                                Foreground="{StaticResource AuraAccentPurple}"
                                                Width="32" />
                                     <TextBlock Text="Three workflows to manage your system"
@@ -103,7 +107,7 @@
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                    <TextBlock Text="02" FontSize="14" FontWeight="Bold"
+                                    <TextBlock Text="02" FontSize="14" FontWeight="SemiBold"
                                                Foreground="{StaticResource AuraAccentPurple}"
                                                Width="32" />
                                     <TextBlock Text="Safety features that protect your data"
@@ -112,7 +116,7 @@
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
-                                    <TextBlock Text="03" FontSize="14" FontWeight="Bold"
+                                    <TextBlock Text="03" FontSize="14" FontWeight="SemiBold"
                                                Foreground="{StaticResource AuraAccentPurple}"
                                                Width="32" />
                                     <TextBlock Text="How to run your first health check"
@@ -135,8 +139,8 @@
                       MaxWidth="720" Margin="60,0">
 
                     <StackPanel>
-                        <TextBlock Style="{StaticResource OnboardLabel}"
-                                   Text="CORE WORKFLOWS" Margin="0,0,0,20" />
+                        <controls:TrackedText Style="{StaticResource OnboardLabel}"
+                                   Text="Core workflows" Margin="0,0,0,20" />
 
                         <TextBlock Style="{StaticResource OnboardHeadline}">
                             <Run Text="Clean. Protect. " /><Run Text="Optimize." FontWeight="SemiBold" />
@@ -152,10 +156,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource FeatureIcon}"
-                                    Background="{StaticResource AuraAccentPurpleSemi}">
+                            <Border Style="{StaticResource FeatureIcon}">
                                 <materialDesign:PackIcon Kind="Broom" Width="24" Height="24"
-                                                         Foreground="{StaticResource AuraAccentPurple}"
+                                                         Foreground="{DynamicResource AuraAccentSoft}"
                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <StackPanel Grid.Column="1">
@@ -184,10 +187,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource FeatureIcon}"
-                                    Background="{StaticResource AuraCoralSemi}">
+                            <Border Style="{StaticResource FeatureIcon}">
                                 <materialDesign:PackIcon Kind="ShieldSearch" Width="24" Height="24"
-                                                         Foreground="{StaticResource AuraWarning}"
+                                                         Foreground="{DynamicResource AuraAccentSoft}"
                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <StackPanel Grid.Column="1">
@@ -216,10 +218,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource FeatureIcon}"
-                                    Background="{StaticResource AuraAccentTealSemi}">
+                            <Border Style="{StaticResource FeatureIcon}">
                                 <materialDesign:PackIcon Kind="RocketLaunch" Width="24" Height="24"
-                                                         Foreground="{StaticResource AuraAccentTeal}"
+                                                         Foreground="{DynamicResource AuraAccentSoft}"
                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <StackPanel Grid.Column="1">
@@ -255,8 +256,8 @@
                       MaxWidth="660" Margin="60,0">
 
                     <StackPanel>
-                        <TextBlock Style="{StaticResource OnboardLabel}"
-                                   Text="SAFETY NET" Margin="0,0,0,20" />
+                        <controls:TrackedText Style="{StaticResource OnboardLabel}"
+                                   Text="Safety net" Margin="0,0,0,20" />
 
                         <TextBlock Style="{StaticResource OnboardHeadline}">
                             <Run Text="Nothing happens " /><Run Text="without a safety net." FontWeight="SemiBold" />
@@ -292,7 +293,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <materialDesign:PackIcon Kind="ShieldOff" Width="22" Height="22"
-                                                     Foreground="{StaticResource AuraAmber}"
+                                                     Foreground="{DynamicResource AuraAccentSoft}"
                                                      VerticalAlignment="Top" Margin="0,2,0,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Quarantine" FontSize="15" FontWeight="Medium"
@@ -311,7 +312,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <materialDesign:PackIcon Kind="TestTube" Width="22" Height="22"
-                                                     Foreground="{StaticResource AuraAccentPurple}"
+                                                     Foreground="{DynamicResource AuraAccentSoft}"
                                                      VerticalAlignment="Top" Margin="0,2,0,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Dry Run Mode" FontSize="15" FontWeight="Medium"
@@ -336,8 +337,8 @@
                       MaxWidth="560" Margin="60,0">
 
                     <StackPanel HorizontalAlignment="Left">
-                        <TextBlock Style="{StaticResource OnboardLabel}"
-                                   Text="READY" Margin="0,0,0,20" />
+                        <controls:TrackedText Style="{StaticResource OnboardLabel}"
+                                   Text="Ready" Margin="0,0,0,20" />
 
                         <TextBlock Style="{StaticResource OnboardHeadline}">
                             <Run Text="Start with a " /><Run Text="Health Check." FontWeight="SemiBold" />
@@ -359,8 +360,8 @@
                                 Background="Transparent"
                                 BorderBrush="{DynamicResource AuraBorderSubtle}" BorderThickness="0,1,0,0">
                             <StackPanel Margin="0,20,0,0">
-                                <TextBlock Style="{StaticResource OnboardLabel}"
-                                           Text="KEYBOARD SHORTCUTS" Margin="0,0,0,14" />
+                                <controls:TrackedText Style="{StaticResource OnboardLabel}"
+                                           Text="Keyboard shortcuts" Margin="0,0,0,14" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />

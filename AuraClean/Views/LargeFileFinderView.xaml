@@ -18,17 +18,13 @@
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAmber}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Large File " /><Run Text="Finder" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="FileFind" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Large File Finder" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Find the biggest files on your drives so you can decide what to keep"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13"
-                       Margin="0,4,0,0" />
+            <TextBlock Text="Find the biggest files on your drives so you can decide what to keep" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Controls Bar -->
@@ -125,9 +121,9 @@
                         BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAmber}"
                         Padding="14,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="File" Foreground="{StaticResource AuraAccentPurple}"
+                        <materialDesign:PackIcon Kind="File" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="{Binding ResultCount}" FontWeight="SemiBold" FontSize="14"
+                        <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ResultCount}" FontWeight="SemiBold" FontSize="14"
                                    Foreground="{DynamicResource AuraTextPrimary}" VerticalAlignment="Center" />
                         <TextBlock Text=" files" Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" FontSize="12" />
@@ -138,9 +134,9 @@
                         BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAmber}"
                         Padding="14,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Harddisk" Foreground="{StaticResource AuraWarning}"
+                        <materialDesign:PackIcon Kind="Harddisk" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="{Binding FormattedTotalSize}" FontWeight="SemiBold" FontSize="14"
+                        <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedTotalSize}" FontWeight="SemiBold" FontSize="14"
                                    Foreground="{DynamicResource AuraTextPrimary}" VerticalAlignment="Center" />
                         <TextBlock Text=" total" Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" FontSize="12" />
@@ -168,19 +164,18 @@
                             Padding="10,4" VerticalAlignment="Center" Margin="0,0,8,0"
                             Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                         <TextBlock FontSize="12" VerticalAlignment="Center">
-                            <Run Text="{Binding SelectedCount, Mode=OneWay}" Foreground="{StaticResource AuraAccentPurple}" FontWeight="SemiBold" />
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding SelectedCount, Mode=OneWay}" Foreground="{StaticResource AuraAccentPurple}" FontWeight="SemiBold" />
                             <Run Text=" checked" Foreground="{DynamicResource AuraTextSecondary}" />
                             <Run Text=" (" Foreground="{DynamicResource AuraTextMuted}" />
-                            <Run Text="{Binding FormattedSelectedSize, Mode=OneWay}" Foreground="{StaticResource AuraWarning}" />
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedSelectedSize, Mode=OneWay}" Foreground="{StaticResource AuraWarning}" />
                             <Run Text=")" Foreground="{DynamicResource AuraTextMuted}" />
                         </TextBlock>
                     </Border>
                     <Button Style="{StaticResource AuraGhostButton}"
                             Command="{Binding OpenFileLocationCommand}"
                             Content="Open Location" Padding="12,6" />
-                    <Button Style="{StaticResource AuraGhostButton}"
+                    <Button Style="{StaticResource AuraDangerButton}"
                             Command="{Binding DeleteSelectedCommand}"
-                            Foreground="{StaticResource AuraWarning}"
                             Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                             Content="Delete" Padding="12,6" Margin="4,0,0,0" />
                 </StackPanel>
@@ -268,9 +263,9 @@
                            TextTrimming="CharacterEllipsis" MaxWidth="400" />
                 <TextBlock Foreground="{DynamicResource AuraTextMuted}" FontSize="11"
                            HorizontalAlignment="Center" Margin="0,4,0,0">
-                    <Run Text="{Binding ProgressFilesScanned, Mode=OneWay}" />
+                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ProgressFilesScanned, Mode=OneWay}" />
                     <Run Text=" scanned, " />
-                    <Run Text="{Binding ProgressFilesFound, Mode=OneWay}" />
+                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding ProgressFilesFound, Mode=OneWay}" />
                     <Run Text=" found" />
                 </TextBlock>
             </StackPanel>
@@ -293,7 +288,7 @@
                     </Style>
                 </StackPanel.Style>
                 <materialDesign:PackIcon Kind="FileFindOutline" Width="48" Height="48"
-                                         Foreground="{StaticResource AuraAmber}"
+                                         Foreground="{DynamicResource AuraTextMuted}"
                                          Opacity="0.5"
                                          HorizontalAlignment="Center" />
                 <TextBlock Text="Select a location and click Scan"

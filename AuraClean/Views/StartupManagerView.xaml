@@ -18,17 +18,13 @@
                     helpers:AnimationHelper.AnimateOnVisible="True"
                     helpers:AnimationHelper.StaggerIndex="0">
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" Fill="{StaticResource AuraAccentPurple}"
-                         VerticalAlignment="Center" Margin="0,0,10,0" />
-                <TextBlock FontSize="26" FontWeight="Light"
-                           Foreground="{DynamicResource AuraTextBright}">
-                    <Run Text="Startup " /><Run Text="Manager" FontWeight="SemiBold" />
-                </TextBlock>
+                <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="RocketLaunch" Width="16" Height="16"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Startup Manager" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Control which programs launch at Windows startup — speed up your boot time."
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="13"
-                       Margin="0,4,0,0" />
+            <TextBlock Text="Control which programs launch at Windows startup — speed up your boot time." Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Stats Cards + Controls -->
@@ -42,11 +38,11 @@
             <WrapPanel Grid.Row="0" Margin="0,0,0,12">
                 <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Apps" Foreground="{StaticResource AuraAccentPurple}"
+                        <materialDesign:PackIcon Kind="Apps" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource AuraTextSecondary}">
                             <Run Text="Total: " />
-                            <Run Text="{Binding TotalCount, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalCount, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
@@ -58,7 +54,7 @@
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource AuraTextSecondary}">
                             <Run Text="Enabled: " />
-                            <Run Text="{Binding EnabledCount, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding EnabledCount, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{StaticResource AuraSuccess}" />
                         </TextBlock>
                     </StackPanel>
@@ -70,7 +66,7 @@
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource AuraTextSecondary}">
                             <Run Text="Disabled: " />
-                            <Run Text="{Binding DisabledCount, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding DisabledCount, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{DynamicResource AuraTextPrimary}" />
                         </TextBlock>
                     </StackPanel>
@@ -82,7 +78,7 @@
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource AuraTextSecondary}">
                             <Run Text="High Impact: " />
-                            <Run Text="{Binding HighImpactCount, Mode=OneWay}" FontWeight="SemiBold"
+                            <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding HighImpactCount, Mode=OneWay}" FontWeight="SemiBold"
                                  Foreground="{StaticResource AuraWarning}" />
                         </TextBlock>
                     </StackPanel>
@@ -127,16 +123,14 @@
                 </Button>
 
                 <Button Grid.Column="3"
-                        Style="{StaticResource AuraOutlinedButton}"
-                        BorderBrush="{StaticResource AuraWarning}"
-                        Foreground="{StaticResource AuraWarning}"
+                        Style="{StaticResource AuraDangerButton}"
                         Padding="16,8"
                         Command="{Binding DeleteSelectedCommand}"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"
                         Margin="8,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Delete" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="DELETE" VerticalAlignment="Center" />
+                        <TextBlock Text="Delete" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
@@ -150,7 +144,7 @@
                         Margin="8,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="FlashOff" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="DISABLE HIGH IMPACT" VerticalAlignment="Center" />
+                        <TextBlock Text="Disable High Impact" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
@@ -169,10 +163,10 @@
                 <Border Grid.Column="5" Margin="8,0,0,0" VerticalAlignment="Center"
                         Visibility="{Binding ShowStartupSelectionBadge, Converter={StaticResource BoolToVis}}">
                     <StackPanel Orientation="Horizontal">
-                        <Border Background="{StaticResource AuraAccentPurple}" CornerRadius="10"
-                                Padding="10,3" Margin="0,0,6,0">
-                            <TextBlock Foreground="White" FontSize="11" FontWeight="SemiBold">
-                                <Run Text="{Binding SelectedCount, Mode=OneWay}" />
+                        <Border Style="{StaticResource AuraPill}"
+                                Padding="8,2" Margin="0,0,6,0">
+                            <TextBlock FontWeight="Medium">
+                                <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding SelectedCount, Mode=OneWay}" />
                                 <Run Text=" selected" />
                             </TextBlock>
                         </Border>
@@ -189,7 +183,7 @@
                 <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                              IsIndeterminate="True"
                              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
-                             Foreground="{StaticResource AuraAccentPurple}"
+                             Foreground="{DynamicResource AuraAccent}"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center"
                              Value="0" Width="48" Height="48" />
@@ -339,7 +333,7 @@
                     <materialDesign:PackIcon Kind="RocketLaunchOutline"
                                              Width="48" Height="48"
                                              HorizontalAlignment="Center"
-                                             Foreground="{StaticResource AuraAccentPurple}"
+                                             Foreground="{DynamicResource AuraTextMuted}"
                                              Opacity="0.5" />
                     <TextBlock Text="No startup programs found"
                                FontSize="15" Margin="0,10,0,4"
