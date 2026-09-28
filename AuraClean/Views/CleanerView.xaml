@@ -236,9 +236,14 @@
                                                                              Kind="Lock"
                                                                              Foreground="{StaticResource AuraWarning}"
                                                                              Visibility="{Binding IsLocked, Converter={StaticResource BoolToVis}}"
-                                                                             ToolTip="{Binding LockingProcess, StringFormat='Locked by: {0}'}"
+                                                                             AutomationProperties.Name="{Binding LockingProcess, StringFormat='Locked by: {0}'}"
                                                                              VerticalAlignment="Center"
-                                                                             Margin="8,0" />
+                                                                             Margin="8,0">
+                                                        <!-- ToolTip is object-typed: StringFormat on it is ignored, so format via the ToolTip's own ContentStringFormat -->
+                                                        <materialDesign:PackIcon.ToolTip>
+                                                            <ToolTip Content="{Binding LockingProcess}" ContentStringFormat="Locked by: {0}" />
+                                                        </materialDesign:PackIcon.ToolTip>
+                                                    </materialDesign:PackIcon>
 
                                                     <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="3"
                                                                Text="{Binding FormattedSize}"

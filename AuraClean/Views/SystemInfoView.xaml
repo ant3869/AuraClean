@@ -504,23 +504,35 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button Style="{StaticResource AuraBareButton}" Command="{Binding DataContext.FilterByCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                <Button Style="{StaticResource AuraBareButton}" AutomationProperties.Name="{Binding}" Command="{Binding DataContext.FilterByCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
                                         Margin="0,0,4,4" Cursor="Hand">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
-                                            <Border x:Name="Bd" CornerRadius="8" Padding="10,5"
-                                                    Background="Transparent"
-                                                    BorderBrush="{DynamicResource AuraBorderSubtle}"
+                                            <Border x:Name="Bd" CornerRadius="{StaticResource AuraRadiusControl}" Padding="10,5"
+                                                    Background="{DynamicResource AuraButtonBackground}"
+                                                    BorderBrush="{DynamicResource AuraButtonBorder}"
                                                     BorderThickness="1">
                                                 <TextBlock x:Name="Txt" Text="{Binding}"
-                                                           FontSize="12"
-                                                           Foreground="{DynamicResource AuraTextSecondary}" />
+                                                           FontSize="12" FontWeight="Medium"
+                                                           Foreground="{DynamicResource AuraTextPrimary}" />
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlaySubtle}" />
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraButtonHoverBackground}" />
                                                 </Trigger>
+                                                <!-- Active filter: accent selected state -->
+                                                <DataTrigger Value="True">
+                                                    <DataTrigger.Binding>
+                                                        <MultiBinding Converter="{StaticResource ValuesEqual}">
+                                                            <Binding />
+                                                            <Binding Path="DataContext.FilterCategory" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                        </MultiBinding>
+                                                    </DataTrigger.Binding>
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AuraActiveBackground}" />
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AuraActiveBorder}" />
+                                                    <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource AuraAccentSoft}" />
+                                                </DataTrigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Button.Template>

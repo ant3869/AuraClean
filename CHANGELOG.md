@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sidebar labels** — the keyboard-shortcut hint no longer draws on top of the item name on hover.
 - **Collapsible group headers** rendered as a tiny centered box with the title missing (MaterialDesign's switch style was applied to the header toggle).
 - **Threat Scanner scan-mode cards** (and history filter chips, storage map tiles, system info filter chips) were cut off at 32px because they picked up MaterialDesign's default button style.
+- **Uninstaller** — the leftovers header showed a bare number instead of "Leftovers found (N items)", and the System Cleaner lock tooltip omitted "Locked by:" (format strings on object-typed properties are ignored).
+- History and System Info filter chips now show which filter is active.
 - **System info** — the grade letter on each hardware card was drawn at 15% opacity (the badge's fade applied to its text) and was nearly invisible.
 - **Selection badges** ("N selected") and the disk fragmentation percentage used white text on light fills and were hard to read.
 - **File shredder** — dragging non-file content (such as text) over the drop zone and away no longer crashes the app (it animated a frozen brush).

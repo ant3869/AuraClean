@@ -33,6 +33,7 @@
             <converters:HealthGlowBrushConverter x:Key="HealthGlowBrushConverter" />
             <converters:ExpandedChevronAngleConverter x:Key="ExpandedChevronAngle" />
             <converters:EnumEqualsConverter x:Key="EnumEquals" />
+            <converters:ValuesEqualConverter x:Key="ValuesEqual" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
@@ -283,4 +284,23 @@ public class EnumEqualsConverter : IValueConverter
             ? result!
             : Binding.DoNothing;
     }
+}
+
+/// <summary>
+/// True when all bound values are equal (string comparison, case-insensitive). Used by
+/// DataTriggers to highlight the chip that matches the current filter.
+/// </summary>
+public class ValuesEqualConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values is not { Length: >= 2 } || values.Any(v => v == null || v == DependencyProperty.UnsetValue))
+            return false;
+
+        var first = values[0].ToString();
+        return values.Skip(1).All(v => string.Equals(first, v.ToString(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
 }
