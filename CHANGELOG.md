@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Storage Map scans no longer look stuck** — past four folder levels the scan switched to an unreported recursive size pass, so the counter froze (e.g. at "Scanned 60,000 items") while a whole-drive scan kept running for minutes. The scan now reads sizes straight from each directory listing (no extra file lookup per file, one pass per folder), reports progress continuously with the item count, bytes counted and the folder being read, and shows an estimated percentage when scanning a whole drive. Deep files now count toward the file total and the Largest Files list, a folder that fails mid-listing keeps what was read instead of dropping its whole subtree, and a drive that errors while listing drives is skipped instead of breaking the page.
 - **Sidebar selection** — only the current page is highlighted; previously one item stayed highlighted in every section you had visited.
 - **Sidebar labels** — the keyboard-shortcut hint no longer draws on top of the item name on hover.
 - **Collapsible group headers** rendered as a tiny centered box with the title missing (MaterialDesign's switch style was applied to the header toggle).
