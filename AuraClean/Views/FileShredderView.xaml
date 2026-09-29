@@ -137,7 +137,7 @@
                                     <Button Grid.Column="4"
                                             Style="{StaticResource AuraGhostButton}"
                                             Content="{materialDesign:PackIcon Kind=Close}"
-                                            Padding="4" Foreground="{StaticResource AuraWarning}"
+                                            Padding="4" Foreground="{StaticResource AuraDanger}"
                                             Command="{Binding DataContext.RemoveFileCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                                             CommandParameter="{Binding}"
                                             ToolTip="Remove from list" />
@@ -338,7 +338,7 @@
                         <Grid Margin="0,4">
                             <TextBlock Text="Failed" Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LastFailed}" HorizontalAlignment="Right"
-                                       Foreground="{StaticResource AuraWarning}" FontWeight="SemiBold" />
+                                       Foreground="{StaticResource AuraDanger}" FontWeight="SemiBold" />
                         </Grid>
                         <Grid Margin="0,4">
                             <TextBlock Text="Data Overwritten" Foreground="{DynamicResource AuraTextSecondary}" />

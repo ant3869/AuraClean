@@ -53,6 +53,9 @@ class Program
         _pass += logicPass;
         _fail += logicFail;
 
+        _fail += SafetyHardeningTests.Run();
+        _fail += FeatureBatchDTests.Run();
+
         Console.WriteLine("\n════════════════════════════════════════");
         Console.ForegroundColor = _fail == 0 ? ConsoleColor.Green : ConsoleColor.Red;
         Console.WriteLine($"  RESULTS: {_pass} passed, {_fail} failed");

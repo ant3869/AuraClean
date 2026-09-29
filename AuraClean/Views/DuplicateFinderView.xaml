@@ -69,8 +69,8 @@
                     <Button Grid.Column="3"
                             Content="Cancel"
                             Style="{StaticResource AuraOutlinedButton}"
-                            BorderBrush="{StaticResource AuraWarning}"
-                            Foreground="{StaticResource AuraWarning}"
+                            BorderBrush="{StaticResource AuraDanger}"
+                            Foreground="{StaticResource AuraDanger}"
                             Command="{Binding CancelScanCommand}"
                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
                 </Grid>

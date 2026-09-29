@@ -74,12 +74,12 @@
 
                 <Border Style="{StaticResource AuraGlassCardCompact}">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AlertCircle" Foreground="{StaticResource AuraWarning}"
+                        <materialDesign:PackIcon Kind="AlertCircle" Foreground="{StaticResource AuraDanger}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource AuraTextSecondary}">
                             <Run Text="High Impact: " />
                             <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding HighImpactCount, Mode=OneWay}" FontWeight="SemiBold"
-                                 Foreground="{StaticResource AuraWarning}" />
+                                 Foreground="{StaticResource AuraDanger}" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -136,8 +136,8 @@
 
                 <Button Grid.Column="4"
                         Style="{StaticResource AuraOutlinedButton}"
-                        BorderBrush="{StaticResource AuraWarning}"
-                        Foreground="{StaticResource AuraWarning}"
+                        BorderBrush="{StaticResource AuraDanger}"
+                        Foreground="{StaticResource AuraDanger}"
                         Padding="12,8"
                         Command="{Binding DisableAllHighImpactCommand}"
                         ToolTip="Disable all high-impact startup items"
@@ -259,7 +259,7 @@
                                                     <Style TargetType="TextBlock">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding Impact}" Value="High">
-                                                                <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                                <Setter Property="Foreground" Value="{StaticResource AuraDanger}" />
                                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Impact}" Value="Medium">
@@ -276,7 +276,7 @@
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding Impact}" Value="High">
                                                 <Setter TargetName="ImpactIcon" Property="Kind" Value="AlertCircle" />
-                                                <Setter TargetName="ImpactIcon" Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                <Setter TargetName="ImpactIcon" Property="Foreground" Value="{StaticResource AuraDanger}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Impact}" Value="Medium">
                                                 <Setter TargetName="ImpactIcon" Property="Kind" Value="Alert" />

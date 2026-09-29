@@ -57,4 +57,47 @@ public static class CleanupModePolicy
         foreach (var item in items)
             item.IsSelected = IsSelectedByDefault(item.Type, settings, isAdvancedMode);
     }
+
+    /// <summary>
+    /// Every low-risk (Normal mode) category — the default set for headless scheduled runs.
+    /// </summary>
+    public static IReadOnlyList<JunkType> GetNormalModeDefaults() => Enum.GetValues<JunkType>()
+        .Where(IsNormalModeJunkType)
+        .ToList();
+
+    /// <summary>
+    /// Validates configured <c>ScheduledCleanupCategories</c> names (JunkType names,
+    /// case-insensitive). Unknown names and review-only categories are dropped because an
+    /// unattended run must never remove anything the user hasn't approved for Normal mode.
+    /// Empty (or fully invalid) input falls back to <see cref="GetNormalModeDefaults"/>.
+    /// Never throws.
+    /// </summary>
+    public static HashSet<JunkType> ResolveScheduledCategories(IEnumerable<string>? configuredNames)
+    {
+        var defaults = new HashSet<JunkType>(GetNormalModeDefaults());
+
+        try
+        {
+            var names = configuredNames?
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToList();
+            if (names == null || names.Count == 0)
+                return defaults;
+
+            var resolved = new HashSet<JunkType>();
+            foreach (var name in names)
+            {
+                if (Enum.TryParse<JunkType>(name.Trim(), ignoreCase: true, out var type) &&
+                    IsNormalModeJunkType(type))
+                    resolved.Add(type);
+            }
+
+            return resolved.Count > 0 ? resolved : defaults;
+        }
+        catch (Exception ex)
+        {
+            Helpers.DiagnosticLogger.Warn("CleanupModePolicy", "Failed to resolve scheduled categories", ex);
+            return defaults;
+        }
+    }
 }

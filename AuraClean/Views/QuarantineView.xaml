@@ -60,7 +60,7 @@
 
             <!-- Quarantined Items -->
             <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="16"
-                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraWarning}">
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraDanger}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="ShieldOff" Width="18" Height="18"
@@ -70,7 +70,7 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock FontSize="24" FontWeight="SemiBold"
-                               Foreground="{StaticResource AuraWarning}">
+                               Foreground="{StaticResource AuraDanger}">
                         <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalItems, Mode=OneWay}" />
                         <Run Text=" files" FontSize="13" FontWeight="Normal"
                              Foreground="{DynamicResource AuraTextSecondary}" />
@@ -80,7 +80,7 @@
 
             <!-- Total Size -->
             <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="16"
-                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraWarning}">
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraDanger}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="DatabaseClock" Width="18" Height="18"
@@ -96,11 +96,11 @@
 
             <!-- Expired -->
             <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="16"
-                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraWarning}">
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraDanger}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <materialDesign:PackIcon Kind="TimerSandComplete" Width="18" Height="18"
-                                                 Foreground="{StaticResource AuraWarning}" />
+                                                 Foreground="{StaticResource AuraDanger}" />
                         <TextBlock Text="Expired" FontSize="11" Margin="6,0,0,0"
                                    Foreground="{DynamicResource AuraTextSecondary}"
                                    VerticalAlignment="Center" />
@@ -270,7 +270,7 @@
                                                 <Setter Property="Foreground" Value="{StaticResource AuraAccentTeal}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsExpired}" Value="True">
-                                                        <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AuraDanger}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>

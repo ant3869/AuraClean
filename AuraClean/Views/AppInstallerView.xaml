@@ -270,7 +270,7 @@
                                                         <Setter Property="Foreground" Value="{StaticResource AuraSuccess}" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Status}" Value="{x:Static models:InstallStatus.Failed}">
-                                                        <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AuraDanger}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -287,7 +287,7 @@
                                                         <Setter Property="Foreground" Value="{StaticResource AuraSuccess}" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Status}" Value="{x:Static models:InstallStatus.Failed}">
-                                                        <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AuraDanger}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -307,7 +307,7 @@
                                 <Setter TargetName="CardBorder" Property="BorderBrush" Value="{StaticResource AuraSuccess}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding Status}" Value="{x:Static models:InstallStatus.Failed}">
-                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="{StaticResource AuraWarning}" />
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="{StaticResource AuraDanger}" />
                             </DataTrigger>
                         </DataTemplate.Triggers>
                     </DataTemplate>
@@ -365,9 +365,9 @@
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding FailedCount, Converter={StaticResource IntToVisibilityConverter}}">
                     <materialDesign:PackIcon Kind="AlertCircle" Width="16" Height="16"
-                                             Foreground="{StaticResource AuraWarning}"
+                                             Foreground="{StaticResource AuraDanger}"
                                              VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBlock FontSize="12" Foreground="{StaticResource AuraWarning}" VerticalAlignment="Center">
+                    <TextBlock FontSize="12" Foreground="{StaticResource AuraDanger}" VerticalAlignment="Center">
                         <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FailedCount, Mode=OneWay}" />
                         <Run Text=" failed" />
                     </TextBlock>

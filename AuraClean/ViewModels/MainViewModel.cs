@@ -16,7 +16,6 @@ namespace AuraClean.ViewModels;
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
-    [ObservableProperty] private object? _currentView;
     [ObservableProperty] private string _currentViewName = "Dashboard";
     [ObservableProperty] private int _systemHealthScore = 85;
     [ObservableProperty] private string _healthLabel = "Good";
@@ -101,28 +100,52 @@ public partial class MainViewModel : ObservableObject
         finally { _isApplyingExternalModeChange = false; }
     }
 
-    // Child ViewModels
-    public UninstallerViewModel Uninstaller { get; } = new();
-    public CleanerViewModel Cleaner { get; } = new();
-    public MemoryViewModel Memory { get; } = new();
-    public InstallMonitorViewModel InstallMonitor { get; } = new();
-    public BrowserCleanerViewModel BrowserCleaner { get; } = new();
-    public DiskAnalyzerViewModel DiskAnalyzer { get; } = new();
-    public StartupManagerViewModel StartupManager { get; } = new();
-    public DuplicateFinderViewModel DuplicateFinder { get; } = new();
-    public FileShredderViewModel FileShredder { get; } = new();
-    public LargeFileFinderViewModel LargeFileFinder { get; } = new();
-    public SystemInfoViewModel SystemInfo { get; } = new();
-    public SettingsViewModel Settings { get; } = new();
-    public CleanupHistoryViewModel CleanupHistory { get; } = new();
-    public QuarantineViewModel Quarantine { get; } = new();
-    public ThreatScannerViewModel ThreatScanner { get; } = new();
-    public SoftwareUpdaterViewModel SoftwareUpdater { get; } = new();
-    public DiskOptimizerViewModel DiskOptimizer { get; } = new();
-    public FileRecoveryViewModel FileRecovery { get; } = new();
-    public EmptyFolderFinderViewModel EmptyFolderFinder { get; } = new();
-    public AppInstallerViewModel AppInstaller { get; } = new();
-    public OnboardingViewModel Onboarding { get; } = new();
+    // Child ViewModels (lazy: constructed on first access, i.e. first navigate or Dashboard binding).
+    // NOTE: Cleaner/Uninstaller/Onboarding are still created at startup via Dashboard/Onboarding
+    // bindings; the rest wait until first navigate. IsAnyOperationRunning, UpdateHealthScore, and
+    // ApplyExperienceModeToChildren check IsValueCreated to avoid forcing creation.
+    private readonly Lazy<UninstallerViewModel> _uninstaller = new(() => new UninstallerViewModel());
+    public UninstallerViewModel Uninstaller => _uninstaller.Value;
+    private readonly Lazy<CleanerViewModel> _cleaner; // init in ctor (subscribes CleanupCompleted)
+    public CleanerViewModel Cleaner => _cleaner.Value;
+    private readonly Lazy<MemoryViewModel> _memory = new(() => new MemoryViewModel());
+    public MemoryViewModel Memory => _memory.Value;
+    private readonly Lazy<InstallMonitorViewModel> _installMonitor = new(() => new InstallMonitorViewModel());
+    public InstallMonitorViewModel InstallMonitor => _installMonitor.Value;
+    private readonly Lazy<BrowserCleanerViewModel> _browserCleaner = new(() => new BrowserCleanerViewModel());
+    public BrowserCleanerViewModel BrowserCleaner => _browserCleaner.Value;
+    private readonly Lazy<DiskAnalyzerViewModel> _diskAnalyzer = new(() => new DiskAnalyzerViewModel());
+    public DiskAnalyzerViewModel DiskAnalyzer => _diskAnalyzer.Value;
+    private readonly Lazy<StartupManagerViewModel> _startupManager = new(() => new StartupManagerViewModel());
+    public StartupManagerViewModel StartupManager => _startupManager.Value;
+    private readonly Lazy<DuplicateFinderViewModel> _duplicateFinder = new(() => new DuplicateFinderViewModel());
+    public DuplicateFinderViewModel DuplicateFinder => _duplicateFinder.Value;
+    private readonly Lazy<FileShredderViewModel> _fileShredder = new(() => new FileShredderViewModel());
+    public FileShredderViewModel FileShredder => _fileShredder.Value;
+    private readonly Lazy<LargeFileFinderViewModel> _largeFileFinder = new(() => new LargeFileFinderViewModel());
+    public LargeFileFinderViewModel LargeFileFinder => _largeFileFinder.Value;
+    private readonly Lazy<SystemInfoViewModel> _systemInfo = new(() => new SystemInfoViewModel());
+    public SystemInfoViewModel SystemInfo => _systemInfo.Value;
+    private readonly Lazy<SettingsViewModel> _settings = new(() => new SettingsViewModel());
+    public SettingsViewModel Settings => _settings.Value;
+    private readonly Lazy<CleanupHistoryViewModel> _cleanupHistory = new(() => new CleanupHistoryViewModel());
+    public CleanupHistoryViewModel CleanupHistory => _cleanupHistory.Value;
+    private readonly Lazy<QuarantineViewModel> _quarantine = new(() => new QuarantineViewModel());
+    public QuarantineViewModel Quarantine => _quarantine.Value;
+    private readonly Lazy<ThreatScannerViewModel> _threatScanner = new(() => new ThreatScannerViewModel());
+    public ThreatScannerViewModel ThreatScanner => _threatScanner.Value;
+    private readonly Lazy<SoftwareUpdaterViewModel> _softwareUpdater = new(() => new SoftwareUpdaterViewModel());
+    public SoftwareUpdaterViewModel SoftwareUpdater => _softwareUpdater.Value;
+    private readonly Lazy<DiskOptimizerViewModel> _diskOptimizer = new(() => new DiskOptimizerViewModel());
+    public DiskOptimizerViewModel DiskOptimizer => _diskOptimizer.Value;
+    private readonly Lazy<FileRecoveryViewModel> _fileRecovery = new(() => new FileRecoveryViewModel());
+    public FileRecoveryViewModel FileRecovery => _fileRecovery.Value;
+    private readonly Lazy<EmptyFolderFinderViewModel> _emptyFolderFinder = new(() => new EmptyFolderFinderViewModel());
+    public EmptyFolderFinderViewModel EmptyFolderFinder => _emptyFolderFinder.Value;
+    private readonly Lazy<AppInstallerViewModel> _appInstaller = new(() => new AppInstallerViewModel());
+    public AppInstallerViewModel AppInstaller => _appInstaller.Value;
+    private readonly Lazy<OnboardingViewModel> _onboarding = new(() => new OnboardingViewModel());
+    public OnboardingViewModel Onboarding => _onboarding.Value;
 
     // Context menu
     [ObservableProperty] private bool _isContextMenuInstalled;
@@ -142,18 +165,37 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// True while any feature is scanning, cleaning, installing, or otherwise working.
     /// Used to warn before the window is closed mid-operation.
+    /// Checks IsValueCreated first so the check itself never forces VM creation.
     /// </summary>
     public bool IsAnyOperationRunning =>
         IsHealthCheckRunning ||
-        Cleaner.IsBusy || Uninstaller.IsBusy || BrowserCleaner.IsBusy || Memory.IsBusy ||
-        ThreatScanner.IsScanning || ThreatScanner.IsQuarantining ||
-        FileShredder.IsBusy || DuplicateFinder.IsBusy || LargeFileFinder.IsBusy ||
-        EmptyFolderFinder.IsBusy || Quarantine.IsBusy || StartupManager.IsBusy ||
-        DiskOptimizer.IsBusy || AppInstaller.IsBusy || SoftwareUpdater.IsBusy ||
-        FileRecovery.IsBusy || InstallMonitor.IsBusy;
+        (_cleaner.IsValueCreated && Cleaner.IsBusy) ||
+        (_uninstaller.IsValueCreated && Uninstaller.IsBusy) ||
+        (_browserCleaner.IsValueCreated && BrowserCleaner.IsBusy) ||
+        (_memory.IsValueCreated && Memory.IsBusy) ||
+        (_threatScanner.IsValueCreated && (ThreatScanner.IsScanning || ThreatScanner.IsQuarantining)) ||
+        (_fileShredder.IsValueCreated && FileShredder.IsBusy) ||
+        (_duplicateFinder.IsValueCreated && DuplicateFinder.IsBusy) ||
+        (_largeFileFinder.IsValueCreated && LargeFileFinder.IsBusy) ||
+        (_emptyFolderFinder.IsValueCreated && EmptyFolderFinder.IsBusy) ||
+        (_quarantine.IsValueCreated && Quarantine.IsBusy) ||
+        (_startupManager.IsValueCreated && StartupManager.IsBusy) ||
+        (_diskOptimizer.IsValueCreated && DiskOptimizer.IsBusy) ||
+        (_appInstaller.IsValueCreated && AppInstaller.IsBusy) ||
+        (_softwareUpdater.IsValueCreated && SoftwareUpdater.IsBusy) ||
+        (_fileRecovery.IsValueCreated && FileRecovery.IsBusy) ||
+        (_installMonitor.IsValueCreated && InstallMonitor.IsBusy);
 
     public MainViewModel()
     {
+        // Cleaner subscribes CleanupCompleted on first creation (not in ctor, to stay lazy).
+        _cleaner = new Lazy<CleanerViewModel>(() =>
+        {
+            var vm = new CleanerViewModel();
+            vm.CleanupCompleted += OnCleanupCompleted;
+            return vm;
+        });
+
         using (var identity = WindowsIdentity.GetCurrent())
             IsAdmin = new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
 
@@ -171,8 +213,6 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(ThemeToggleLabel));
         };
         StatusBarText = "AuraClean — Ready";
-
-        Cleaner.CleanupCompleted += OnCleanupCompleted;
 
         LastCleanedDate = LastCleanedStore.Load() ?? default;
         _previousHealthScore = LastCleanedStore.LoadHealthScore();
@@ -595,7 +635,8 @@ public partial class MainViewModel : ObservableObject
     {
         int score = 100;
 
-        if (Cleaner.TotalJunkSize > 0)
+        // Guarded: never force Cleaner creation just to compute the score (0 junk if not created yet).
+        if (_cleaner.IsValueCreated && Cleaner.TotalJunkSize > 0)
         {
             // Every 100MB of junk deducts ~5 points, capped at 50 points
             int junkPenalty = (int)Math.Min(50, Cleaner.TotalJunkSize / (100 * 1024 * 1024) * 5);
@@ -618,12 +659,31 @@ public partial class MainViewModel : ObservableObject
 
     private void ApplyExperienceModeToChildren(bool isAdvancedMode)
     {
+        // Only touch already-created VMs; not-yet-created VMs read the current mode
+        // from ExperienceModeService on construction (see ExperienceModePartials).
         object?[] children =
         [
-            Uninstaller, Cleaner, Memory, InstallMonitor, BrowserCleaner, DiskAnalyzer,
-            StartupManager, DuplicateFinder, FileShredder, LargeFileFinder, SystemInfo,
-            Settings, CleanupHistory, Quarantine, ThreatScanner, SoftwareUpdater,
-            DiskOptimizer, FileRecovery, EmptyFolderFinder, AppInstaller, Onboarding
+            _uninstaller.IsValueCreated ? _uninstaller.Value : null,
+            _cleaner.IsValueCreated ? _cleaner.Value : null,
+            _memory.IsValueCreated ? _memory.Value : null,
+            _installMonitor.IsValueCreated ? _installMonitor.Value : null,
+            _browserCleaner.IsValueCreated ? _browserCleaner.Value : null,
+            _diskAnalyzer.IsValueCreated ? _diskAnalyzer.Value : null,
+            _startupManager.IsValueCreated ? _startupManager.Value : null,
+            _duplicateFinder.IsValueCreated ? _duplicateFinder.Value : null,
+            _fileShredder.IsValueCreated ? _fileShredder.Value : null,
+            _largeFileFinder.IsValueCreated ? _largeFileFinder.Value : null,
+            _systemInfo.IsValueCreated ? _systemInfo.Value : null,
+            _settings.IsValueCreated ? _settings.Value : null,
+            _cleanupHistory.IsValueCreated ? _cleanupHistory.Value : null,
+            _quarantine.IsValueCreated ? _quarantine.Value : null,
+            _threatScanner.IsValueCreated ? _threatScanner.Value : null,
+            _softwareUpdater.IsValueCreated ? _softwareUpdater.Value : null,
+            _diskOptimizer.IsValueCreated ? _diskOptimizer.Value : null,
+            _fileRecovery.IsValueCreated ? _fileRecovery.Value : null,
+            _emptyFolderFinder.IsValueCreated ? _emptyFolderFinder.Value : null,
+            _appInstaller.IsValueCreated ? _appInstaller.Value : null,
+            _onboarding.IsValueCreated ? _onboarding.Value : null,
         ];
 
         foreach (var child in children)

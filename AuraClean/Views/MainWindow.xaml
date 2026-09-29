@@ -748,112 +748,13 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- View Content: switched by CurrentViewName -->
-            <Grid Grid.Row="0">
-                <!-- Dashboard View -->
+            <!-- View Content: switched by CurrentViewName (lazy: Dashboard eager, rest on first navigate) -->
+            <Grid Grid.Row="0" x:Name="ViewContainer">
+                <!-- Dashboard View (eager: default view) -->
                 <views:DashboardView DataContext="{Binding}"
                                      Visibility="Collapsed"
                                      x:Name="DashboardContent" />
-
-                <!-- Uninstaller View -->
-                <views:UninstallerView DataContext="{Binding Uninstaller}"
-                                       Visibility="Collapsed"
-                                       x:Name="UninstallerContent" />
-
-                <!-- Cleaner View -->
-                <views:CleanerView DataContext="{Binding Cleaner}"
-                                   Visibility="Collapsed"
-                                   x:Name="CleanerContent" />
-
-                <!-- Memory Boost View -->
-                <views:MemoryBoostView DataContext="{Binding Memory}"
-                                       Visibility="Collapsed"
-                                       x:Name="MemoryContent" />
-
-                <!-- Browser Cleaner View -->
-                <views:BrowserCleanerView DataContext="{Binding BrowserCleaner}"
-                                          Visibility="Collapsed"
-                                          x:Name="BrowserContent" />
-
-                <!-- Storage Map View -->
-                <views:StorageMapView DataContext="{Binding DiskAnalyzer}"
-                                      Visibility="Collapsed"
-                                      x:Name="StorageMapContent" />
-
-                <!-- Install Monitor View -->
-                <views:InstallMonitorView DataContext="{Binding InstallMonitor}"
-                                          Visibility="Collapsed"
-                                          x:Name="MonitorContent" />
-
-                <!-- Startup Manager View -->
-                <views:StartupManagerView DataContext="{Binding StartupManager}"
-                                          Visibility="Collapsed"
-                                          x:Name="StartupContent" />
-
-                <!-- Duplicate Finder View -->
-                <views:DuplicateFinderView DataContext="{Binding DuplicateFinder}"
-                                           Visibility="Collapsed"
-                                           x:Name="DuplicatesContent" />
-
-                <!-- File Shredder View -->
-                <views:FileShredderView DataContext="{Binding FileShredder}"
-                                        Visibility="Collapsed"
-                                        x:Name="ShredderContent" />
-
-                <!-- Large File Finder View -->
-                <views:LargeFileFinderView DataContext="{Binding LargeFileFinder}"
-                                           Visibility="Collapsed"
-                                           x:Name="LargeFilesContent" />
-
-                <!-- System Info View -->
-                <views:SystemInfoView DataContext="{Binding SystemInfo}"
-                                      Visibility="Collapsed"
-                                      x:Name="SystemInfoContent" />
-
-                <!-- Settings View -->
-                <views:SettingsView DataContext="{Binding Settings}"
-                                    Visibility="Collapsed"
-                                    x:Name="SettingsContent" />
-
-                <!-- Cleanup History View -->
-                <views:CleanupHistoryView DataContext="{Binding CleanupHistory}"
-                                          Visibility="Collapsed"
-                                          x:Name="HistoryContent" />
-
-                <!-- Quarantine View -->
-                <views:QuarantineView DataContext="{Binding Quarantine}"
-                                      Visibility="Collapsed"
-                                      x:Name="QuarantineContent" />
-
-                <!-- Threat Scanner View -->
-                <views:ThreatScannerView DataContext="{Binding ThreatScanner}"
-                                         Visibility="Collapsed"
-                                         x:Name="ThreatScannerContent" />
-
-                <!-- Software Updater View -->
-                <views:SoftwareUpdaterView DataContext="{Binding SoftwareUpdater}"
-                                           Visibility="Collapsed"
-                                           x:Name="SoftwareUpdaterContent" />
-
-                <!-- Disk Optimizer View -->
-                <views:DiskOptimizerView DataContext="{Binding DiskOptimizer}"
-                                         Visibility="Collapsed"
-                                         x:Name="DiskOptimizerContent" />
-
-                <!-- File Recovery View -->
-                <views:FileRecoveryView DataContext="{Binding FileRecovery}"
-                                        Visibility="Collapsed"
-                                        x:Name="FileRecoveryContent" />
-
-                <!-- Empty Folder Finder View -->
-                <views:EmptyFolderFinderView DataContext="{Binding EmptyFolderFinder}"
-                                              Visibility="Collapsed"
-                                              x:Name="EmptyFoldersContent" />
-
-                <!-- App Bundle Installer View -->
-                <views:AppInstallerView DataContext="{Binding AppInstaller}"
-                                        Visibility="Collapsed"
-                                        x:Name="AppInstallerContent" />
+                <!-- All other views are constructed on first navigate (see MainWindow.xaml.cs _viewFactories). -->
             </Grid>
 
             <!-- Status Bar -->

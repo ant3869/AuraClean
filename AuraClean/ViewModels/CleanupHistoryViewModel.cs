@@ -12,6 +12,10 @@ namespace AuraClean.ViewModels;
 /// </summary>
 public partial class CleanupHistoryViewModel : ObservableObject
 {
+    /// <summary>Days covered by the trend strip.</summary>
+    public const int TrendDays = 7;
+
+    private const double MaxBarHeight = 56;
     [ObservableProperty] private ObservableCollection<CleanupRecord> _records = [];
     [ObservableProperty] private ObservableCollection<CleanupRecord> _filteredRecords = [];
     [ObservableProperty] private bool _isBusy;
@@ -25,6 +29,10 @@ public partial class CleanupHistoryViewModel : ObservableObject
     [ObservableProperty] private int _totalItemsCleaned;
     [ObservableProperty] private string _lastOperationDate = "Never";
     [ObservableProperty] private string _totalBytesFreedDisplay = "0 B";
+
+    // D3: daily trend strip (bar heights precomputed so XAML needs no converters)
+    [ObservableProperty] private ObservableCollection<TrendBar> _trendBars = [];
+    [ObservableProperty] private string _trendSummary = string.Empty;
 
     public ObservableCollection<string> FilterTypes { get; } = new(
         new[] { "All" }.Concat(Enum.GetValues<CleanupOperationType>().Select(t => t.ToDisplayString())));
@@ -63,6 +71,8 @@ public partial class CleanupHistoryViewModel : ObservableObject
             TotalItemsCleaned = summary.TotalItemsCleaned;
             LastOperationDate = summary.LastOperation?.ToString("MMM dd, yyyy HH:mm") ?? "Never";
 
+            RefreshTrend();
+
             ApplyFilter();
             StatusMessage = $"Loaded {Records.Count} history entries.";
         }
@@ -100,6 +110,7 @@ public partial class CleanupHistoryViewModel : ObservableObject
         TotalBytesFreedDisplay = "0 B";
         TotalItemsCleaned = 0;
         LastOperationDate = "Never";
+        RefreshTrend();
         StatusMessage = "History cleared.";
     }
 
@@ -171,4 +182,28 @@ public partial class CleanupHistoryViewModel : ObservableObject
 
         FilteredRecords = new ObservableCollection<CleanupRecord>(filtered);
     }
+
+    /// <summary>Rebuilds the trend strip + totals row from the history service.</summary>
+    private void RefreshTrend()
+    {
+        var trend = CleanupHistoryService.GetDailyTrend(TrendDays);
+        long max = trend.Count > 0 ? trend.Max(t => t.BytesFreed) : 0;
+
+        TrendBars = new ObservableCollection<TrendBar>(trend.Select(t => new TrendBar(
+            t,
+            max <= 0 || t.BytesFreed <= 0
+                ? 0
+                : Math.Max(4, MaxBarHeight * t.BytesFreed / (double)max))));
+
+        int ops = trend.Sum(t => t.Operations);
+        long bytes = trend.Sum(t => t.BytesFreed);
+        TrendSummary = $"Last {TrendDays} days: {ops} operation(s) · {FormatHelper.FormatBytes(bytes)} freed";
+    }
+}
+
+/// <summary>One pre-scaled bar in the history trend strip (D3).</summary>
+public sealed class TrendBar(DailyTrendPoint point, double barHeight)
+{
+    public DailyTrendPoint Point { get; } = point;
+    public double BarHeight { get; } = barHeight;
 }

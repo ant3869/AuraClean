@@ -40,6 +40,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **File shredder** — dragging non-file content (such as text) over the drop zone and away no longer crashes the app (it animated a frozen brush).
 - Health score, trend arrow and hardware grade colors now follow the active theme instead of fixed hex values.
 
+### Added
+
+- **Cleaner exclusions** — a user-managed list of files/folders the system cleaner never
+  touches (Settings → Advanced; also honored by headless `/autoclean` runs). Excluded scan
+  results are deselected with an "Excluded" badge instead of being cleaned.
+- **Per-category scheduled cleanup** — choose which junk categories `/autoclean` may clean
+  (empty selection = the Normal-mode default set); unknown and review-only category names
+  are dropped, never honored.
+- **History trend** — the History view shows a 7-day per-day cleanup bar strip with a totals row.
+
+### Fixed
+
+- **Cleaner deletes are guarded** — single-file and best-effort loop deletes now skip
+  unparseable paths, reparse points (links/junctions), and System-attributed files.
+- **Settings can no longer be mutated by accident** — `Load()` returns a defensive copy,
+  so a caller that forgets `Save()` cannot corrupt global state.
+- **Quarantine expiry labels fixed** — an entry expiring right now reads "Expired" (was
+  showing a day/hour count across the boundary), and sub-hour remainders show minutes.
+- **Force delete never kills Office or databases** — Word/Excel/PowerPoint/Outlook and
+  common DB/writer processes are denylisted; every killed process is logged.
+- **Drive input validated** — optimizer/analyzer refuse anything that is not a single
+  drive letter before invoking defrag.
+- **Quarantine grid no longer hits disk per row** — retention days load once per
+  enumeration instead of on every `IsExpired`/`ExpiresIn` get.
+- **AuraWarning is amber again** — it was red (identical to AuraErr); error/destructive
+  surfaces now use the new `AuraDanger` token, which also adapts to light theme.
+- **Treemap colors follow the theme** — frozen brush cache with light/dark palettes,
+  rebuilt on theme change.
+- **Lazy navigation** — feature views and their ViewModels are built on first navigate
+  instead of all 21 at startup (Dashboard stays eager); dead `MainViewModel.CurrentView`
+  removed.
+- **Test suite extended** — 73 new asserts (`SafetyHardeningTests`, `FeatureBatchDTests`);
+  333 total, all passing.
+- Removed 6 orphaned asset files (~640KB) that were bundled but referenced nowhere.
+
 ---
 
 ## [1.5.1] — 2026-09-27

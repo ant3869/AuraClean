@@ -159,7 +159,8 @@
     <SolidColorBrush x:Key="AuraAccentTeal" Color="#64C8C0" />
     <SolidColorBrush x:Key="AuraSuccess" Color="#3FB950" />
     <SolidColorBrush x:Key="AuraAmber" Color="#D29922" />
-    <SolidColorBrush x:Key="AuraWarning" Color="#F85149" />
+    <SolidColorBrush x:Key="AuraWarning" Color="#D29922" />
+    <SolidColorBrush x:Key="AuraDanger" Color="#F85149" />
     <SolidColorBrush x:Key="AuraCritical" Color="#F85149" />
 
     <!-- Status pill tints (fill: tone 10% over bg-subtle) and lines (border: tone 38% over bd) -->

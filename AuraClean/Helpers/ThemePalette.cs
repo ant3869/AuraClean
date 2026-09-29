@@ -277,7 +277,8 @@ public static class ThemePalette
             ["AuraAccentTeal"] = t.Info,
             ["AuraSuccess"] = t.Ok,
             ["AuraAmber"] = t.Warn,
-            ["AuraWarning"] = t.Err,
+            ["AuraWarning"] = t.Warn,
+            ["AuraDanger"] = t.Err,
             ["AuraCritical"] = t.Err,
 
             // Status pill tints (fill) and lines (border)

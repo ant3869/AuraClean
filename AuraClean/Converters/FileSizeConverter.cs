@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using AuraClean.Services;
 
 namespace AuraClean.Converters;
 
@@ -130,12 +131,16 @@ public static class ThemeBrushes
 }
 
 /// <summary>
-/// Converts a treemap color index (0-9) to a color brush for the nested rectangles.
-/// Uses a palette of distinct, visually pleasing colors.
+/// Converts a treemap color index to a brush from a theme-aware palette.
+/// Brushes are frozen and cached (one array per theme); the cache rebuilds when
+/// <see cref="ThemeService.ThemeChanged"/> fires. The light palette uses deepened
+/// tones so fills and borders stay legible on white. Bindings re-evaluate on the
+/// next data refresh after a theme switch.
 /// </summary>
 public class TreemapColorConverter : IValueConverter
 {
-    private static readonly System.Windows.Media.Color[] Palette =
+    // Dark theme: bright distinct tones for dark surfaces.
+    private static readonly System.Windows.Media.Color[] DarkPalette =
     [
         System.Windows.Media.Color.FromRgb(0x7C, 0x5C, 0xFC), // Violet
         System.Windows.Media.Color.FromRgb(0x00, 0xE5, 0xC3), // Cyan
@@ -149,10 +154,46 @@ public class TreemapColorConverter : IValueConverter
         System.Windows.Media.Color.FromRgb(0xA0, 0x88, 0xC0), // Lavender
     ];
 
+    // Light theme: deepened counterparts that read on white at low fill opacity.
+    private static readonly System.Windows.Media.Color[] LightPalette =
+    [
+        System.Windows.Media.Color.FromRgb(0x5B, 0x3D, 0xF0), // Violet
+        System.Windows.Media.Color.FromRgb(0x00, 0x9E, 0x8C), // Cyan
+        System.Windows.Media.Color.FromRgb(0xD9, 0x2D, 0x55), // Coral
+        System.Windows.Media.Color.FromRgb(0x9A, 0x62, 0x00), // Amber
+        System.Windows.Media.Color.FromRgb(0x15, 0x65, 0xD8), // Blue
+        System.Windows.Media.Color.FromRgb(0x1A, 0x7F, 0x37), // Mint
+        System.Windows.Media.Color.FromRgb(0xB8, 0x32, 0x7F), // Pink
+        System.Windows.Media.Color.FromRgb(0x8A, 0x61, 0x00), // Yellow
+        System.Windows.Media.Color.FromRgb(0x0B, 0x7B, 0x8B), // Teal
+        System.Windows.Media.Color.FromRgb(0x6A, 0x4F, 0xB0), // Lavender
+    ];
+
+    private static System.Windows.Media.SolidColorBrush[] _brushes = BuildBrushes(ThemeService.IsLightTheme);
+
+    static TreemapColorConverter()
+    {
+        ThemeService.ThemeChanged += (_, _) => _brushes = BuildBrushes(ThemeService.IsLightTheme);
+    }
+
+    private static System.Windows.Media.SolidColorBrush[] BuildBrushes(bool light)
+    {
+        var palette = light ? LightPalette : DarkPalette;
+        var brushes = new System.Windows.Media.SolidColorBrush[palette.Length];
+        for (int i = 0; i < palette.Length; i++)
+        {
+            var brush = new System.Windows.Media.SolidColorBrush(palette[i]);
+            brush.Freeze();
+            brushes[i] = brush;
+        }
+        return brushes;
+    }
+
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        int index = value is int i ? i % Palette.Length : 0;
-        return new System.Windows.Media.SolidColorBrush(Palette[index]);
+        var brushes = _brushes;
+        int index = value is int i ? ((i % brushes.Length) + brushes.Length) % brushes.Length : 0;
+        return brushes[index];
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -220,22 +261,6 @@ public class ExpandedChevronAngleConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-/// <summary>
-/// Converts a score 0-100 into the arc sweep angle (0-360) for the circular gauge.
-/// </summary>
-public class ScoreToAngleConverter : IValueConverter
-{
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (value is not IConvertible || !double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double score))
-            score = 0;
-        return score / 100.0 * 360.0;
-    }
-
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        => throw new NotSupportedException();
-}
-
 /// <summary>Trend arrow tone: up = ok, down = err, flat = dim.</summary>
 public class TrendArrowColorConverter : IValueConverter
 {
@@ -246,19 +271,6 @@ public class TrendArrowColorConverter : IValueConverter
             "↓" => "AuraErr",
             _ => "AuraTextMuted",
         });
-
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        => throw new NotSupportedException();
-}
-
-/// <summary>
-/// Ambient glow behind the health score. The design system uses flat surfaces with no glow,
-/// so this is transparent in every state; kept so existing bindings stay valid.
-/// </summary>
-public class HealthGlowBrushConverter : IValueConverter
-{
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-        System.Windows.Media.Brushes.Transparent;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

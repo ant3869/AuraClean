@@ -1,9 +1,28 @@
 using AuraClean.Helpers;
+using AuraClean.Models;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace AuraClean.ViewModels;
+
+/// <summary>One checkable scheduled-cleanup category (D2).</summary>
+public partial class SchedulableCategory : ObservableObject
+{
+    public JunkType Type { get; }
+    public string DisplayName { get; }
+
+    [ObservableProperty] private bool _isSelected = true;
+
+    public SchedulableCategory(JunkType type, string displayName)
+    {
+        Type = type;
+        DisplayName = displayName;
+    }
+}
 
 /// <summary>
 /// ViewModel for the Settings page.
@@ -52,6 +71,11 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
     [ObservableProperty] private int _scheduledCleanupDayOfWeek;
     [ObservableProperty] private int _scheduledCleanupDayIndex;
 
+    // ── D1 exclusions + D2 scheduled categories ──
+    public ObservableCollection<string> CleanerExcludedPaths { get; } = [];
+    public ObservableCollection<SchedulableCategory> ScheduledCategories { get; } = [];
+    public bool HasExcludedPaths => CleanerExcludedPaths.Count > 0;
+
     // ── UI State ──
     [ObservableProperty] private string _statusMessage = "Settings loaded.";
     [ObservableProperty] private bool _hasUnsavedChanges;
@@ -59,6 +83,7 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
 
     private bool _suppressModeChangeTracking;
     private bool _suppressThemePreview;
+    private bool _suppressListTracking;
 
     public string[] ShredAlgorithms { get; } =
         ["QuickZero", "Random", "DoD3Pass", "Enhanced7Pass"];
@@ -79,6 +104,15 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
         DefaultShredAlgorithm = "DoD3Pass";
         ScheduledCleanupFrequency = "Weekly";
         ScheduledCleanupTime = "03:00";
+
+        foreach (var type in CleanupModePolicy.GetNormalModeDefaults())
+        {
+            var item = new SchedulableCategory(type, new JunkItem { Type = type }.Category);
+            item.PropertyChanged += OnScheduledCategoryChanged;
+            ScheduledCategories.Add(item);
+        }
+        CleanerExcludedPaths.CollectionChanged += OnExcludedPathsChanged;
+
         LoadFromDisk();
 
         // The sidebar toggle can change the theme too; keep the radio group in sync.
@@ -136,6 +170,29 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
         ScheduledCleanupDayOfWeek = s.ScheduledCleanupDayOfWeek;
         ScheduledCleanupDayIndex = Math.Clamp(s.ScheduledCleanupDayOfWeek, 1, 7) - 1;
 
+        _suppressListTracking = true;
+        try
+        {
+            CleanerExcludedPaths.Clear();
+            foreach (var path in s.CleanerExcludedPaths ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(path))
+                    CleanerExcludedPaths.Add(path.Trim());
+            }
+
+            // Empty stored list = defaults = every low-risk category checked.
+            var configured = new HashSet<string>(
+                s.ScheduledCleanupCategories ?? [], StringComparer.OrdinalIgnoreCase);
+            bool useDefaults = configured.Count == 0;
+            foreach (var category in ScheduledCategories)
+                category.IsSelected = useDefaults || configured.Contains(category.Type.ToString());
+        }
+        finally
+        {
+            _suppressListTracking = false;
+        }
+        OnPropertyChanged(nameof(HasExcludedPaths));
+
         SettingsPath = SettingsService.GetSettingsDirectory();
         HasUnsavedChanges = false;
         StatusMessage = "Settings loaded.";
@@ -189,6 +246,16 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
             ScheduledCleanupFrequency = ScheduledCleanupFrequency,
             ScheduledCleanupTime = ScheduledCleanupTime,
             ScheduledCleanupDayOfWeek = ScheduledCleanupDayIndex + 1,
+
+            // All categories checked = defaults (stored as an empty list).
+            ScheduledCleanupCategories = ScheduledCategories.All(c => c.IsSelected)
+                ? []
+                : ScheduledCategories.Where(c => c.IsSelected).Select(c => c.Type.ToString()).ToList(),
+            CleanerExcludedPaths = CleanerExcludedPaths
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
 
             // Not edited on this page — carry over so saving never re-triggers onboarding.
             HasCompletedOnboarding = previous.HasCompletedOnboarding,
@@ -251,6 +318,77 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
         ThemeService.SetMode(SelectedThemeMode, persist: false);
         ExperienceModeService.NotifyModeChanged();
         StatusMessage = "Settings reloaded from disk.";
+    }
+
+    // ── D1 exclusion list ──
+
+    [RelayCommand]
+    private void AddExcludedFile()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Select files to exclude from cleaning",
+            Filter = "All Files (*.*)|*.*",
+            Multiselect = true
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            int added = 0;
+            foreach (var path in dialog.FileNames)
+                added += TryAddExcludedPath(path) ? 1 : 0;
+            StatusMessage = added > 0
+                ? $"Added {added} exclusion(s). Save to apply."
+                : "Those files are already excluded.";
+        }
+    }
+
+    [RelayCommand]
+    private void AddExcludedFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "Select a folder to exclude (covers everything beneath it)",
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
+        {
+            StatusMessage = TryAddExcludedPath(dialog.FolderName)
+                ? $"Excluded '{dialog.FolderName}'. Save to apply."
+                : "That folder is already excluded.";
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveExcludedPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        if (CleanerExcludedPaths.Remove(path))
+            StatusMessage = $"Removed '{path}'. Save to apply.";
+    }
+
+    private bool TryAddExcludedPath(string path)
+    {
+        var trimmed = path.Trim();
+        if (CleanerExcludedPaths.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+            return false;
+        CleanerExcludedPaths.Add(trimmed);
+        return true;
+    }
+
+    private void OnExcludedPathsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(HasExcludedPaths));
+        if (!_suppressListTracking)
+            HasUnsavedChanges = true;
+    }
+
+    private void OnScheduledCategoryChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!_suppressListTracking && e.PropertyName == nameof(SchedulableCategory.IsSelected))
+            HasUnsavedChanges = true;
     }
 
     // ── Track changes for the "unsaved" indicator ──

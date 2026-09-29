@@ -56,8 +56,8 @@
             <Button Grid.Column="2"
                     Content="Uninstall"
                     Style="{StaticResource AuraOutlinedButton}"
-                    BorderBrush="{StaticResource AuraWarning}"
-                    Foreground="{StaticResource AuraWarning}"
+                    BorderBrush="{StaticResource AuraDanger}"
+                    Foreground="{StaticResource AuraDanger}"
                     Padding="16,8"
                     Command="{Binding UninstallSelectedCommand}"
                     Margin="0,0,8,0" />

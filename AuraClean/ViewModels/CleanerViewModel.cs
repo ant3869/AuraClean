@@ -36,15 +36,23 @@ public partial class JunkCategory : ObservableObject
         if (_syncingSelection)
             return;
 
+        // Excluded paths stay deselected even under "select all".
         foreach (var item in Items)
-            item.IsSelected = value;
+            item.IsSelected = value && !Services.CleanerExcludeStore.IsExcluded(item.Path);
+        SyncSelectionState();
     }
 
     /// <summary>Updates the header checkbox to mirror the item selection without cascading.</summary>
     public void SyncSelectionState()
     {
         _syncingSelection = true;
-        try { IsAllSelected = Items.Count > 0 && Items.All(i => i.IsSelected); }
+        try
+        {
+            // The header reflects the selectable (non-excluded) rows so an exclusion list
+            // doesn't force every group header into the unchecked state.
+            var selectable = Items.Where(i => !Services.CleanerExcludeStore.IsExcluded(i.Path)).ToList();
+            IsAllSelected = selectable.Count > 0 && selectable.All(i => i.IsSelected);
+        }
         finally { _syncingSelection = false; }
     }
 
@@ -97,6 +105,8 @@ public partial class CleanerViewModel : ObservableObject
     partial void OnCategoriesChanged(ObservableCollection<JunkCategory> value)
     {
         HookItemSelectionEvents();
+        if (value.Count == 0)
+            ExcludedCount = 0;
     }
 
     public string SmartCleanLabel
@@ -151,6 +161,17 @@ public partial class CleanerViewModel : ObservableObject
     [ObservableProperty] private int _totalJunkCount;
     [ObservableProperty] private double _progressValue;
 
+    // Exclusion-list tracking (D1): excluded rows are deselected and badged, never cleaned.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasExcludedItems))]
+    [NotifyPropertyChangedFor(nameof(ExcludedNotice))]
+    private int _excludedCount;
+
+    public bool HasExcludedItems => ExcludedCount > 0;
+    public string ExcludedNotice => ExcludedCount == 0
+        ? string.Empty
+        : $"{ExcludedCount} item(s) deselected — on your exclusion list";
+
     // Last cleanup tracking for undo support
     [ObservableProperty] private int _lastCleanedCount;
     [ObservableProperty] private long _lastCleanedBytes;
@@ -175,6 +196,7 @@ public partial class CleanerViewModel : ObservableObject
         TotalJunkSize = 0;
         TotalJunkCount = 0;
         ProgressValue = 0;
+        ExcludedCount = 0;
 
         try
         {
@@ -203,6 +225,19 @@ public partial class CleanerViewModel : ObservableObject
 
             CleanupModePolicy.ApplyDefaultSelection(allItems, settings, advanced);
 
+            // D1: exclusion-listed paths are deselected (rows stay visible with an
+            // "Excluded" badge so the user can see what was skipped and why).
+            int excluded = 0;
+            foreach (var item in allItems)
+            {
+                if (CleanerExcludeStore.IsExcluded(item.Path))
+                {
+                    item.IsSelected = false;
+                    excluded++;
+                }
+            }
+            ExcludedCount = excluded;
+
             var grouped = allItems.GroupBy(i => i.Category)
                 .OrderBy(g => g.Key)
                 .Select(g =>
@@ -227,6 +262,8 @@ public partial class CleanerViewModel : ObservableObject
                 : advanced
                     ? $"Found {TotalJunkCount} items ({FormattedTotalSize}) of reclaimable space."
                     : $"Found {TotalJunkCount} low-risk cleanup item(s) ({FormattedTotalSize}). Advanced mode shows review-only categories.";
+            if (excluded > 0)
+                StatusMessage += $" {excluded} item(s) deselected — on your exclusion list.";
         }
         catch (Exception ex)
         {
@@ -249,6 +286,7 @@ public partial class CleanerViewModel : ObservableObject
         var selectedItems = Categories.SelectMany(c => c.Items)
             .Where(i => i.IsSelected)
             .Where(i => IsAdvancedMode || CleanupModePolicy.IsNormalModeJunkType(i.Type))
+            .Where(i => !CleanerExcludeStore.IsExcluded(i.Path))
             .ToList();
 
         if (selectedItems.Count == 0)

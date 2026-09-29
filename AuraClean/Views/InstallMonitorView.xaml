@@ -74,8 +74,8 @@
 
                     <Button Content="Cancel"
                             Style="{StaticResource AuraOutlinedButton}"
-                            BorderBrush="{StaticResource AuraWarning}"
-                            Foreground="{StaticResource AuraWarning}"
+                            BorderBrush="{StaticResource AuraDanger}"
+                            Foreground="{StaticResource AuraDanger}"
                             Command="{Binding CancelMonitoringCommand}"
                             Visibility="{Binding IsMonitoring, Converter={StaticResource BoolToVis}}" />
                 </StackPanel>

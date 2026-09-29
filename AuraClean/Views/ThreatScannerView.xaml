@@ -305,7 +305,7 @@
                      Value="{Binding ProgressValue}"
                      Minimum="0" Maximum="100"
                      Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"
-                     Foreground="{StaticResource AuraWarning}"
+                     Foreground="{StaticResource AuraDanger}"
                      Height="3" VerticalAlignment="Bottom"
                      Margin="0,0,0,-8"
                      helpers:AnimationHelper.SmoothProgress="True" />
@@ -347,7 +347,7 @@
                 <ProgressBar IsIndeterminate="True"
                              Style="{StaticResource MaterialDesignCircularProgressBar}"
                              Width="60" Height="60"
-                             Foreground="{StaticResource AuraWarning}"
+                             Foreground="{StaticResource AuraDanger}"
                              HorizontalAlignment="Center"
                              Margin="0,0,0,16" />
                 <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
@@ -421,9 +421,9 @@
                                                 Padding="6,3" FontSize="11">
                                             <StackPanel Orientation="Horizontal">
                                                 <materialDesign:PackIcon Kind="Delete" Width="14" Height="14"
-                                                                         Foreground="{StaticResource AuraWarning}" />
+                                                                         Foreground="{StaticResource AuraDanger}" />
                                                 <TextBlock Text="Remove" Margin="4,0,0,0"
-                                                           Foreground="{StaticResource AuraWarning}" />
+                                                           Foreground="{StaticResource AuraDanger}" />
                                             </StackPanel>
                                         </Button>
                                     </Grid>
@@ -469,11 +469,11 @@
 
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ShieldAlert" Width="24" Height="24"
-                                                         Foreground="{StaticResource AuraWarning}"
+                                                         Foreground="{StaticResource AuraDanger}"
                                                          VerticalAlignment="Center" />
                                 <TextBlock VerticalAlignment="Center" Margin="10,0,0,0"
                                            Foreground="{DynamicResource AuraTextSecondary}" FontSize="15">
-                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalThreats, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource AuraWarning}" />
+                                    <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalThreats, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource AuraDanger}" />
                                     <Run Text=" threat(s) found" FontWeight="Normal" />
                                 </TextBlock>
                             </StackPanel>
@@ -606,7 +606,7 @@
                                                                                 <Setter Property="Fill" Value="{StaticResource AuraAmber}" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding ThreatLevel}" Value="High">
-                                                                                <Setter Property="Fill" Value="{StaticResource AuraWarning}" />
+                                                                                <Setter Property="Fill" Value="{StaticResource AuraDanger}" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding ThreatLevel}" Value="Critical">
                                                                                 <Setter Property="Fill" Value="{DynamicResource AuraErr}" />

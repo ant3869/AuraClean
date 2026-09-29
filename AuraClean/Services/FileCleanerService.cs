@@ -315,6 +315,17 @@ public static class FileCleanerService
 
     private static void CleanSingleItem(JunkItem item, ref int deleted, ref int skipped, ref long bytesFreed, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+
+        if (CleanerExcludeStore.IsExcluded(item.Path))
+        {
+            skipped++;
+            item.IsLocked = true;
+            item.LockingProcess = "Excluded by user — skipped";
+            DiagnosticLogger.Info("FileCleanerService", $"Skipped excluded path {item.Path}");
+            return;
+        }
+
         if (File.Exists(item.Path))
         {
             if (IsProtectedUserMediaFile(item.Path))
@@ -332,6 +343,15 @@ public static class FileCleanerService
                 skipped++;
                 item.IsLocked = true;
                 item.LockingProcess = "Recently modified — kept for safety";
+                return;
+            }
+
+            if (!IsSafeToCleanFile(item.Path, out var safetyReason))
+            {
+                skipped++;
+                item.IsLocked = true;
+                item.LockingProcess = safetyReason;
+                DiagnosticLogger.Warn("FileCleanerService", $"Refused to clean file {item.Path}: {safetyReason}");
                 return;
             }
 
@@ -451,6 +471,12 @@ public static class FileCleanerService
                 ct.ThrowIfCancellationRequested();
                 try
                 {
+                    if (CleanerExcludeStore.IsExcluded(file))
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+
                     if (IsProtectedUserMediaFile(file))
                     {
                         skippedCount++;
@@ -460,6 +486,14 @@ public static class FileCleanerService
 
                     var info = new FileInfo(file);
                     if (olderThanUtc.HasValue && info.LastWriteTimeUtc > olderThanUtc.Value)
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    // Same guard as the single-file branch: closes the TOCTOU window where a
+                    // file is swapped for a link, or carries the System flag, after enumeration.
+                    if (!IsSafeToCleanFile(file, out _))
                     {
                         skippedCount++;
                         continue;
@@ -546,6 +580,50 @@ public static class FileCleanerService
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// File-delete guard for cleaner remediation paths. Deliberately narrower than
+    /// <see cref="PathSafety.IsSafeToDeleteFile"/>: that helper rejects the whole Windows
+    /// tree, which this service is designed to clean (temp, logs, update cache), so it is
+    /// only used by user-driven tools. This blocks just the file-level dangers —
+    /// unparseable paths, reparse points, and System-attributed files.
+    /// </summary>
+    internal static bool IsSafeToCleanFile(string path, out string reason)
+    {
+        var p = PathSafety.Normalize(path);
+        if (p == null)
+        {
+            reason = "Invalid path — skipped for safety";
+            return false;
+        }
+
+        try
+        {
+            if (File.Exists(p))
+            {
+                var attributes = File.GetAttributes(p);
+                if (attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    reason = "Link or junction — skipped for safety";
+                    return false;
+                }
+                if (attributes.HasFlag(FileAttributes.System))
+                {
+                    reason = "Protected system file";
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            reason = "Could not be inspected — skipped for safety";
+            DiagnosticLogger.Warn("FileCleanerService", $"File safety check failed for {p}: {ex.Message}");
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
     }
 
     /// <summary>

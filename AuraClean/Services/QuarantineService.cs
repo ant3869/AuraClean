@@ -260,9 +260,8 @@ public static class QuarantineService
     {
         var settings = SettingsService.Load();
         var retentionDays = settings.QuarantineRetentionDays;
-        var cutoff = DateTime.Now.AddDays(-retentionDays);
 
-        var expired = GetAllEntries().Where(e => e.QuarantinedAt < cutoff).ToList();
+        var expired = GetAllEntries().Where(e => e.IsExpiredAt(retentionDays)).ToList();
 
         int purged = 0;
         foreach (var entry in expired)
@@ -279,13 +278,19 @@ public static class QuarantineService
     }
 
     /// <summary>
-    /// Loads all quarantine entries.
+    /// Loads all quarantine entries, stamping each with the current retention window so a
+    /// whole enumeration shares one settings read instead of every property get hitting
+    /// Load() (and its lock) separately.
     /// </summary>
     public static List<QuarantineEntry> GetAllEntries()
     {
         // Lock-free read: the manifest is always replaced atomically, so a reader sees either
         // the previous or the new version, never a partial write.
-        return LoadManifest().Entries;
+        var entries = LoadManifest().Entries;
+        var retentionDays = SettingsService.Load().QuarantineRetentionDays;
+        foreach (var entry in entries)
+            entry.RetentionDays = retentionDays;
+        return entries;
     }
 
     /// <summary>
@@ -366,27 +371,35 @@ public class QuarantineEntry
     public string ParentFolder => Path.GetDirectoryName(OriginalPath) ?? string.Empty;
     public string QuarantinedAtDisplay => QuarantinedAt.ToString("MMM dd, yyyy  HH:mm");
     public string SizeDisplay => Helpers.FormatHelper.FormatBytes(FileSizeBytes);
-    public bool IsExpired
+
+    /// <summary>
+    /// Retention window in days, stamped by <see cref="QuarantineService.GetAllEntries"/>
+    /// once per enumeration. Zero when the entry did not come from an enumeration, in
+    /// which case <see cref="IsExpired"/> / <see cref="ExpiresIn"/> fall back to Load().
+    /// Never persisted to the manifest.
+    /// </summary>
+    [JsonIgnore]
+    public int RetentionDays { get; set; }
+
+    public bool IsExpired => IsExpiredAt(ResolveRetentionDays());
+
+    public string ExpiresIn => GetExpiresIn(ResolveRetentionDays());
+
+    public bool IsExpiredAt(int retentionDays) =>
+        QuarantinedAt.AddDays(retentionDays) < DateTime.Now;
+
+    public string GetExpiresIn(int retentionDays)
     {
-        get
-        {
-            var settings = SettingsService.Load();
-            return QuarantinedAt.AddDays(settings.QuarantineRetentionDays) < DateTime.Now;
-        }
+        var expiry = QuarantinedAt.AddDays(retentionDays);
+        var remaining = expiry - DateTime.Now;
+        if (remaining.TotalSeconds <= 0) return "Expired";
+        if (remaining.TotalDays >= 1) return $"{(int)Math.Floor(remaining.TotalDays)}d remaining";
+        if (remaining.TotalHours >= 1) return $"{(int)Math.Floor(remaining.TotalHours)}h remaining";
+        return $"{Math.Max(1, (int)Math.Floor(remaining.TotalMinutes))}m remaining";
     }
 
-    public string ExpiresIn
-    {
-        get
-        {
-            var settings = SettingsService.Load();
-            var expiry = QuarantinedAt.AddDays(settings.QuarantineRetentionDays);
-            var remaining = expiry - DateTime.Now;
-            if (remaining.TotalDays < 0) return "Expired";
-            if (remaining.TotalDays < 1) return $"{remaining.Hours}h remaining";
-            return $"{(int)remaining.TotalDays}d remaining";
-        }
-    }
+    private int ResolveRetentionDays() =>
+        RetentionDays > 0 ? RetentionDays : SettingsService.Load().QuarantineRetentionDays;
 }
 
 public class QuarantineStats
