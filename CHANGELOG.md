@@ -75,6 +75,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   333 total, all passing.
 - Removed 6 orphaned asset files (~640KB) that were bundled but referenced nowhere.
 
+### Added
+
+- **History CSV export** — History view exports the filtered records (or all) to a
+  UTF-8-BOM CSV that opens directly in Excel: Timestamp, Operation, Items Cleaned,
+  Space Freed (bytes), Dry Run, Details, with RFC-4180 quoting.
+
+### Fixed
+
+- **No more silent failures** — all ~86 empty catch blocks across Services/ and Helpers/
+  now log context + exception via DiagnosticLogger (2 deliberate exceptions: a
+  dispose-in-finally and the logger's own internals, both commented).
+- **Honest card names** — `AuraGlassCard` family removed entirely (was solid rects, no
+  blur); views now use `AuraCard` / `AuraStatCard` / `AuraDataCard` directly.
+- **Sidebar regrouped** — the 9-item Utilities drawer is now Tools (4) + System (5);
+  no section holds more than 5 items.
+- **Off-thread UI writes fixed** — theme-change handler re-dispatches to the UI thread
+  (Windows theme flips arrive on a pool thread); audit confirmed all other VMs already
+  marshal correctly.
+
 ---
 
 ## [1.5.1] — 2026-09-27

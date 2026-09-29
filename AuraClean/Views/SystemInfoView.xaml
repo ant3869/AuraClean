@@ -551,7 +551,7 @@
                 </Grid>
 
                 <!-- Info Grid -->
-                <Border Style="{StaticResource AuraGlassCardFlush}"
+                <Border Style="{StaticResource AuraDataCard}"
                         CornerRadius="12" Margin="0,0,0,8">
                     <ListView ItemsSource="{Binding FilteredEntries}"
                               Background="Transparent"

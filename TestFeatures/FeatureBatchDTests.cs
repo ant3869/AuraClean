@@ -24,6 +24,7 @@ public static class FeatureBatchDTests
         Section("Cleaner exclusion matching", TestIsExcluded);
         Section("Scheduled category validation", TestScheduledCategories);
         Section("History daily trend", TestDailyTrend);
+        Section("History CSV export", TestHistoryCsv);
 
         Console.WriteLine($"  Batch D: {_pass} passed, {_fail} failed");
         return _fail;
@@ -188,5 +189,57 @@ public static class FeatureBatchDTests
             new List<CleanupRecord> { new() { Timestamp = today, ItemCount = 1, BytesFreed = -50 } }, 1, today);
         Check(negative[0].BytesFreed == 0 && negative[0].Operations == 1,
             "Negative byte counts clamp to zero but still count the operation");
+    }
+
+    private static void TestHistoryCsv()
+    {
+        var stamp = new DateTime(2026, 9, 27, 14, 30, 0);
+        var records = new List<CleanupRecord>
+        {
+            new()
+            {
+                Timestamp = stamp,
+                OperationType = CleanupOperationType.SystemClean,
+                ItemCount = 12,
+                BytesFreed = 2048,
+                Details = "Temp files",
+                WasDryRun = false
+            },
+            new()
+            {
+                Timestamp = stamp.AddHours(1),
+                OperationType = CleanupOperationType.BrowserClean,
+                ItemCount = 3,
+                BytesFreed = 512,
+                Details = "Cache, \"cookies\", and\nsite data",
+                WasDryRun = true
+            }
+        };
+
+        var csv = CleanupHistoryService.BuildHistoryCsv(records);
+        var lines = csv.Split(["\r\n", "\n"], StringSplitOptions.None);
+        Check(lines.Length >= 3 && lines[0] == "Timestamp,Operation,Items Cleaned,Space Freed (bytes),Dry Run,Details",
+            "Header row has the expected six columns");
+        Check(lines[1] == "2026-09-27 14:30:00,System Cleanup,12,2048,No,Temp files",
+            "Plain record serializes to one row with display operation name");
+        Check(csv.Contains("Yes,\"Cache, \"\"cookies\"\", and\nsite data\""),
+            "Commas, quotes, and newlines are RFC-4180 quoted");
+        Check(csv.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries).Length == 4,
+            "Two records plus header span four physical lines (embedded newline stays inside quotes)");
+
+        var empty = CleanupHistoryService.BuildHistoryCsv(new List<CleanupRecord>());
+        Check(empty.Trim() == "Timestamp,Operation,Items Cleaned,Space Freed (bytes),Dry Run,Details",
+            "Empty history yields header only");
+        var nullList = CleanupHistoryService.BuildHistoryCsv(null);
+        Check(nullList.Trim().StartsWith("Timestamp,"),
+            "Null record list yields header only without throwing");
+
+        var negative = CleanupHistoryService.BuildHistoryCsv(
+            new List<CleanupRecord>
+            {
+                new() { Timestamp = stamp, ItemCount = 1, BytesFreed = -50, Details = "neg" }
+            });
+        Check(negative.Contains(",0,No,neg"),
+            "Negative byte counts clamp to zero in the CSV");
     }
 }

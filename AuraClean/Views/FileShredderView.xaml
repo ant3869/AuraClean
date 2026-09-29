@@ -38,7 +38,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- File List -->
-            <Border x:Name="DropZoneBorder" Grid.Column="0" Style="{StaticResource AuraGlassCardFlush}"
+            <Border x:Name="DropZoneBorder" Grid.Column="0" Style="{StaticResource AuraDataCard}"
                     CornerRadius="12"
                     BorderThickness="1.5"
                     BorderBrush="Transparent"
@@ -239,7 +239,7 @@
                 </Border>
 
                 <!-- Algorithm Selection -->
-                <Border Style="{StaticResource AuraGlassCard}"
+                <Border Style="{StaticResource AuraCard}"
                         CornerRadius="12" Margin="0,0,0,16"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
@@ -323,7 +323,7 @@
                 </Button>
 
                 <!-- Results Card -->
-                <Border Style="{StaticResource AuraGlassCard}"
+                <Border Style="{StaticResource AuraCard}"
                         CornerRadius="12"
                         Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
                     <StackPanel>

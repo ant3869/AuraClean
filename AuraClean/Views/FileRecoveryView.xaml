@@ -26,7 +26,7 @@
         </StackPanel>
 
         <!-- Action Bar -->
-        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraCard}" Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -97,7 +97,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Total count -->
-            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+            <Border Grid.Column="0" Style="{StaticResource AuraCard}"
                     Padding="14,8" Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="DeleteRestore" Foreground="{DynamicResource AuraInfo}"

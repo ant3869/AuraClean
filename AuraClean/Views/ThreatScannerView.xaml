@@ -532,7 +532,7 @@
                     <ItemsControl ItemsSource="{Binding Categories}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
+                                <Border Style="{StaticResource AuraDataCard}" CornerRadius="8"
                                         Margin="0,0,0,8" Padding="0">
                                     <Expander IsExpanded="{Binding IsExpanded}"
                                               Style="{StaticResource AuraGroupExpander}"

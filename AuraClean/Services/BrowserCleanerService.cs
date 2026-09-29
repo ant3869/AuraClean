@@ -261,7 +261,10 @@ public static class BrowserCleanerService
                             });
                             totalSize += fi.Length;
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            DiagnosticLogger.Warn("BrowserCleaner", $"Skipped unreadable vacuum target: {dbPath}", ex);
+                        }
                     }
                 }
 
@@ -331,7 +334,10 @@ public static class BrowserCleanerService
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("BrowserCleaner", $"Skipped unreadable tracking pattern '{pattern}' in profile '{profileDir}'", ex);
+                    }
                 }
             }
         }, ct);
@@ -508,7 +514,10 @@ public static class BrowserCleanerService
                     foreach (var dir in Directory.EnumerateDirectories(userDataPath))
                         profiles.Add(dir);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("BrowserCleaner", $"Failed to enumerate Firefox profiles in {userDataPath}", ex);
+                }
             }
             return profiles;
         }
@@ -524,7 +533,10 @@ public static class BrowserCleanerService
             foreach (var dir in Directory.EnumerateDirectories(userDataPath, "Profile *"))
                 profiles.Add(dir);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("BrowserCleaner", $"Failed to enumerate numbered profiles in {userDataPath}", ex);
+        }
 
         // For Opera, the user data path IS the profile
         if (profiles.Count == 0 && Directory.Exists(userDataPath))
@@ -576,7 +588,10 @@ public static class BrowserCleanerService
             foreach (var file in new DirectoryInfo(path).EnumerateFiles("*", PathSafety.RecursiveNoReparse))
             {
                 try { size += file.Length; }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    DiagnosticLogger.Warn("BrowserCleaner", $"Skipped unreadable file during size calc: {file.FullName}", ex);
+                }
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -604,6 +619,7 @@ public static class BrowserCleanerService
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Directory still in use; contents are gone which is what matters.
+                DiagnosticLogger.Warn("BrowserCleaner", $"Folder emptied but not removed: {path}", ex);
             }
         }
         return bytes;

@@ -216,6 +216,58 @@ public static class CleanupHistoryService
     }
 
     /// <summary>
+    /// Builds an Excel-compatible CSV snapshot of the history: one header row plus one
+    /// row per record (newest first). Fields containing commas, quotes, or newlines are
+    /// RFC-4180 quoted; UTF-8 output should be written with a BOM so Excel detects it.
+    /// Pure over an in-memory record list; never throws.
+    /// </summary>
+    public static string BuildHistoryCsv(IReadOnlyList<CleanupRecord>? records)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Timestamp,Operation,Items Cleaned,Space Freed (bytes),Dry Run,Details");
+        if (records == null)
+            return sb.ToString();
+
+        foreach (var record in records)
+        {
+            if (record == null)
+                continue;
+            sb.Append(record.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")).Append(',')
+                .Append(EscapeCsvField(record.OperationType.ToDisplayString())).Append(',')
+                .Append(record.ItemCount).Append(',')
+                .Append(Math.Max(0, record.BytesFreed)).Append(',')
+                .Append(record.WasDryRun ? "Yes" : "No").Append(',')
+                .AppendLine(EscapeCsvField(record.Details ?? string.Empty));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds the CSV snapshot for the history currently on disk. Never throws.
+    /// </summary>
+    public static string ExportAsCsv()
+    {
+        try
+        {
+            return BuildHistoryCsv(LoadHistory().Records);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("CleanupHistoryService", "Failed to build CSV export", ex);
+            return BuildHistoryCsv([]);
+        }
+    }
+
+    private static string EscapeCsvField(string value)
+    {
+        const char Quote = '"';
+        if (value.Contains(Quote))
+            value = value.Replace(Quote.ToString(), new string(Quote, 2));
+        return value.IndexOfAny([',', Quote, '\r', '\n']) >= 0 ? Quote + value + Quote : value;
+    }
+
+/// <summary>
     /// Returns the history storage directory path.
     /// </summary>
     public static string GetHistoryDirectory() => HistoryDir;

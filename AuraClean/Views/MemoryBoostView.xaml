@@ -37,7 +37,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- RAM Usage Gauge -->
-            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+            <Border Grid.Column="0" Style="{StaticResource AuraCard}"
                     CornerRadius="12" Padding="24">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="RAM Usage" FontSize="16" FontWeight="SemiBold"
@@ -85,7 +85,7 @@
             </Border>
 
             <!-- Boost Results & Actions -->
-            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}"
+            <Border Grid.Column="2" Style="{StaticResource AuraCard}"
                     CornerRadius="12" Padding="24">
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Boost Results" FontSize="16" FontWeight="SemiBold"
@@ -95,7 +95,7 @@
                     <!-- Results (shown after boost) -->
                     <StackPanel Visibility="{Binding HasBoostResult, Converter={StaticResource BoolToVis}}"
                                 Margin="0,0,0,20">
-                        <Border Style="{StaticResource AuraGlassCardCompact}"
+                        <Border Style="{StaticResource AuraStatCard}"
                                 Padding="16" Margin="0,0,0,8">
                             <Grid>
                                 <StackPanel>

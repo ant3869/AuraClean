@@ -29,12 +29,22 @@
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <Button Style="{StaticResource AuraOutlinedButton}"
+                        Command="{Binding ExportHistoryCsvCommand}"
+                        Padding="16,8" Margin="0,0,8,0"
+                        ToolTip="Export the visible history as a CSV file (opens in Excel)">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FileExport" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Export CSV" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource AuraOutlinedButton}"
                         Command="{Binding ExportHistoryCommand}"
                         Padding="16,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Export" Width="16" Height="16"
                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="Export" VerticalAlignment="Center" FontSize="13" />
+                        <TextBlock Text="Export TXT" VerticalAlignment="Center" FontSize="13" />
                     </StackPanel>
                 </Button>
                 <Button Style="{StaticResource AuraGhostButton}"
@@ -73,7 +83,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Total Operations -->
-            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="16"
+            <Border Grid.Column="0" Style="{StaticResource AuraStatCard}" Padding="16"
                     BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -89,7 +99,7 @@
             </Border>
 
             <!-- Space Freed -->
-            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="16"
+            <Border Grid.Column="2" Style="{StaticResource AuraStatCard}" Padding="16"
                     BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -105,7 +115,7 @@
             </Border>
 
             <!-- Items Cleaned -->
-            <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="16"
+            <Border Grid.Column="4" Style="{StaticResource AuraStatCard}" Padding="16"
                     BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -121,7 +131,7 @@
             </Border>
 
             <!-- Last Operation -->
-            <Border Grid.Column="6" Style="{StaticResource AuraGlassCard}" Padding="16"
+            <Border Grid.Column="6" Style="{StaticResource AuraStatCard}" Padding="16"
                     BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -138,7 +148,7 @@
         </Grid>
 
         <!-- D3: Daily trend strip + totals row (themed resources only) -->
-        <Border Grid.Row="2" Style="{StaticResource AuraGlassCard}" Padding="16,12" Margin="0,0,0,16">
+        <Border Grid.Row="2" Style="{StaticResource AuraCard}" Padding="16,12" Margin="0,0,0,16">
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <materialDesign:PackIcon Kind="ChartBar" Width="16" Height="16"
@@ -250,7 +260,7 @@
         </Grid>
 
         <!-- History List -->
-        <Border Grid.Row="4" Style="{StaticResource AuraGlassCard}" Padding="0">
+        <Border Grid.Row="4" Style="{StaticResource AuraDataCard}" Padding="0">
             <ListView ItemsSource="{Binding FilteredRecords}"
                       Background="Transparent"
                       BorderThickness="0"

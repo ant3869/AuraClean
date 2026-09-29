@@ -299,11 +299,17 @@ public static class ForceDeleteService
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ForceDelete", $"Failed to inspect modules of PID {proc.Id} ({proc.ProcessName})", ex);
+                }
                 finally { proc.Dispose(); }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ForceDelete", $"Locking-process scan failed for {filePath}", ex);
+        }
 
         // Also use Restart Manager
         var rmLockers = FileLockDetector.GetLockingProcesses(filePath);

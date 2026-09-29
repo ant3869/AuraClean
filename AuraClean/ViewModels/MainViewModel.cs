@@ -160,7 +160,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isCleanupExpanded = true;
     [ObservableProperty] private bool _isAnalyzeExpanded = true;
     [ObservableProperty] private bool _isOptimizeExpanded = true;
-    [ObservableProperty] private bool _isUtilitiesExpanded = false;
+    [ObservableProperty] private bool _isToolsExpanded = false;
+    [ObservableProperty] private bool _isSystemExpanded = false;
 
     /// <summary>
     /// True while any feature is scanning, cleaning, installing, or otherwise working.
@@ -364,7 +365,10 @@ public partial class MainViewModel : ObservableObject
     private void ToggleOptimize() => IsOptimizeExpanded = !IsOptimizeExpanded;
 
     [RelayCommand]
-    private void ToggleUtilities() => IsUtilitiesExpanded = !IsUtilitiesExpanded;
+    private void ToggleTools() => IsToolsExpanded = !IsToolsExpanded;
+
+    [RelayCommand]
+    private void ToggleSystem() => IsSystemExpanded = !IsSystemExpanded;
 
     [RelayCommand]
     private void ToggleExperienceMode() => IsAdvancedMode = !IsAdvancedMode;

@@ -59,7 +59,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Quarantined Items -->
-            <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}" Padding="16"
+            <Border Grid.Column="0" Style="{StaticResource AuraCard}" Padding="16"
                     BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraDanger}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -79,7 +79,7 @@
             </Border>
 
             <!-- Total Size -->
-            <Border Grid.Column="2" Style="{StaticResource AuraGlassCard}" Padding="16"
+            <Border Grid.Column="2" Style="{StaticResource AuraCard}" Padding="16"
                     BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraDanger}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -95,7 +95,7 @@
             </Border>
 
             <!-- Expired -->
-            <Border Grid.Column="4" Style="{StaticResource AuraGlassCard}" Padding="16"
+            <Border Grid.Column="4" Style="{StaticResource AuraCard}" Padding="16"
                     BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraDanger}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -172,7 +172,7 @@
             </StackPanel>
 
             <!-- File List -->
-            <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Padding="0">
+            <Border Grid.Row="1" Style="{StaticResource AuraCard}" Padding="0">
                 <ListView ItemsSource="{Binding Entries}"
                           Background="Transparent"
                           BorderThickness="0"

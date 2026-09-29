@@ -84,7 +84,7 @@
         </Grid>
 
         <!-- Program List -->
-        <Border Grid.Row="2" Style="{StaticResource AuraGlassCardFlush}"
+        <Border Grid.Row="2" Style="{StaticResource AuraDataCard}"
                 CornerRadius="8" Margin="0,0,0,12">
             <Grid>
                 <!-- Loading overlay -->
@@ -205,7 +205,7 @@
                   Style="{StaticResource AuraGroupExpander}"
                   AutomationProperties.Name="Leftovers found"
                   Margin="0,0,0,12">
-            <Border Style="{StaticResource AuraGlassCardCompact}"
+            <Border Style="{StaticResource AuraStatCard}"
                     CornerRadius="8" Padding="8" MaxHeight="200">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding PostUninstallJunk}">

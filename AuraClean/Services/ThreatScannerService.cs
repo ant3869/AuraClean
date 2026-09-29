@@ -281,6 +281,7 @@ public static class ThreatScannerService
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Fall through to the location-based identity.
+                DiagnosticLogger.Warn("ThreatScanner", $"Hash unreadable, using location identity: {threat.Path}", ex);
             }
         }
 
@@ -301,8 +302,9 @@ public static class ThreatScannerService
             var hash = await SHA256.HashDataAsync(stream, ct);
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
-        catch
+        catch (Exception ex)
         {
+            DiagnosticLogger.Warn("ThreatScanner", $"Hash failed, treating as unknown: {filePath}", ex);
             return string.Empty;
         }
     }
@@ -448,8 +450,9 @@ public static class ThreatScannerService
 
             return (false, "", ThreatType.SuspiciousFile, ThreatLevel.Low);
         }
-        catch
+        catch (Exception ex)
         {
+            DiagnosticLogger.Warn("ThreatScanner", $"Heuristic analysis failed for {filePath}", ex);
             return (false, "", ThreatType.SuspiciousFile, ThreatLevel.Low);
         }
     }
@@ -538,7 +541,12 @@ public static class ThreatScannerService
 
                         string? exePath = null;
                         try { exePath = proc.MainModule?.FileName; }
-                        catch { continue; } // Access denied — skip
+                        catch (Exception ex)
+                        {
+                            // Access denied — skip
+                            DiagnosticLogger.Warn("ThreatScanner", $"Skipped process with unreadable MainModule: PID {proc.Id} ({proc.ProcessName})", ex);
+                            continue;
+                        }
 
                         if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
                             continue;
@@ -614,7 +622,7 @@ public static class ThreatScannerService
                     }
                     finally
                     {
-                        try { proc.Dispose(); } catch { }
+                        try { proc.Dispose(); } catch (Exception ex) { DiagnosticLogger.Warn("ThreatScanner", $"Process dispose failed for PID {proc.Id}", ex); }
                     }
                 }
             }
@@ -679,13 +687,20 @@ public static class ThreatScannerService
                                 stack.Push((subDir, depth + 1));
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable scan directory: {currentDir}", ex);
+                        }
                     }
 
                     // Scan files in current directory
                     IEnumerable<string> files;
                     try { files = Directory.EnumerateFiles(currentDir); }
-                    catch { continue; }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable scan directory: {currentDir}", ex);
+                        continue;
+                    }
 
                     // Filter to scannable files, then process in parallel
                     var candidateFiles = files
@@ -762,11 +777,16 @@ public static class ThreatScannerService
                                 }
                             }
                         }
-                        catch { }
-                    });
-                }
-            }
-        }, ct);
+                        catch (Exception ex)
+                        {
+                            DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable file during scan: {filePath}", ex);
+                        }
+                    }); // end Parallel.ForEachAsync per-directory candidates
+
+                    } // end while (stack has dirs)
+                } // end foreach rootDir
+            } // end Task.Run directory traversal
+            , ct);
 
         return (threats, totalScanned);
     }
@@ -868,7 +888,10 @@ public static class ThreatScannerService
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable startup registry key: {hiveLabel}\\{keyPath}", ex);
+                }
             }
 
             // Scan startup folders
@@ -909,7 +932,10 @@ public static class ThreatScannerService
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable startup folder: {folder}", ex);
+                }
             }
         }, ct);
 
@@ -999,7 +1025,10 @@ public static class ThreatScannerService
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable scheduled task: {task.Path}", ex);
+                }
             }
 
             foreach (var subFolder in folder.SubFolders)
@@ -1007,7 +1036,10 @@ public static class ThreatScannerService
                 ScanTaskFolder(subFolder, threats, ct);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ThreatScanner", $"Failed scanning task folder: {folder.Path}", ex);
+        }
     }
 
     // ══════════════════════════════════════════
@@ -1053,7 +1085,10 @@ public static class ThreatScannerService
                         Directory.EnumerateDirectories(basePath, "Profile *")
                                  .Where(Directory.Exists));
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ThreatScanner", $"Failed enumerating {browserName} profiles in {basePath}", ex);
+                }
 
                 // Opera doesn't use profile subdirs
                 if (browserName == "Opera" && Directory.Exists(basePath))
@@ -1120,10 +1155,16 @@ public static class ThreatScannerService
                                     }
                                 }
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable {browserName} extension manifest: {manifestPath}", ex);
+                            }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable {browserName} extension folder: {extDir}", ex);
+                    }
                 }
 
                 // Check for browser hijacking settings
@@ -1135,7 +1176,10 @@ public static class ThreatScannerService
                         var prefs = File.ReadAllText(prefsFile);
                         CheckBrowserHijacking(prefs, browserName, prefsFile, threats);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable {browserName} Preferences file: {prefsFile}", ex);
+                    }
                 }
             }
         }, ct);
@@ -1294,7 +1338,10 @@ public static class ThreatScannerService
                             });
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable adware key {hiveLabel}\\{keyPath}", ex);
+                    }
                 }
             }
 
@@ -1360,10 +1407,16 @@ public static class ThreatScannerService
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable uninstall entry '{subKeyName}'", ex);
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("ThreatScanner", $"Failed scanning uninstall hive: {basePath}", ex);
+            }
         }
     }
 
@@ -1420,10 +1473,16 @@ public static class ThreatScannerService
                                 });
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable BHO entry '{clsid}'", ex);
+                        }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ThreatScanner", $"Failed scanning BHO hive: {hive} ({path})", ex);
+                }
             }
         }, ct);
 
@@ -1504,7 +1563,10 @@ public static class ThreatScannerService
                             });
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable service entry: {serviceName}", ex);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1713,7 +1775,10 @@ public static class ThreatScannerService
 
             string? exePath = null;
             try { exePath = proc.MainModule?.FileName; }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            {
+                DiagnosticLogger.Warn("ThreatScanner", $"Could not read MainModule for PID {threat.ProcessId}", ex);
+            }
 
             bool sameExecutable = exePath != null &&
                                   string.Equals(exePath, threat.Path, StringComparison.OrdinalIgnoreCase);
@@ -1727,9 +1792,10 @@ public static class ThreatScannerService
             proc.Kill(entireProcessTree: true);
             await proc.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(5), ct);
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
             // Process already exited.
+            DiagnosticLogger.Warn("ThreatScanner", $"Process already exited, skipping termination for PID {threat.ProcessId}", ex);
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or TimeoutException)
         {
@@ -1954,7 +2020,10 @@ public static class ThreatScannerService
                     return manifest;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ThreatScanner", $"Failed enumerating extension dir: {extensionDir}", ex);
+        }
         return null;
     }
 
@@ -1964,7 +2033,11 @@ public static class ThreatScannerService
         {
             return !string.IsNullOrEmpty(path) && File.Exists(path) ? new FileInfo(path).Length : 0;
         }
-        catch { return 0; }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ThreatScanner", $"Failed reading file size: {path}", ex);
+            return 0;
+        }
     }
 
     private static long GetDirectorySizeSafe(string path, int maxFiles)
@@ -1974,10 +2047,17 @@ public static class ThreatScannerService
         {
             foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Take(maxFiles))
             {
-                try { size += new FileInfo(file).Length; } catch { }
+                try { size += new FileInfo(file).Length; }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ThreatScanner", $"Skipped unreadable file during size calc: {file}", ex);
+                }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ThreatScanner", $"Failed directory size calc: {path}", ex);
+        }
         return size;
     }
 
@@ -2044,7 +2124,10 @@ public static class ThreatScannerService
                     paths.Add(userDir);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("ThreatScanner", $"Failed enumerating user profiles in {usersDir}", ex);
+            }
         }
 
         // Program directories

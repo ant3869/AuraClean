@@ -215,7 +215,10 @@ public static class LargeFileFinderService
                         drive.AvailableFreeSpace));
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("LargeFileFinder", $"Skipped unreadable drive: {drive.Name}", ex);
+            }
         }
         return drives;
     }

@@ -142,6 +142,41 @@ public partial class CleanupHistoryViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ExportHistoryCsv()
+    {
+        if (Records.Count == 0)
+        {
+            StatusMessage = "No history to export yet — run a cleanup first.";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Export Cleanup History as CSV",
+                Filter = "CSV File (*.csv)|*.csv|All Files (*.*)|*.*",
+                FileName = $"AuraClean_History_{DateTime.Now:yyyyMMdd}.csv",
+                DefaultExt = ".csv"
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            var exported = FilteredRecords.Count > 0 ? FilteredRecords : Records;
+            var csv = CleanupHistoryService.BuildHistoryCsv(exported);
+            // UTF-8 BOM so Excel detects the encoding and opens the file directly.
+            System.IO.File.WriteAllText(dialog.FileName, csv, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            StatusMessage = $"Exported {exported.Count} record(s) to {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Couldn't save the CSV export. Check that the location is writable and try again.";
+            DiagnosticLogger.Error("CleanupHistoryVM", "CSV export failed", ex);
+        }
+    }
+
+    [RelayCommand]
     private void CopyToClipboard()
     {
         try

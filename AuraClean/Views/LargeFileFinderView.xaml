@@ -28,7 +28,7 @@
         </StackPanel>
 
         <!-- Controls Bar -->
-        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraCard}" Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -117,7 +117,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Stats -->
-                <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                <Border Grid.Column="0" Style="{StaticResource AuraCard}"
                         BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAmber}"
                         Padding="14,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
@@ -130,7 +130,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Style="{StaticResource AuraGlassCard}"
+                <Border Grid.Column="1" Style="{StaticResource AuraCard}"
                         BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAmber}"
                         Padding="14,8" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">

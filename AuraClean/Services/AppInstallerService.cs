@@ -683,7 +683,10 @@ public static class AppInstallerService
             if (ext is ".exe" or ".msi" or ".zip")
                 return ext;
         }
-        catch { /* ignore malformed URLs */ }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("AppInstaller", $"Ignoring malformed installer URL: {url}", ex);
+        }
         return ".exe"; // Default assumption
     }
 }

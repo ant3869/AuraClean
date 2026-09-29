@@ -142,7 +142,10 @@ public static partial class DuplicateFinderService
                         }
                         list.Add(file);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DiagnosticLogger.Warn("DuplicateFinderService", $"Skipped unreadable file during indexing: {file}", ex);
+                    }
                 }
 
                 result.TotalFilesScanned = totalFiles;
@@ -233,6 +236,7 @@ public static partial class DuplicateFinderService
                         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                         {
                             // File vanished between hashing and reporting.
+                            DiagnosticLogger.Warn("DuplicateFinderService", $"Skipped vanished file during reporting: {file}", ex);
                         }
                     }
 
@@ -394,7 +398,11 @@ public static partial class DuplicateFinderService
             // Enumerate files in current dir
             IEnumerable<string> files;
             try { files = Directory.EnumerateFiles(dir); }
-            catch { continue; }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("DuplicateFinderService", $"Skipped unreadable walk directory: {dir}", ex);
+                continue;
+            }
 
             foreach (var f in files)
                 yield return f;
@@ -415,10 +423,16 @@ public static partial class DuplicateFinderService
 
                         stack.Push(subDir);
                     }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        DiagnosticLogger.Warn("DuplicateFinderService", $"Skipped unreadable subdirectory: {subDir}", ex);
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("DuplicateFinderService", $"Directory walk aborted early at: {dir}", ex);
+            }
         }
     }
 

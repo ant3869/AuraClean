@@ -121,6 +121,15 @@ public partial class SettingsViewModel : ObservableObject, IExperienceModeAware
 
     private void SyncThemeMode(ThemeMode mode)
     {
+        // ThemeChanged can be raised from a non-UI thread (e.g. Windows theme
+        // change notifications); marshal the bound-property update to the UI thread.
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(() => SyncThemeMode(mode));
+            return;
+        }
+
         _suppressThemePreview = true;
         SelectedThemeMode = mode;
         _suppressThemePreview = false;

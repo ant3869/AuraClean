@@ -28,7 +28,7 @@
         </StackPanel>
 
         <!-- Controls -->
-        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+        <Border Grid.Row="1" Style="{StaticResource AuraCard}"
                 Margin="0,0,0,12">
             <Grid>
                 <Grid.RowDefinitions>
@@ -167,7 +167,7 @@
 
                 <!-- Summary Cards -->
                 <WrapPanel Grid.Row="0" Margin="0,0,0,12">
-                    <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                    <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ContentDuplicate" Foreground="{DynamicResource AuraInfo}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -179,7 +179,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                    <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FileMultiple" Foreground="{DynamicResource AuraInfo}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -191,7 +191,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                    <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Harddisk" Foreground="{DynamicResource AuraInfo}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -203,7 +203,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource AuraGlassCardCompact}">
+                    <Border Style="{StaticResource AuraStatCard}">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Timer" Foreground="{DynamicResource AuraInfo}"
                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -259,7 +259,7 @@
                     </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
+                                <Border Style="{StaticResource AuraDataCard}" CornerRadius="8"
                                         Margin="0,0,0,8">
                                     <Expander IsExpanded="True" Style="{StaticResource AuraGroupExpander}"
                                               AutomationProperties.Name="{Binding DisplayName, StringFormat='Duplicates of {0}'}">
@@ -395,7 +395,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="3" Style="{StaticResource AuraGlassCardCompact}"
+        <Border Grid.Row="3" Style="{StaticResource AuraStatCard}"
                 CornerRadius="6" Margin="0,8,0,0">
             <TextBlock Text="{Binding StatusMessage}"
                        AutomationProperties.LiveSetting="Polite"

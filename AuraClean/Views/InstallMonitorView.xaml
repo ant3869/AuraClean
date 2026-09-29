@@ -25,7 +25,7 @@
         </StackPanel>
 
         <!-- Monitor Controls -->
-        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+        <Border Grid.Row="1" Style="{StaticResource AuraCard}"
                 Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -85,7 +85,7 @@
         <!-- Monitoring Indicator & Results -->
         <Grid Grid.Row="2">
             <!-- Active Monitoring Indicator -->
-            <Border Style="{StaticResource AuraGlassCard}"
+            <Border Style="{StaticResource AuraCard}"
                     Padding="24"
                     Visibility="{Binding IsMonitoring, Converter={StaticResource BoolToVis}}"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -120,7 +120,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Hero stat: Registry Keys -->
-                    <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                    <Border Grid.Column="0" Style="{StaticResource AuraCard}"
                             BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Margin="0,0,0,12">
                         <StackPanel>
@@ -133,7 +133,7 @@
                     </Border>
 
                     <!-- Compact: New Files -->
-                    <Border Grid.Column="2" Style="{StaticResource AuraGlassCardCompact}"
+                    <Border Grid.Column="2" Style="{StaticResource AuraStatCard}"
                             BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
@@ -145,7 +145,7 @@
                     </Border>
 
                     <!-- Compact: Total Size -->
-                    <Border Grid.Column="4" Style="{StaticResource AuraGlassCardCompact}"
+                    <Border Grid.Column="4" Style="{StaticResource AuraStatCard}"
                             BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>
@@ -157,7 +157,7 @@
                     </Border>
 
                     <!-- Compact: Directories -->
-                    <Border Grid.Column="6" Style="{StaticResource AuraGlassCardCompact}"
+                    <Border Grid.Column="6" Style="{StaticResource AuraStatCard}"
                             BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentPurple}"
                             Padding="14,12" Margin="0,0,0,12">
                         <StackPanel>

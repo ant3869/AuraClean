@@ -550,6 +550,7 @@ public static class FileCleanerService
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Expected: locked or in-use directory.
+                DiagnosticLogger.Warn("FileCleanerService", $"Skipped locked directory during empty-dir cleanup: {dir}", ex);
             }
         }
     }
@@ -666,6 +667,7 @@ public static class FileCleanerService
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     // File vanished or is inaccessible — skip it.
+                    DiagnosticLogger.Warn("FileCleanerService", $"Skipped unreadable scan file: {file}", ex);
                 }
             }
 
@@ -742,6 +744,7 @@ public static class FileCleanerService
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     // Skip unreadable file metadata.
+                    DiagnosticLogger.Warn("FileCleanerService", $"Skipped unreadable metadata in {dir}: {file.FullName}", ex);
                 }
             }
         }

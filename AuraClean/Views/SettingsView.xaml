@@ -87,7 +87,7 @@
             <StackPanel>
 
                 <!-- ═══ APPEARANCE ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="ThemeLightDark" Width="16" Height="16"
@@ -134,7 +134,7 @@
                 </Border>
 
                 <!-- ═══ GENERAL ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="CogOutline" Width="16" Height="16"
@@ -167,7 +167,7 @@
                 </Border>
 
                 <!-- ═══ CLEANER DEFAULTS ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -227,7 +227,7 @@
                 </Border>
 
                 <!-- ═══ TOOLS ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -282,7 +282,7 @@
                 </Border>
 
                 <!-- ═══ QUARANTINE ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -316,7 +316,7 @@
                 </Border>
 
                 <!-- ═══ HISTORY ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -349,7 +349,7 @@
                 <!-- Storage path info -->
 
                 <!-- ═══ SCHEDULED CLEANUP ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -437,7 +437,7 @@
                 </Border>
 
                 <!-- ═══ CLEANER EXCLUSIONS (D1) ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -510,7 +510,7 @@
                 </Border>
 
                 <!-- Storage path info -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,20"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,20"
                         Padding="14"
                         Background="{StaticResource AuraOverlaySubtle}">
                     <StackPanel Orientation="Horizontal">

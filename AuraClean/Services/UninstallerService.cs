@@ -98,8 +98,8 @@ public static class UninstallerService
                         }
                     }
                 }
-                catch (System.Security.SecurityException) { }
-                catch (UnauthorizedAccessException) { }
+                catch (System.Security.SecurityException ex) { DiagnosticLogger.Warn("UninstallerService", $"Registry access denied scanning uninstall hive: {subKey}", ex); }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("UninstallerService", $"Registry access denied scanning uninstall hive: {subKey}", ex); }
                 catch (IOException ex)
                 {
                     DiagnosticLogger.Warn("UninstallerService", $"Could not read {subKey}", ex);
@@ -254,8 +254,8 @@ public static class UninstallerService
                         }
                     }
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (DirectoryNotFoundException) { }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("UninstallerService", $"Access denied scanning leftover directories under: {basePath}", ex); }
+                catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("UninstallerService", $"Leftover scan path vanished: {basePath}", ex); }
             }
 
             return results;
@@ -376,7 +376,10 @@ public static class UninstallerService
             foreach (var file in new DirectoryInfo(path).EnumerateFiles("*", PathSafety.RecursiveNoReparse))
             {
                 try { size += file.Length; }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable file during size calc: {file.FullName}", ex);
+                }
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

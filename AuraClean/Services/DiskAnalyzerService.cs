@@ -193,7 +193,10 @@ public static class DiskAnalyzerService
                         progress?.Report($"Scanned {scannedCount:N0} items...");
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("DiskAnalyzer", $"Skipped unreadable file: {file}", ex);
+                }
             }
 
             // Recurse into subdirectories (up to maxDepth)
@@ -216,8 +219,8 @@ public static class DiskAnalyzerService
                         node.FileCount += childNode.FileCount;
                         node.DirectoryCount += childNode.DirectoryCount + 1;
                     }
-                    catch (UnauthorizedAccessException) { }
-                    catch (DirectoryNotFoundException) { }
+                    catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Access denied crawling: {dir}", ex); }
+                    catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Directory vanished while crawling: {dir}", ex); }
                 }
             }
             else
@@ -234,10 +237,16 @@ public static class DiskAnalyzerService
                             node.SizeBytes += subSize;
                             node.DirectoryCount++;
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            DiagnosticLogger.Warn("DiskAnalyzer", $"Failed to size fast-scan directory: {dir}", ex);
+                        }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("DiskAnalyzer", $"Failed fast size pass for: {path}", ex);
+                }
             }
 
             // Sort children by size descending for treemap layout
@@ -264,8 +273,8 @@ public static class DiskAnalyzerService
                     topDirs.RemoveAt(0);
             }
         }
-        catch (UnauthorizedAccessException) { }
-        catch (DirectoryNotFoundException) { }
+        catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Access denied at crawl root: {path}", ex); }
+        catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Crawl root vanished: {path}", ex); }
 
         return node;
     }
@@ -295,10 +304,16 @@ public static class DiskAnalyzerService
             {
                 ct.ThrowIfCancellationRequested();
                 try { size += new FileInfo(file).Length; }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("DiskAnalyzer", $"Skipped unreadable file during size calc: {file}", ex);
+                }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("DiskAnalyzer", $"Failed directory size calc: {path}", ex);
+        }
         return size;
     }
 

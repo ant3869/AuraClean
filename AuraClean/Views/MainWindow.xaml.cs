@@ -376,9 +376,11 @@ public partial class MainWindow : Window
             case "Memory" or "DiskOptimizer" or "Startup":
                 _viewModel.IsOptimizeExpanded = true;
                 break;
-            case "LargeFiles" or "Shredder" or "SystemInfo" or "Quarantine" or "SoftwareUpdater"
-                or "FileRecovery" or "EmptyFolders" or "AppInstaller" or "Monitor":
-                _viewModel.IsUtilitiesExpanded = true;
+            case "LargeFiles" or "Shredder" or "FileRecovery" or "EmptyFolders":
+                _viewModel.IsToolsExpanded = true;
+                break;
+            case "SystemInfo" or "Quarantine" or "SoftwareUpdater" or "AppInstaller" or "Monitor":
+                _viewModel.IsSystemExpanded = true;
                 break;
         }
 

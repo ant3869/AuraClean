@@ -140,7 +140,7 @@
             <ItemsControl ItemsSource="{Binding Categories}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
+                        <Border Style="{StaticResource AuraDataCard}" CornerRadius="8"
                                 Margin="0,0,0,8">
                             <Expander IsExpanded="{Binding IsExpanded}"
                                       Style="{StaticResource AuraGroupExpander}"
@@ -275,7 +275,7 @@
         </ScrollViewer>
 
         <!-- Status Bar -->
-        <Border Grid.Row="3" Style="{StaticResource AuraGlassCardCompact}"
+        <Border Grid.Row="3" Style="{StaticResource AuraStatCard}"
                 CornerRadius="6" Margin="0,8,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
