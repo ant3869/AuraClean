@@ -17,6 +17,8 @@ public partial class DiskAnalyzerViewModel : ObservableObject
     [ObservableProperty] private string _statusMessage = "Select a drive or folder to analyze.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private double _progressPercent;
+    [ObservableProperty] private bool _isProgressIndeterminate = true;
+    [ObservableProperty] private string _currentScanPath = string.Empty;
     [ObservableProperty] private string _selectedPath = string.Empty;
 
     // Drive list
@@ -92,10 +94,12 @@ public partial class DiskAnalyzerViewModel : ObservableObject
         HasResults = false;
         StatusMessage = $"Analyzing {pathToAnalyze}...";
         ProgressPercent = 0;
+        IsProgressIndeterminate = true;
+        CurrentScanPath = pathToAnalyze;
 
         try
         {
-            var progress = new Progress<string>(msg => StatusMessage = msg);
+            var progress = new Progress<DiskAnalyzerService.ScanProgress>(OnScanProgress);
 
             var result = await DiskAnalyzerService.AnalyzeDirectoryAsync(
                 pathToAnalyze, maxDepth: 4,
@@ -157,7 +161,19 @@ public partial class DiskAnalyzerViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            CurrentScanPath = string.Empty;
         }
+    }
+
+    private void OnScanProgress(DiskAnalyzerService.ScanProgress p)
+    {
+        // Progress<T> posts asynchronously; ignore snapshots that land after the scan finished.
+        if (!IsBusy) return;
+
+        StatusMessage = $"Scanned {p.ItemsScanned:N0} items · {FormatHelper.FormatBytes(p.BytesScanned)}";
+        CurrentScanPath = p.CurrentPath;
+        IsProgressIndeterminate = p.PercentEstimate is null;
+        ProgressPercent = p.PercentEstimate ?? 0;
     }
 
     [RelayCommand]

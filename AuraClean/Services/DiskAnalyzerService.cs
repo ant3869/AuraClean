@@ -1,5 +1,8 @@
 using AuraClean.Helpers;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Enumeration;
+using System.Security;
 
 namespace AuraClean.Services;
 
@@ -51,23 +54,54 @@ public static class DiskAnalyzerService
     }
 
     /// <summary>
+    /// Live progress snapshot emitted while a scan is running.
+    /// </summary>
+    /// <param name="ItemsScanned">Files and folders visited so far.</param>
+    /// <param name="BytesScanned">Total size of the files visited so far.</param>
+    /// <param name="CurrentPath">Folder currently being read.</param>
+    /// <param name="PercentEstimate">
+    /// Estimated completion (0–99) when scanning a whole drive, based on the drive's used space;
+    /// null when the total is unknown (custom folders).
+    /// </param>
+    public readonly record struct ScanProgress(
+        long ItemsScanned, long BytesScanned, string CurrentPath, double? PercentEstimate);
+
+    private const int TopN = 20;
+    private const int MaxChildrenPerNode = 50;
+    private const long ProgressIntervalMs = 150;
+
+    /// <summary>
+    /// Single-level enumeration that includes hidden/system files (pagefile, hiberfil, etc. are real
+    /// disk usage), skips folders it cannot open instead of aborting, and uses a larger buffer so
+    /// huge folders (WinSxS, caches) need fewer kernel round-trips. Sizes come from the directory
+    /// listing itself, so no per-file metadata call is made.
+    /// </summary>
+    private static readonly EnumerationOptions ScanOptions = new()
+    {
+        RecurseSubdirectories = false,
+        IgnoreInaccessible = true,
+        AttributesToSkip = 0,
+        ReturnSpecialDirectories = false,
+        BufferSize = 64 * 1024
+    };
+
+    /// <summary>
     /// Analyzes a directory recursively and builds a size tree.
-    /// Memory-efficient: only stores directory nodes and top-N largest files.
+    /// Folders down to <paramref name="maxDepth"/> become tree nodes; deeper folders are
+    /// summed into their ancestor without allocating nodes. Every file at every depth is
+    /// counted, sized and considered for the largest-files list.
     /// </summary>
     public static async Task<AnalysisResult> AnalyzeDirectoryAsync(
         string rootPath,
         int maxDepth = 4,
-        IProgress<string>? progress = null,
-        IProgress<double>? percentProgress = null,
+        IProgress<ScanProgress>? progress = null,
         CancellationToken ct = default)
     {
-        var startTime = DateTime.Now;
+        ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
+
+        var stopwatch = Stopwatch.StartNew();
         var result = new AnalysisResult();
-        // Bounded collections for top-20 tracking (avoid storing all files)
-        var topFiles = new SortedList<long, DiskNode>(new DuplicateKeyComparer());
-        var topDirs = new SortedList<long, DiskNode>(new DuplicateKeyComparer());
-        const int TopN = 20;
-        int scannedCount = 0;
+        var context = new ScanContext(maxDepth, GetExpectedBytes(rootPath), progress, ct);
 
         await Task.Run(() =>
         {
@@ -75,15 +109,12 @@ public static class DiskAnalyzerService
             Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
             try
             {
-                progress?.Report($"Analyzing {rootPath}...");
-                result.Root = CrawlDirectory(rootPath, 0, maxDepth,
-                    topFiles, topDirs, TopN,
-                    progress, ref scannedCount, ct);
+                var rootName = Path.GetFileName(Path.TrimEndingDirectorySeparator(rootPath));
+                result.Root = CrawlDirectory(rootPath, rootName, GetLastWriteTimeSafe(rootPath), 0, context);
                 result.TotalSizeBytes = result.Root.SizeBytes;
                 result.TotalFiles = result.Root.FileCount;
                 result.TotalDirectories = result.Root.DirectoryCount;
 
-                // Compute percentages
                 if (result.TotalSizeBytes > 0)
                     ComputePercentages(result.Root, result.TotalSizeBytes);
             }
@@ -93,42 +124,48 @@ public static class DiskAnalyzerService
             }
         }, ct);
 
-        result.ScanDuration = DateTime.Now - startTime;
-
-        // Extract top-20 from our bounded collections
-        result.LargestFiles = topFiles.Values.Reverse().Take(TopN).ToList();
-        result.LargestDirectories = topDirs.Values.Reverse().Take(TopN).ToList();
-
-        progress?.Report($"Analysis complete: {result.TotalFiles:N0} files, " +
-                         $"{result.TotalDirectories:N0} directories, " +
-                         $"{FormatHelper.FormatBytes(result.TotalSizeBytes)} total.");
-
+        result.ScanDuration = stopwatch.Elapsed;
+        result.LargestFiles = context.TopFiles.Values.Reverse().Take(TopN).ToList();
+        result.LargestDirectories = context.TopDirs.Values.Reverse().Take(TopN).ToList();
         return result;
     }
 
     /// <summary>
     /// Gets quick stats for all fixed drives on the system.
+    /// A drive that errors while being queried (locked, ejected, failing) is skipped.
     /// </summary>
     public static List<DriveStats> GetDriveStats()
     {
         var stats = new List<DriveStats>();
-        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
+        foreach (var drive in DriveInfo.GetDrives())
         {
-            stats.Add(new DriveStats
+            try
             {
-                Name = drive.Name,
-                Label = drive.VolumeLabel,
-                TotalBytes = drive.TotalSize,
-                FreeBytes = drive.TotalFreeSpace,
-                UsedBytes = drive.TotalSize - drive.TotalFreeSpace,
-                UsagePercent = (double)(drive.TotalSize - drive.TotalFreeSpace) / drive.TotalSize * 100
-            });
+                if (!drive.IsReady || drive.DriveType != DriveType.Fixed || drive.TotalSize <= 0)
+                    continue;
+
+                long total = drive.TotalSize;
+                long free = drive.TotalFreeSpace;
+                stats.Add(new DriveStats
+                {
+                    Name = drive.Name,
+                    Label = drive.VolumeLabel,
+                    TotalBytes = total,
+                    FreeBytes = free,
+                    UsedBytes = total - free,
+                    UsagePercent = (double)(total - free) / total * 100
+                });
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                DiagnosticLogger.Warn("DiskAnalyzer", $"Skipping drive {drive.Name}: {ex.Message}");
+            }
         }
         return stats;
     }
 
     /// <summary>Comparer that allows duplicate keys in SortedList.</summary>
-    private class DuplicateKeyComparer : IComparer<long>
+    private sealed class DuplicateKeyComparer : IComparer<long>
     {
         public int Compare(long x, long y)
         {
@@ -139,144 +176,258 @@ public static class DiskAnalyzerService
 
     #region Private Helpers
 
-    private static DiskNode CrawlDirectory(
-        string path, int depth, int maxDepth,
-        SortedList<long, DiskNode> topFiles, SortedList<long, DiskNode> topDirs, int topN,
-        IProgress<string>? progress,
-        ref int scannedCount, CancellationToken ct)
+    /// <summary>One directory-listing entry, captured without a separate metadata call.</summary>
+    private readonly record struct ScanEntry(
+        string Name, long Length, bool IsDirectory, bool IsReparsePoint, DateTimeOffset LastWriteUtc);
+
+    /// <summary>Mutable state shared across one scan (single background thread).</summary>
+    private sealed class ScanContext(
+        int maxDepth, long expectedBytes, IProgress<ScanProgress>? progress, CancellationToken ct)
     {
-        ct.ThrowIfCancellationRequested();
+        private long _nextReportAt;
+
+        public int MaxDepth { get; } = maxDepth;
+        public CancellationToken Ct { get; } = ct;
+        public SortedList<long, DiskNode> TopFiles { get; } = new(new DuplicateKeyComparer());
+        public SortedList<long, DiskNode> TopDirs { get; } = new(new DuplicateKeyComparer());
+        public long ItemsScanned { get; private set; }
+        public long BytesScanned { get; private set; }
+
+        public void CountFile(string directory, in ScanEntry entry)
+        {
+            ItemsScanned++;
+            BytesScanned += entry.Length;
+
+            if (TopFiles.Count >= TopN && entry.Length <= TopFiles.Keys[0])
+                return;
+
+            TopFiles.Add(entry.Length, new DiskNode
+            {
+                Name = entry.Name,
+                FullPath = Path.Join(directory, entry.Name),
+                SizeBytes = entry.Length,
+                IsDirectory = false,
+                LastModified = entry.LastWriteUtc.LocalDateTime
+            });
+            if (TopFiles.Count > TopN)
+                TopFiles.RemoveAt(0); // Remove smallest
+        }
+
+        public void CountDirectory() => ItemsScanned++;
+
+        public void TrackDirectory(DiskNode node)
+        {
+            if (node.SizeBytes <= 0 || (TopDirs.Count >= TopN && node.SizeBytes <= TopDirs.Keys[0]))
+                return;
+
+            TopDirs.Add(node.SizeBytes, new DiskNode
+            {
+                Name = node.Name,
+                FullPath = node.FullPath,
+                SizeBytes = node.SizeBytes,
+                IsDirectory = true,
+                FileCount = node.FileCount,
+                DirectoryCount = node.DirectoryCount,
+                LastModified = node.LastModified
+            });
+            if (TopDirs.Count > TopN)
+                TopDirs.RemoveAt(0);
+        }
+
+        /// <summary>Emits a progress snapshot at most every <see cref="ProgressIntervalMs"/>.</summary>
+        public void Report(string currentPath)
+        {
+            if (progress == null) return;
+
+            long now = Environment.TickCount64;
+            if (now < _nextReportAt) return;
+            _nextReportAt = now + ProgressIntervalMs;
+
+            double? percent = expectedBytes > 0
+                ? Math.Min(99.0, BytesScanned * 100.0 / expectedBytes)
+                : null;
+            progress.Report(new ScanProgress(ItemsScanned, BytesScanned, currentPath, percent));
+        }
+    }
+
+    private static DiskNode CrawlDirectory(
+        string path, string name, DateTime lastModified, int depth, ScanContext context)
+    {
+        context.Ct.ThrowIfCancellationRequested();
+        context.Report(path);
 
         var node = new DiskNode
         {
-            Name = Path.GetFileName(path),
+            Name = string.IsNullOrEmpty(name) ? path : name, // Drive roots like "C:\" have no file name
             FullPath = path,
             IsDirectory = true,
-            LastModified = Directory.GetLastWriteTime(path)
+            LastModified = lastModified
         };
 
-        if (string.IsNullOrEmpty(node.Name))
-            node.Name = path; // For drive roots like "C:\"
-
-        try
+        // Stream entries so progress reports fire as they're read (a huge flat directory
+        // would otherwise show nothing until the whole listing is buffered).
+        var entries = ReadDirectory(path, context.Ct, entry =>
         {
-            // Enumerate files — DON'T create child nodes for files (too much memory).
-            // Instead just aggregate size and track top-N largest.
-            foreach (var file in Directory.EnumerateFiles(path))
+            if (!entry.IsDirectory)
             {
-                ct.ThrowIfCancellationRequested();
-                try
-                {
-                    var fi = new FileInfo(file);
-                    long len = fi.Length;
-                    node.SizeBytes += len;
-                    node.FileCount++;
-
-                    // Track top-N largest files using a bounded sorted list
-                    if (topFiles.Count < topN || len > topFiles.Keys[0])
-                    {
-                        topFiles.Add(len, new DiskNode
-                        {
-                            Name = fi.Name,
-                            FullPath = fi.FullName,
-                            SizeBytes = len,
-                            IsDirectory = false,
-                            LastModified = fi.LastWriteTime
-                        });
-                        if (topFiles.Count > topN)
-                            topFiles.RemoveAt(0); // Remove smallest
-                    }
-
-                    scannedCount++;
-                    if (scannedCount % 10000 == 0)
-                    {
-                        progress?.Report($"Scanned {scannedCount:N0} items...");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    DiagnosticLogger.Warn("DiskAnalyzer", $"Skipped unreadable file: {file}", ex);
-                }
+                node.SizeBytes += entry.Length;
+                node.FileCount++;
+                context.CountFile(path, entry);
             }
+            context.Report(path);
+        });
 
-            // Recurse into subdirectories (up to maxDepth)
-            if (depth < maxDepth)
+        foreach (var entry in entries)
+        {
+            context.Ct.ThrowIfCancellationRequested();
+
+            if (!entry.IsDirectory)
+                continue; // already counted during streaming
+
+            // Junctions / symlinks point elsewhere on disk: following them double-counts and can loop.
+            if (entry.IsReparsePoint) continue;
+
+            context.CountDirectory();
+            var childPath = Path.Join(path, entry.Name);
+
+            if (depth < context.MaxDepth)
             {
-                foreach (var dir in Directory.EnumerateDirectories(path))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    try
-                    {
-                        // Skip system/hidden reparse points (junctions, symlinks)
-                        var attrs = File.GetAttributes(dir);
-                        if (attrs.HasFlag(FileAttributes.ReparsePoint)) continue;
-
-                        var childNode = CrawlDirectory(dir, depth + 1, maxDepth,
-                            topFiles, topDirs, topN, progress, ref scannedCount, ct);
-
-                        node.Children.Add(childNode);
-                        node.SizeBytes += childNode.SizeBytes;
-                        node.FileCount += childNode.FileCount;
-                        node.DirectoryCount += childNode.DirectoryCount + 1;
-                    }
-                    catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Access denied crawling: {dir}", ex); }
-                    catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Directory vanished while crawling: {dir}", ex); }
-                }
+                var child = CrawlDirectory(childPath, entry.Name, entry.LastWriteUtc.LocalDateTime, depth + 1, context);
+                node.Children.Add(child);
+                node.SizeBytes += child.SizeBytes;
+                node.FileCount += child.FileCount;
+                node.DirectoryCount += child.DirectoryCount + 1;
             }
             else
             {
-                // Beyond maxDepth, just count sizes without building child tree
-                try
-                {
-                    foreach (var dir in Directory.EnumerateDirectories(path))
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        try
-                        {
-                            long subSize = GetDirectorySizeFast(dir, ct);
-                            node.SizeBytes += subSize;
-                            node.DirectoryCount++;
-                        }
-                        catch (Exception ex)
-                        {
-                            DiagnosticLogger.Warn("DiskAnalyzer", $"Failed to size fast-scan directory: {dir}", ex);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    DiagnosticLogger.Warn("DiskAnalyzer", $"Failed fast size pass for: {path}", ex);
-                }
-            }
-
-            // Sort children by size descending for treemap layout
-            node.Children.Sort((a, b) => b.SizeBytes.CompareTo(a.SizeBytes));
-
-            // Only keep top 50 children to limit memory (treemap only shows 50 anyway)
-            if (node.Children.Count > 50)
-                node.Children.RemoveRange(50, node.Children.Count - 50);
-
-            // Track top-N largest directories
-            if (node.SizeBytes > 0 && (topDirs.Count < topN || node.SizeBytes > topDirs.Keys[0]))
-            {
-                topDirs.Add(node.SizeBytes, new DiskNode
-                {
-                    Name = node.Name,
-                    FullPath = node.FullPath,
-                    SizeBytes = node.SizeBytes,
-                    IsDirectory = true,
-                    FileCount = node.FileCount,
-                    DirectoryCount = node.DirectoryCount,
-                    LastModified = node.LastModified
-                });
-                if (topDirs.Count > topN)
-                    topDirs.RemoveAt(0);
+                var (size, files, dirs) = SumDirectoryTree(childPath, context);
+                node.SizeBytes += size;
+                node.FileCount += files;
+                node.DirectoryCount += dirs + 1;
             }
         }
-        catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Access denied at crawl root: {path}", ex); }
-        catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("DiskAnalyzer", $"Crawl root vanished: {path}", ex); }
 
+        // Sort children by size descending for treemap layout; the treemap shows at most 50
+        node.Children.Sort((a, b) => b.SizeBytes.CompareTo(a.SizeBytes));
+        if (node.Children.Count > MaxChildrenPerNode)
+            node.Children.RemoveRange(MaxChildrenPerNode, node.Children.Count - MaxChildrenPerNode);
+
+        context.TrackDirectory(node);
         return node;
+    }
+
+    /// <summary>
+    /// Totals a folder subtree below the node depth limit without building nodes.
+    /// Iterative so arbitrarily deep trees cannot overflow the stack.
+    /// </summary>
+    private static (long Size, int Files, int Directories) SumDirectoryTree(string rootPath, ScanContext context)
+    {
+        long size = 0;
+        int files = 0;
+        int directories = 0;
+        var pending = new Stack<string>();
+        pending.Push(rootPath);
+
+        while (pending.Count > 0)
+        {
+            context.Ct.ThrowIfCancellationRequested();
+            var path = pending.Pop();
+            context.Report(path);
+
+            // Same streaming treatment as CrawlDirectory: report as entries arrive.
+            var entries = ReadDirectory(path, context.Ct, entry =>
+            {
+                if (!entry.IsDirectory)
+                {
+                    size += entry.Length;
+                    files++;
+                    context.CountFile(path, entry);
+                }
+                context.Report(path);
+            });
+
+            foreach (var entry in entries)
+            {
+                if (!entry.IsDirectory)
+                    continue; // already counted during streaming
+                else if (!entry.IsReparsePoint)
+                {
+                    directories++;
+                    context.CountDirectory();
+                    pending.Push(Path.Join(path, entry.Name));
+                }
+            }
+        }
+
+        return (size, files, directories);
+    }
+
+    /// <summary>
+    /// Reads one directory level, streaming entries to <paramref name="onEntry"/> as they
+    /// arrive so progress stays live even in a huge flat directory. Returns whatever was
+    /// read before an error: a folder that vanishes, is locked, or fails mid-listing
+    /// never aborts the whole scan.
+    /// </summary>
+    private static List<ScanEntry> ReadDirectory(string path, CancellationToken ct, Action<ScanEntry>? onEntry = null)
+    {
+        var entries = new List<ScanEntry>();
+        try
+        {
+            var enumerable = new FileSystemEnumerable<ScanEntry>(
+                path,
+                static (ref FileSystemEntry e) => new ScanEntry(
+                    e.FileName.ToString(),
+                    e.IsDirectory ? 0 : e.Length,
+                    e.IsDirectory,
+                    (e.Attributes & FileAttributes.ReparsePoint) != 0,
+                    e.LastWriteTimeUtc),
+                ScanOptions);
+
+            foreach (var entry in enumerable)
+            {
+                ct.ThrowIfCancellationRequested();
+                entries.Add(entry);
+                onEntry?.Invoke(entry);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            // Inaccessible, removed, or unreadable mid-scan — keep what we have and move on.
+        }
+        return entries;
+    }
+
+    /// <summary>
+    /// Used bytes on the volume when <paramref name="rootPath"/> is a drive root, else 0 (unknown).
+    /// </summary>
+    private static long GetExpectedBytes(string rootPath)
+    {
+        try
+        {
+            var full = Path.GetFullPath(rootPath);
+            var root = Path.GetPathRoot(full);
+            if (string.IsNullOrEmpty(root) ||
+                !string.Equals(Path.TrimEndingDirectorySeparator(full), Path.TrimEndingDirectorySeparator(root),
+                    StringComparison.OrdinalIgnoreCase))
+                return 0;
+
+            var drive = new DriveInfo(root);
+            return drive.IsReady ? Math.Max(0, drive.TotalSize - drive.TotalFreeSpace) : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                       or SecurityException)
+        {
+            return 0;
+        }
+    }
+
+    private static DateTime GetLastWriteTimeSafe(string path)
+    {
+        try { return Directory.GetLastWriteTime(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            return DateTime.MinValue;
+        }
     }
 
     private static void ComputePercentages(DiskNode node, long parentSize)
@@ -293,28 +444,6 @@ public static class DiskAnalyzerService
             if (child.IsDirectory)
                 ComputePercentages(child, node.SizeBytes);
         }
-    }
-
-    private static long GetDirectorySizeFast(string path, CancellationToken ct)
-    {
-        long size = 0;
-        try
-        {
-            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
-            {
-                ct.ThrowIfCancellationRequested();
-                try { size += new FileInfo(file).Length; }
-                catch (Exception ex)
-                {
-                    DiagnosticLogger.Warn("DiskAnalyzer", $"Skipped unreadable file during size calc: {file}", ex);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLogger.Warn("DiskAnalyzer", $"Failed directory size calc: {path}", ex);
-        }
-        return size;
     }
 
     #endregion
