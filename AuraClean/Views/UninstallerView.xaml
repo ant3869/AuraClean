@@ -123,14 +123,17 @@
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
                             <GridViewColumn Width="280">
-                                <GridViewColumn.Header>
-                                    <Button Content="{Binding DataContext.NameHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="Name"
-                                            Style="{StaticResource MaterialDesignToolButton}"
-                                            Foreground="{DynamicResource AuraTextPrimary}"
-                                            Padding="0" />
-                                </GridViewColumn.Header>
+                                <GridViewColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DataContext.NameHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="Name"
+                                                Style="{StaticResource MaterialDesignToolButton}"
+                                                Foreground="{DynamicResource AuraTextMuted}"
+                                                FontSize="12" FontWeight="SemiBold"
+                                                Padding="4,2" />
+                                    </DataTemplate>
+                                </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"
@@ -139,14 +142,17 @@
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
                             <GridViewColumn Width="180">
-                                <GridViewColumn.Header>
-                                    <Button Content="{Binding DataContext.PublisherHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="Publisher"
-                                            Style="{StaticResource MaterialDesignToolButton}"
-                                            Foreground="{DynamicResource AuraTextPrimary}"
-                                            Padding="0" />
-                                </GridViewColumn.Header>
+                                <GridViewColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DataContext.PublisherHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="Publisher"
+                                                Style="{StaticResource MaterialDesignToolButton}"
+                                                Foreground="{DynamicResource AuraTextMuted}"
+                                                FontSize="12" FontWeight="SemiBold"
+                                                Padding="4,2" />
+                                    </DataTemplate>
+                                </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding Publisher}" TextTrimming="CharacterEllipsis"
@@ -155,14 +161,17 @@
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
                             <GridViewColumn Width="100">
-                                <GridViewColumn.Header>
-                                    <Button Content="{Binding DataContext.VersionHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="Version"
-                                            Style="{StaticResource MaterialDesignToolButton}"
-                                            Foreground="{DynamicResource AuraTextPrimary}"
-                                            Padding="0" />
-                                </GridViewColumn.Header>
+                                <GridViewColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DataContext.VersionHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="Version"
+                                                Style="{StaticResource MaterialDesignToolButton}"
+                                                Foreground="{DynamicResource AuraTextMuted}"
+                                                FontSize="12" FontWeight="SemiBold"
+                                                Padding="4,2" />
+                                    </DataTemplate>
+                                </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding DisplayVersion}" TextTrimming="CharacterEllipsis" />
@@ -170,14 +179,17 @@
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
                             <GridViewColumn Width="100">
-                                <GridViewColumn.Header>
-                                    <Button Content="{Binding DataContext.SizeHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="Size"
-                                            Style="{StaticResource MaterialDesignToolButton}"
-                                            Foreground="{DynamicResource AuraTextPrimary}"
-                                            Padding="0" />
-                                </GridViewColumn.Header>
+                                <GridViewColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DataContext.SizeHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="Size"
+                                                Style="{StaticResource MaterialDesignToolButton}"
+                                                Foreground="{DynamicResource AuraTextMuted}"
+                                                FontSize="12" FontWeight="SemiBold"
+                                                Padding="4,2" />
+                                    </DataTemplate>
+                                </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedSize}" TextTrimming="CharacterEllipsis" />
@@ -185,14 +197,17 @@
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
                             <GridViewColumn Width="110">
-                                <GridViewColumn.Header>
-                                    <Button Content="{Binding DataContext.InstalledHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="Installed"
-                                            Style="{StaticResource MaterialDesignToolButton}"
-                                            Foreground="{DynamicResource AuraTextPrimary}"
-                                            Padding="0" />
-                                </GridViewColumn.Header>
+                                <GridViewColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DataContext.InstalledHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="Installed"
+                                                Style="{StaticResource MaterialDesignToolButton}"
+                                                Foreground="{DynamicResource AuraTextMuted}"
+                                                FontSize="12" FontWeight="SemiBold"
+                                                Padding="4,2" />
+                                    </DataTemplate>
+                                </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding InstallDate}" TextTrimming="CharacterEllipsis" />
@@ -200,14 +215,17 @@
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
                             <GridViewColumn Width="60">
-                                <GridViewColumn.Header>
-                                    <Button Content="{Binding DataContext.DriveHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="Drive"
-                                            Style="{StaticResource MaterialDesignToolButton}"
-                                            Foreground="{DynamicResource AuraTextPrimary}"
-                                            Padding="0" />
-                                </GridViewColumn.Header>
+                                <GridViewColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DataContext.DriveHeader, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Command="{Binding DataContext.SortCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="Drive"
+                                                Style="{StaticResource MaterialDesignToolButton}"
+                                                Foreground="{DynamicResource AuraTextMuted}"
+                                                FontSize="12" FontWeight="SemiBold"
+                                                Padding="4,2" />
+                                    </DataTemplate>
+                                </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding DriveLetter}" TextTrimming="CharacterEllipsis" />
