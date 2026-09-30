@@ -194,7 +194,8 @@ public static class UninstallerService
         // 3. Value-level registry traces (Run/RunOnce, Uninstall, Services, Tasks, App Paths, MUI)
         progress?.Report("Scanning registry values for program traces...");
         var traceResults = await RegistryScannerService.ScanForProgramTracesAsync(
-            program.DisplayName, program.Publisher, program.InstallLocation, progress, ct);
+            program.DisplayName, program.Publisher, program.InstallLocation, progress, ct,
+            program.RegistryKeyPath);
         results.AddRange(traceResults);
 
         return results

@@ -184,7 +184,8 @@ public static class RegistryScannerService
     public static async Task<List<JunkItem>> ScanForProgramTracesAsync(
         string displayName, string publisher, string? installLocation,
         IProgress<string>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? registryKeyPath = null)
     {
         var results = new List<JunkItem>();
         if (string.IsNullOrWhiteSpace(displayName))
@@ -211,7 +212,7 @@ public static class RegistryScannerService
                 try
                 {
                     using var baseKey = RegistryKey.OpenBaseKey(hive, view);
-                    ScanTraceTargets(baseKey, label, searchTerms, installDir, results, progress, ct, displayName);
+                    ScanTraceTargets(baseKey, label, searchTerms, installDir, results, progress, ct, displayName, registryKeyPath);
                 }
                 catch (System.Security.SecurityException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied scanning traces: {label}", ex); }
                 catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied scanning traces: {label}", ex); }
@@ -229,7 +230,7 @@ public static class RegistryScannerService
         List<JunkItem> results,
         IProgress<string>? progress,
         CancellationToken ct,
-        string? displayName = null)
+        string? displayName = null, string? registryKeyPath = null)
     {
         // Direct targets with a fixed location.
         foreach (var relative in GetTraceTargets(baseKey))
@@ -252,7 +253,7 @@ public static class RegistryScannerService
         }
 
         // Uninstall subtree: exact product identity (or install path / product id) required.
-        ScanTraceUninstallSubtree(baseKey, label, searchTerms, installDir, results, ct, displayName);
+        ScanTraceUninstallSubtree(baseKey, label, searchTerms, installDir, results, ct, displayName, registryKeyPath);
 
         // Services: ImagePath / value data must contain the install path (name alone is not enough).
         ScanTraceServicesSubtree(baseKey, label, searchTerms, installDir, results, ct);
@@ -284,7 +285,7 @@ public static class RegistryScannerService
         RegistryKey baseKey, string label,
         HashSet<string> searchTerms, string? installDir,
         List<JunkItem> results, CancellationToken ct,
-        string? displayName = null)
+        string? displayName = null, string? registryKeyPath = null)
     {
         const string relative = @"Software\Microsoft\Windows\CurrentVersion\Uninstall";
         RegistryKey? uninstallKey = null;
@@ -316,7 +317,7 @@ public static class RegistryScannerService
                         if (entryKey == null)
                             continue;
 
-                        if (IsUninstallEntryIdentityMatch(entryKey, entry, displayName, installDir))
+                        if (IsUninstallEntryIdentityMatch(entryKey, entry, displayName, installDir, registryKeyPath))
                         {
                             TryAddTraceHit(results, $"{label}\\{relative}\\{entry}",
                                 $"Leftover uninstall entry: {entry}");
@@ -334,16 +335,19 @@ public static class RegistryScannerService
     /// <summary>
     /// Identity gate for Uninstall-subtree entries: an entry is offered for deletion
     /// only when it really is the uninstalled product — the entry's DisplayName
-    /// exactly equals the product name (normalized), or one of its path-like values
-    /// (InstallLocation, DisplayIcon, UninstallString, QuietUninstallString,
-    /// InstallSource) sits under the original install location, or the entry key
-    /// name carries the product id ({GUID} / product code) recorded at enum time.
+    /// exactly equals the product name (normalized), the entry key name matches the
+    /// product's original registry key (the MSI product GUID / product code), or one
+    /// of its path-like values (InstallLocation, DisplayIcon, UninstallString,
+    /// QuietUninstallString, InstallSource) sits at or under the original install
+    /// location (boundary-aware: same directory or a child of it, never a mere
+    /// name-prefix sibling like "Acme Tools" vs "Acme").
     /// Shared-word substring matches (e.g. "Visual Studio Code" terms matching an
     /// installed "Visual Studio" edition's DisplayName) never qualify on their own.
     /// </summary>
     internal static bool IsUninstallEntryIdentityMatch(
         RegistryKey entryKey, string entryName,
-        string? displayName, string? installDir)
+        string? displayName, string? installDir,
+        string? registryKeyPath = null)
     {
         string? entryDisplayName = null;
         try { entryDisplayName = entryKey.GetValue("DisplayName") as string; }
@@ -362,16 +366,28 @@ public static class RegistryScannerService
             return true;
         }
 
-        // 2. Entry key name carries the product id ({GUID} form): a stable identity
-        // that survives renames. Matches when the id appears in the product name/id.
-        if (entryName.StartsWith("{", StringComparison.Ordinal) && entryName.EndsWith("}", StringComparison.Ordinal) &&
-            !string.IsNullOrWhiteSpace(displayName) &&
-            displayName.Contains(entryName, StringComparison.OrdinalIgnoreCase))
+        // 2. Entry key name matches the product's original registry key: the MSI
+        // product GUID / product code recorded at enum time (program.RegistryKeyPath).
+        // Falls back to the display-name-contains-GUID case for unusual entries.
+        if (entryName.StartsWith("{", StringComparison.Ordinal) && entryName.EndsWith("}", StringComparison.Ordinal))
         {
-            return true;
+            if (!string.IsNullOrWhiteSpace(registryKeyPath) &&
+                registryKeyPath.EndsWith("\\" + entryName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(displayName) &&
+                displayName.Contains(entryName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
         }
 
-        // 3. One of the entry's path-like values sits under the install location.
+        // 3. One of the entry's path-like values sits at or under the install
+        // location. Boundary-aware: same directory or a real child of it — a
+        // mere name-prefix sibling ("Acme Tools" vs install dir "Acme") is not
+        // the same product.
         if (!string.IsNullOrWhiteSpace(installDir))
         {
             foreach (var valueName in new[] { "InstallLocation", "DisplayIcon", "UninstallString", "QuietUninstallString", "InstallSource" })
@@ -384,7 +400,7 @@ public static class RegistryScannerService
                 }
 
                 if (!string.IsNullOrWhiteSpace(data) &&
-                    data.Contains(installDir, StringComparison.OrdinalIgnoreCase))
+                    IsSameOrUnderDirectory(data, installDir))
                 {
                     return true;
                 }
@@ -392,6 +408,40 @@ public static class RegistryScannerService
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// True when <paramref name="candidate"/> is the same directory as
+    /// <paramref name="baseDir"/> or a real child of it. A plain substring check
+    /// is not enough: "C:\Program Files\Acme Tools" merely starts with
+    /// "C:\Program Files\Acme" but is a different product's directory.
+    /// </summary>
+    internal static bool IsSameOrUnderDirectory(string candidate, string baseDir)
+    {
+        var normBase = Helpers.PathSafety.Normalize(baseDir)?.TrimEnd('\\', '/');
+        // Path-like registry values often carry quotes, args, or a trailing
+        // executable: strip to the longest leading path prefix before comparing.
+        var normCand = Helpers.PathSafety.Normalize(ExtractLeadingPath(candidate))?.TrimEnd('\\', '/');
+        if (string.IsNullOrEmpty(normBase) || string.IsNullOrEmpty(normCand))
+            return false;
+
+        return normCand.Equals(normBase, StringComparison.OrdinalIgnoreCase) ||
+               normCand.StartsWith(normBase + "\\", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Strips quotes, flanking whitespace, and trailing arguments from a path-like
+    /// registry value, leaving the longest leading valid-path prefix
+    /// ("C:\Dir\App\svc.exe -run" → "C:\Dir\App\svc.exe").
+    /// </summary>
+    internal static string ExtractLeadingPath(string value)
+    {
+        var s = value.Trim().Trim('"').Trim();
+        // Cut at the first " <dash-arg>" or "\" <arg>" boundary outside the path.
+        var argAt = System.Text.RegularExpressions.Regex.Match(s, @"\s+(?=[/\\-])");
+        if (argAt.Success)
+            s = s[..argAt.Index].TrimEnd();
+        return s;
     }
 
     private static void ScanTraceServicesSubtree(
@@ -886,9 +936,10 @@ public static class RegistryScannerService
     }
 
     /// <summary>
-    /// Deletes a single registry value (after exporting the parent key as backup).
-    /// The parent key itself is never deleted, so shared containers (Run, MUI cache)
-    /// survive; only the named value is removed.
+    /// Deletes a single registry value (after exporting the parent key as backup
+    /// from the same view the value was found in). The parent key itself is never
+    /// deleted, so shared containers (Run, MUI cache) survive; only the named
+    /// value is removed.
     /// </summary>
     private static async Task<(bool Success, string Message)> DeleteRegistryValueAsync(
         RegistryHive hive, RegistryView view, string subKeyPath, string valueName)
@@ -905,8 +956,16 @@ public static class RegistryScannerService
                     return (true, "Already removed.");
             }
 
+            // Rebuild the display path with the view suffix so the backup exports
+            // the same view the delete runs against (HKLM defaults to 64-bit).
+            var viewSuffix = view switch
+            {
+                RegistryView.Registry32 => " (32-bit)",
+                RegistryView.Registry64 when hive == RegistryHive.LocalMachine => " (64-bit)",
+                _ => string.Empty
+            };
             var backup = await BackupRegistryKeyAsync(
-                $"{(hive == RegistryHive.CurrentUser ? "HKCU" : "HKLM")}\\{subKeyPath}");
+                $"{(hive == RegistryHive.CurrentUser ? "HKCU" : "HKLM")}{viewSuffix}\\{subKeyPath}");
             if (backup == null)
                 return (false, "Backup failed — value was not deleted.");
 

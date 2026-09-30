@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Uninstall identity requires the original product key** — the MSI product GUID /
+  product code from `RegistryKeyPath` is threaded through the trace scan, so a
+  partially removed entry with a wiped DisplayName still matches by its known GUID.
+- **Install-dir matching is boundary-aware** — path-like values qualify only when
+  at or truly under the install location (`Acme Tools` no longer matches `Acme`);
+  quoted paths and trailing args are stripped before comparing.
+- **Value backups keep the 32-bit view** — the backup path is rebuilt with the
+  `(32-bit)` / `(64-bit)` suffix so a 32-bit Run value's backup actually exports
+  the 32-bit parent it deletes from.
+
 - **Shared-registry-container deletes are value-scoped** — Run/RunOnce and MUI-cache
   hits now name the individual value (`KeyPath:value=Name`) and delete only that
   value after backup; the shared parent key is never deleted.

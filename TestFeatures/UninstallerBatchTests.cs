@@ -214,5 +214,30 @@ public static class UninstallerBatchTests
         Check(!UninstallerService.BuildRemnantDirectorySearchTerms("Visual Studio Code", "Microsoft")
                 .SetEquals(UninstallerService.BuildRemnantDirectorySearchTerms("Visual Studio", "Microsoft")),
             "VS Code vs VS terms recorded (sanity: distinct products)");
+
+        // Round 3 P1: boundary-aware install-dir check — "Acme Tools" is NOT under "Acme".
+        Check(RegistryScannerService.IsSameOrUnderDirectory(
+                @"C:\Program Files\Acme\bin\app.exe", @"C:\Program Files\Acme"),
+            "Same-dir child path qualifies");
+        Check(RegistryScannerService.IsSameOrUnderDirectory(
+                @"C:\Program Files\Acme", @"C:\Program Files\Acme"),
+            "Same directory qualifies");
+        Check(!RegistryScannerService.IsSameOrUnderDirectory(
+                @"C:\Program Files\Acme Tools\bin\app.exe", @"C:\Program Files\Acme"),
+            "Name-prefix sibling directory does NOT qualify");
+        Check(RegistryScannerService.IsSameOrUnderDirectory(
+                "\"C:\\Program Files\\Acme\\svc.exe\" -run", @"C:\Program Files\Acme"),
+            "Quoted path with args still qualifies");
+        Check(!RegistryScannerService.IsSameOrUnderDirectory(
+                "\"C:\\Program Files\\Acme Tools\\svc.exe\" -run", @"C:\Program Files\Acme"),
+            "Quoted sibling path with args does NOT qualify");
+
+        // Round 3 P1: 32-bit view survives the backup-path round-trip.
+        var (bHive, bView, bSub, bVal) = RegistryScannerService.ParseKeyPath(
+            @"HKLM (32-bit)\Software\Microsoft\Windows\CurrentVersion\Run:value=AcmeUpdater");
+        Check(bHive == Microsoft.Win32.RegistryHive.LocalMachine &&
+              bView == Microsoft.Win32.RegistryView.Registry32 &&
+              bVal == "AcmeUpdater",
+            "32-bit value path parses with view + value name intact");
     }
 }
