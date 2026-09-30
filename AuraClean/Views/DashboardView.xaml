@@ -51,12 +51,12 @@
 
                 <!-- Health score — the one hero number in the app -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding SystemHealthScore}"
-                               Style="{StaticResource AuraMono}"
-                               FontSize="{StaticResource AuraFontSizeHero}" FontWeight="SemiBold"
-                               Foreground="{DynamicResource AuraTextBright}"
-                               AutomationProperties.Name="System score"
-                               ToolTip="Based on disk space, memory usage, startup load, and system hygiene" />
+                <TextBlock Text="{Binding SystemHealthScore}"
+                           Style="{StaticResource AuraMono}"
+                           FontSize="{StaticResource AuraFontSizeHero}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource AuraTextBright}"
+                           AutomationProperties.Name="System score"
+                           ToolTip="Based on junk, threats, startup load, browser caches, and last cleanup" />
 
                     <!-- Trend vs the previous session: up / down / flat -->
                     <materialDesign:PackIcon Width="20" Height="20"
@@ -108,12 +108,13 @@
                 <Button Grid.Column="3"
                         Style="{StaticResource AuraPrimaryButton}"
                         Command="{Binding QuickAnalyzeCommand}"
+                        ToolTip="Analyzes junk across temp, cache, and logs — then choose what to clean"
                         Padding="18,10"
                         VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="Analyze &amp; Clean" VerticalAlignment="Center" />
+                        <TextBlock Text="Analyze" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </Grid>
@@ -146,7 +147,7 @@
                         <controls:TrackedText Text="Junk found"
                                               FontSize="{StaticResource AuraFontSizeEyebrow}"
                                               Foreground="{DynamicResource AuraTextMuted}" />
-                        <TextBlock Text="{Binding Cleaner.FormattedTotalSize}"
+                        <TextBlock Text="{Binding JunkTileDisplay}"
                                    Style="{StaticResource AuraMono}"
                                    FontSize="24" FontWeight="SemiBold"
                                    Foreground="{DynamicResource AuraTextBright}"
@@ -173,7 +174,12 @@
                     </StackPanel>
                     <TextBlock Text="{Binding Uninstaller.Programs.Count}"
                                Style="{StaticResource AuraStatValue}"
-                               FontSize="20" />
+                               FontSize="20"
+                               Visibility="{Binding Uninstaller.HasScanned, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Text="Not scanned yet"
+                               FontSize="{StaticResource AuraFontSizeBody}" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AuraTextMuted}"
+                               Visibility="{Binding Uninstaller.HasScanned, Converter={StaticResource InverseBoolToVis}}" />
                 </StackPanel>
             </Border>
 
@@ -198,7 +204,7 @@
             </Border>
         </Grid>
 
-        <!-- ═══ SYSTEM INFO STRIP ═══ -->
+        <!-- ═══ SYSTEM INFO STRIP + FRESHNESS TILES ═══ -->
         <Border Grid.Row="3" Style="{StaticResource AuraCard}" Padding="4,14"
                 helpers:AnimationHelper.AnimateOnVisible="True"
                 helpers:AnimationHelper.StaggerIndex="3">
@@ -264,6 +270,46 @@
                                FontSize="{StaticResource AuraFontSizeBody}" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
+
+                <!-- Disk free (D1 freshness tile: DriveInfo on the system drive, no new service) -->
+                <StackPanel Margin="16,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <materialDesign:PackIcon Kind="Harddisk" Width="14" Height="14"
+                                                 Foreground="{DynamicResource AuraInfo}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <controls:TrackedText Text="Disk free" FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding DiskFreeDisplay}"
+                               Style="{StaticResource AuraMono}"
+                               Foreground="{DynamicResource AuraTextBright}"
+                               FontSize="{StaticResource AuraFontSizeBody}" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding DiskFreeDetail}" />
+                    <TextBlock Text="{Binding DiskFreeDetail}"
+                               Foreground="{DynamicResource AuraTextMuted}"
+                               FontSize="{StaticResource AuraFontSizeLabel}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <!-- Hardware grade (D1: shown only after a System Info visit — never blocks dashboard) -->
+                <StackPanel Margin="16,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <materialDesign:PackIcon Kind="Chip" Width="14" Height="14"
+                                                 Foreground="{DynamicResource AuraInfo}"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <controls:TrackedText Text="Hardware" FontSize="{StaticResource AuraFontSizeEyebrow}"
+                                              Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding HardwareGradeDisplay}"
+                               Style="{StaticResource AuraMono}"
+                               Foreground="{DynamicResource AuraTextBright}"
+                               FontSize="{StaticResource AuraFontSizeBody}" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding HardwareGradeDetail}" />
+                    <TextBlock Text="{Binding HardwareGradeDetail}"
+                               Foreground="{DynamicResource AuraTextMuted}"
+                               FontSize="{StaticResource AuraFontSizeLabel}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
             </UniformGrid>
         </Border>
 
@@ -318,11 +364,11 @@
                     Command="{Binding UndoLastCleanCommand}"
                     Margin="0,0,8,8"
                     Visibility="{Binding Cleaner.CanUndoLastClean, Converter={StaticResource BoolToVis}}"
-                    ToolTip="{Binding Cleaner.LastCleanedSummary}">
+                    ToolTip="Open System Restore to revert to the pre-cleanup restore point">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="UndoVariant" Width="16" Height="16"
                                              VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBlock Text="Undo Clean" VerticalAlignment="Center" />
+                    <TextBlock Text="Open System Restore…" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
         </WrapPanel>

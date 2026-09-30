@@ -4,6 +4,8 @@ using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using System.ComponentModel;
+using System.IO;
 using System.Management;
 using System.Reflection;
 using System.Security.Principal;
@@ -147,6 +149,40 @@ public partial class MainViewModel : ObservableObject
     private readonly Lazy<OnboardingViewModel> _onboarding = new(() => new OnboardingViewModel());
     public OnboardingViewModel Onboarding => _onboarding.Value;
 
+    // Dashboard freshness tiles (D1): cheapest existing data, never a new service.
+    [ObservableProperty] private string _diskFreeDisplay = "Not scanned yet";
+    [ObservableProperty] private string _diskFreeDetail = "Open System Cleaner or Storage Map to scan";
+    [ObservableProperty] private string _hardwareGradeDisplay = "—";
+    [ObservableProperty] private string _hardwareGradeDetail = "Visit System Info for the full breakdown";
+    [ObservableProperty] private bool _cleanerAnalyzedOnce;
+    private bool _dashboardPrimed;
+
+    /// <summary>
+    /// Junk tile copy: the size when results exist, "Nothing to clean" when an analyze
+    /// ran but found zero junk, "Not scanned yet" when no analyze has ever run.
+    /// </summary>
+    public string JunkTileDisplay =>
+        _cleaner.IsValueCreated && Cleaner.HasResults ? Cleaner.FormattedTotalSize
+        : CleanerAnalyzedOnce ? "Nothing to clean"
+        : "Not scanned yet";
+
+    partial void OnCleanerAnalyzedOnceChanged(bool value) => OnPropertyChanged(nameof(JunkTileDisplay));
+
+    private void OnCleanerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CleanerViewModel.IsAnalyzing))
+        {
+            if (_cleaner.IsValueCreated && Cleaner.IsAnalyzing)
+                CleanerAnalyzedOnce = true;
+            return;
+        }
+
+        if (e.PropertyName == nameof(CleanerViewModel.HasResults) ||
+            e.PropertyName == nameof(CleanerViewModel.FormattedTotalSize) ||
+            e.PropertyName == nameof(CleanerViewModel.TotalJunkSize))
+            OnPropertyChanged(nameof(JunkTileDisplay));
+    }
+
     // Context menu
     [ObservableProperty] private bool _isContextMenuInstalled;
     [ObservableProperty] private string _contextMenuStatus = string.Empty;
@@ -194,6 +230,7 @@ public partial class MainViewModel : ObservableObject
         {
             var vm = new CleanerViewModel();
             vm.CleanupCompleted += OnCleanupCompleted;
+            vm.PropertyChanged += OnCleanerPropertyChanged;
             return vm;
         });
 
@@ -346,6 +383,90 @@ public partial class MainViewModel : ObservableObject
         LastCleanedStore.SaveHealthScore(value);
     }
 
+    /// <summary>
+    /// Primes the dashboard on first show: kicks off the Uninstaller load and the Cleaner
+    /// analyze (reusing their existing commands — no duplicated scan logic) when they have
+    /// never run, so stat tiles show real data instead of zeros. Safe to call repeatedly;
+    /// only fires once. Also refreshes the disk-free and hardware-grade tiles.
+    /// </summary>
+    [RelayCommand]
+    private void PrimeDashboard()
+    {
+        RefreshDashboardTiles();
+
+        if (_dashboardPrimed)
+            return;
+        _dashboardPrimed = true;
+
+        try
+        {
+            // NOTE: dashboard bindings already force Uninstaller/Cleaner creation at
+            // startup, so no IsValueCreated guard here — just skip if already scanned.
+            if (!Uninstaller.HasScanned && !Uninstaller.IsBusy)
+                Uninstaller.LoadProgramsCommand.Execute(null);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Dashboard prime: Uninstaller load failed", ex);
+        }
+
+        try
+        {
+            if (!Cleaner.HasResults && !Cleaner.IsBusy && Cleaner.TotalJunkSize <= 0)
+            {
+                _ = Cleaner.AnalyzeCommand.ExecuteAsync(null).ContinueWith(t =>
+                {
+                    UpdateHealthScore();
+                    RefreshDashboardTiles();
+                }, TaskScheduler.FromCurrentSynchronizationContext());
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Dashboard prime: Cleaner analyze failed", ex);
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the dashboard-only tiles from the cheapest existing data:
+    /// disk-free % via DriveInfo on the system drive (no new service), hardware grade
+    /// only when the SystemInfo VM has already computed it (never blocks dashboard).
+    /// </summary>
+    private void RefreshDashboardTiles()
+    {
+        try
+        {
+            var systemDrive = new DriveInfo(Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\");
+            if (systemDrive.IsReady && systemDrive.TotalSize > 0)
+            {
+                double freePct = systemDrive.AvailableFreeSpace * 100.0 / systemDrive.TotalSize;
+                DiskFreeDisplay = $"{freePct:0}% free";
+                DiskFreeDetail = $"{systemDrive.Name.TrimEnd('\\')} · {FormatHelper.FormatBytes(systemDrive.AvailableFreeSpace)} of {FormatHelper.FormatBytes(systemDrive.TotalSize)} free";
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Dashboard tile: disk-free lookup failed", ex);
+        }
+
+        try
+        {
+            // Never force SystemInfo creation: the grade appears only after a SystemInfo visit.
+            if (_systemInfo.IsValueCreated && !string.IsNullOrWhiteSpace(SystemInfo.OverallGrade)
+                && SystemInfo.OverallGrade != "—")
+            {
+                HardwareGradeDisplay = $"Grade {SystemInfo.OverallGrade} ({SystemInfo.OverallScore})";
+                HardwareGradeDetail = string.IsNullOrWhiteSpace(SystemInfo.OverallGradeLabel)
+                    ? "From System Info"
+                    : SystemInfo.OverallGradeLabel;
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Dashboard tile: hardware grade lookup failed", ex);
+        }
+    }
+
     [RelayCommand]
     private void NavigateTo(string? viewName)
     {
@@ -444,7 +565,6 @@ public partial class MainViewModel : ObservableObject
         HealthCheckSummary = string.Empty;
         StatusBarText = "Running comprehensive health check...";
 
-        int score = 100;
         var issues = new List<string>();
 
         try
@@ -456,13 +576,6 @@ public partial class MainViewModel : ObservableObject
             {
                 if (!Cleaner.IsBusy)
                     await Cleaner.AnalyzeCommand.ExecuteAsync(null);
-
-                if (Cleaner.TotalJunkSize > 0)
-                {
-                    int junkPenalty = (int)Math.Min(30, Cleaner.TotalJunkSize / (100.0 * 1024 * 1024) * 5);
-                    score -= junkPenalty;
-                    issues.Add($"Junk: {Cleaner.FormattedTotalSize} found");
-                }
             }
             catch (Exception ex)
             {
@@ -481,20 +594,6 @@ public partial class MainViewModel : ObservableObject
                     try { await ThreatScanner.StartScanCommand.ExecuteAsync(null); }
                     finally { ThreatScanner.SelectedScanMode = previousMode; }
                 }
-
-                int criticalThreats = ThreatScanner.CriticalCount + ThreatScanner.HighCount;
-                int mediumThreats = ThreatScanner.MediumCount;
-
-                if (criticalThreats > 0)
-                {
-                    score -= Math.Min(30, criticalThreats * 15);
-                    issues.Add($"Threats: {criticalThreats} critical/high");
-                }
-                if (mediumThreats > 0)
-                {
-                    score -= Math.Min(10, mediumThreats * 3);
-                    issues.Add($"Threats: {mediumThreats} medium");
-                }
             }
             catch (Exception ex)
             {
@@ -506,15 +605,8 @@ public partial class MainViewModel : ObservableObject
             HealthCheckProgress = "Step 3/4 — Analyzing startup items...";
             try
             {
-                var startupEntries = await StartupManagerService.GetStartupEntriesAsync();
-                int highImpactStartup = startupEntries.Count(e => e.IsEnabled &&
-                    e.Impact == StartupManagerService.StartupImpact.High);
-
-                if (highImpactStartup > 5)
-                {
-                    score -= Math.Min(15, (highImpactStartup - 5) * 3);
-                    issues.Add($"Startup: {highImpactStartup} high-impact items");
-                }
+                if (!StartupManager.IsBusy)
+                    await StartupManager.LoadEntriesCommand.ExecuteAsync(null);
             }
             catch (Exception ex)
             {
@@ -528,27 +620,17 @@ public partial class MainViewModel : ObservableObject
             {
                 if (!BrowserCleaner.IsBusy)
                     await BrowserCleaner.ScanBrowsersCommand.ExecuteAsync(null);
-
-                long browserJunk = BrowserCleaner.TotalSavingsBytes;
-                if (browserJunk > 100 * 1024 * 1024) // > 100 MB
-                {
-                    score -= Math.Min(10, (int)(browserJunk / (100.0 * 1024 * 1024)) * 3);
-                    issues.Add($"Browser: {FormatHelper.FormatBytes(browserJunk)} of cache and site data");
-                }
             }
             catch (Exception ex)
             {
                 DiagnosticLogger.Error("HealthCheck", "Step 4 (Browser Privacy) failed", ex);
             }
 
-            // Cleanliness factor
-            if (LastCleanedDate == default)
-                score -= 10;
-            else if ((DateTime.Now - LastCleanedDate).TotalDays > 30)
-                score -= 5;
-
-            score = Math.Clamp(score, 0, 100);
+            // Single shared formula: identical score before/after the check given same inputs.
+            var (score, computedIssues) = ComputeHealthScore();
+            issues.AddRange(computedIssues);
             SystemHealthScore = score;
+            RefreshDashboardTiles();
 
             HealthCheckSummary = issues.Count == 0
                 ? "Your system is in excellent condition. No issues detected."
@@ -633,32 +715,106 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Computes a system health score (0–100) based on current junk levels.
+    /// Computes a system health score (0–100) from the four inputs the hero tooltip
+    /// promises: junk, threats, startup load, and browser caches — plus a recency
+    /// factor for how long ago the last cleanup ran. Missing (never-scanned) inputs
+    /// count 0 and never fail. Used by BOTH UpdateHealthScore and RunHealthCheckAsync
+    /// so the score is identical given the same inputs.
     /// </summary>
-    private void UpdateHealthScore()
+    private (int Score, List<string> Issues) ComputeHealthScore()
     {
         int score = 100;
+        var issues = new List<string>();
 
-        // Guarded: never force Cleaner creation just to compute the score (0 junk if not created yet).
-        if (_cleaner.IsValueCreated && Cleaner.TotalJunkSize > 0)
+        // Junk: every 100MB deducts ~5 points, capped at 30.
+        try
         {
-            // Every 100MB of junk deducts ~5 points, capped at 50 points
-            int junkPenalty = (int)Math.Min(50, Cleaner.TotalJunkSize / (100 * 1024 * 1024) * 5);
-            score -= junkPenalty;
+            if (_cleaner.IsValueCreated && Cleaner.TotalJunkSize > 0)
+            {
+                int junkPenalty = (int)Math.Min(30, Cleaner.TotalJunkSize / (100.0 * 1024 * 1024) * 5);
+                score -= junkPenalty;
+                if (junkPenalty > 0)
+                    issues.Add($"Junk: {Cleaner.FormattedTotalSize} found");
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Health score: junk input failed", ex);
         }
 
+        // Threats: critical/high hit hard, medium lightly.
+        try
+        {
+            if (_threatScanner.IsValueCreated && ThreatScanner.HasResults)
+            {
+                int criticalThreats = ThreatScanner.CriticalCount + ThreatScanner.HighCount;
+                int mediumThreats = ThreatScanner.MediumCount;
+                if (criticalThreats > 0)
+                {
+                    score -= Math.Min(30, criticalThreats * 15);
+                    issues.Add($"Threats: {criticalThreats} critical/high");
+                }
+                if (mediumThreats > 0)
+                {
+                    score -= Math.Min(10, mediumThreats * 3);
+                    issues.Add($"Threats: {mediumThreats} medium");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Health score: threat input failed", ex);
+        }
+
+        // Startup load: more than 5 high-impact enabled items deducts.
+        try
+        {
+            if (_startupManager.IsValueCreated && StartupManager.HasScanned)
+            {
+                int highImpactStartup = StartupManager.Entries.Count(e => e.IsEnabled &&
+                    e.Impact == StartupManagerService.StartupImpact.High);
+                if (highImpactStartup > 5)
+                {
+                    score -= Math.Min(15, (highImpactStartup - 5) * 3);
+                    issues.Add($"Startup: {highImpactStartup} high-impact items");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Health score: startup input failed", ex);
+        }
+
+        // Browser caches: over 100MB deducts.
+        try
+        {
+            if (_browserCleaner.IsValueCreated && BrowserCleaner.HasResults)
+            {
+                long browserJunk = BrowserCleaner.TotalSavingsBytes;
+                if (browserJunk > 100 * 1024 * 1024)
+                {
+                    score -= Math.Min(10, (int)(browserJunk / (100.0 * 1024 * 1024)) * 3);
+                    issues.Add($"Browser: {FormatHelper.FormatBytes(browserJunk)} of cache and site data");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Health score: browser input failed", ex);
+        }
+
+        // Recency factor.
         if (LastCleanedDate == default)
-        {
-            score -= 15; // Never cleaned
-        }
-        else
-        {
-            var daysSinceCleaned = (DateTime.Now - LastCleanedDate).TotalDays;
-            if (daysSinceCleaned > 30) score -= 10;
-            else if (daysSinceCleaned > 7) score -= 5;
-        }
+            score -= 10;
+        else if ((DateTime.Now - LastCleanedDate).TotalDays > 30)
+            score -= 5;
 
-        SystemHealthScore = Math.Clamp(score, 0, 100);
+        return (Math.Clamp(score, 0, 100), issues);
+    }
+
+    private void UpdateHealthScore()
+    {
+        SystemHealthScore = ComputeHealthScore().Score;
     }
 
     private void ApplyExperienceModeToChildren(bool isAdvancedMode)

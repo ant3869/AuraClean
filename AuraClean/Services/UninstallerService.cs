@@ -191,7 +191,15 @@ public static class UninstallerService
         var fsResults = await ScanForRemnantFilesAsync(program, progress, ct);
         results.AddRange(fsResults);
 
-        return results;
+        // 3. Value-level registry traces (Run/RunOnce, Uninstall, Services, Tasks, App Paths, MUI)
+        progress?.Report("Scanning registry values for program traces...");
+        var traceResults = await RegistryScannerService.ScanForProgramTracesAsync(
+            program.DisplayName, program.Publisher, program.InstallLocation, progress, ct);
+        results.AddRange(traceResults);
+
+        return results
+            .DistinctBy(r => r.Path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>
@@ -240,26 +248,278 @@ public static class UninstallerService
                         if (IsSafeRemnantDirectoryMatch(dirName, searchTerms) &&
                             PathSafety.IsSafeToDeleteDirectory(dir, out _))
                         {
-                            long size = GetDirectorySize(dir);
-                            results.Add(new JunkItem
-                            {
-                                Path = dir,
-                                Description = $"Remnant directory: {dirName}",
-                                Type = JunkType.RemnantDirectory,
-                                SizeBytes = size,
-                                LastModified = Directory.GetLastWriteTime(dir),
-                                IsSelected = false,
-                                LockingProcess = "Review before deleting"
-                            });
+                            TryAddRemnantDirectory(dir, results);
                         }
+
+                        // Vendor\product nesting (e.g. Roaming\Vendor\Product): one level deeper.
+                        if (IsAppDataRoot(basePath))
+                            ScanOneLevelDeeper(dir, searchTerms, results, ct);
                     }
                 }
                 catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("UninstallerService", $"Access denied scanning leftover directories under: {basePath}", ex); }
                 catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("UninstallerService", $"Leftover scan path vanished: {basePath}", ex); }
             }
 
+            // The install location itself, when it survives the uninstall, is the
+            // highest-signal leftover of all.
+            TryAddInstallLocationRemnant(program, results);
+
+            // Startup folder entries whose names match the product terms.
+            ScanStartupFolder(program, searchTerms, results);
+
             return results;
         }, ct);
+    }
+
+    private static bool IsAppDataRoot(string basePath) =>
+        basePath.Equals(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            StringComparison.OrdinalIgnoreCase) ||
+        basePath.Equals(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            StringComparison.OrdinalIgnoreCase) ||
+        basePath.Equals(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static void TryAddRemnantDirectory(string dir, List<JunkItem> results)
+    {
+        try
+        {
+            var dirName = Path.GetFileName(dir);
+            long size = GetDirectorySize(dir);
+            results.Add(new JunkItem
+            {
+                Path = dir,
+                Description = $"Remnant directory: {dirName}",
+                Type = JunkType.RemnantDirectory,
+                SizeBytes = size,
+                LastModified = Directory.GetLastWriteTime(dir),
+                IsSelected = false,
+                LockingProcess = "Review before deleting"
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable remnant directory: {dir}", ex);
+        }
+    }
+
+    private static void ScanOneLevelDeeper(
+        string parentDir, HashSet<string> searchTerms, List<JunkItem> results, CancellationToken ct)
+    {
+        try
+        {
+            foreach (var child in Directory.EnumerateDirectories(parentDir, "*", PathSafety.TopLevelNoReparse))
+            {
+                ct.ThrowIfCancellationRequested();
+                var childName = Path.GetFileName(child);
+
+                if (IsSafeRemnantDirectoryMatch(childName, searchTerms) &&
+                    PathSafety.IsSafeToDeleteDirectory(child, out _))
+                {
+                    TryAddRemnantDirectory(child, results);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable nested scan dir: {parentDir}", ex);
+        }
+    }
+
+    private static void TryAddInstallLocationRemnant(
+        InstalledProgram program, List<JunkItem> results)
+    {
+        var installDir = PathSafety.Normalize(program.InstallLocation);
+        if (installDir == null || !Directory.Exists(installDir))
+            return;
+
+        // A surviving install folder is always reported — the uninstaller left it behind.
+        if (results.Any(r => r.Path.Equals(installDir, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        if (!PathSafety.IsSafeToDeleteDirectory(installDir, out _) ||
+            PathSafety.IsSystemCriticalLocation(installDir))
+            return;
+
+        try
+        {
+            results.Add(new JunkItem
+            {
+                Path = installDir,
+                Description = $"Surviving install folder: {program.DisplayName}",
+                Type = JunkType.RemnantDirectory,
+                SizeBytes = GetDirectorySize(installDir),
+                LastModified = Directory.GetLastWriteTime(installDir),
+                IsSelected = false,
+                LockingProcess = "Review before deleting"
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable install location: {installDir}", ex);
+        }
+    }
+
+    private static void ScanStartupFolder(
+        InstalledProgram program, HashSet<string> searchTerms, List<JunkItem> results)
+    {
+        if (searchTerms.Count == 0)
+            return;
+
+        var startupPaths = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.Startup),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup)
+        };
+
+        foreach (var startupPath in startupPaths.Where(p => !string.IsNullOrEmpty(p)))
+        {
+            try
+            {
+                if (!Directory.Exists(startupPath))
+                    continue;
+
+                foreach (var file in Directory.EnumerateFiles(startupPath, "*", PathSafety.TopLevelNoReparse))
+                {
+                    var nameNoExt = Path.GetFileNameWithoutExtension(file) ?? string.Empty;
+                    if (MatchesAnySearchTerm(nameNoExt, searchTerms) &&
+                        PathSafety.IsSafeToDeleteFile(file, out _))
+                    {
+                        FileInfo info;
+                        try { info = new FileInfo(file); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable startup entry: {file}", ex);
+                            continue;
+                        }
+
+                        results.Add(new JunkItem
+                        {
+                            Path = file,
+                            Description = $"Startup entry: {Path.GetFileName(file)}",
+                            Type = JunkType.AbandonedFile,
+                            SizeBytes = info.Length,
+                            LastModified = info.LastWriteTime,
+                            IsSelected = false,
+                            LockingProcess = "Review before deleting"
+                        });
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable startup folder: {startupPath}", ex);
+            }
+        }
+
+        // Also match .lnk targets pointing back at the install location.
+        var installDir = PathSafety.Normalize(program.InstallLocation);
+        if (installDir != null)
+        {
+            foreach (var startupPath in startupPaths.Where(p => !string.IsNullOrEmpty(p) && Directory.Exists(p)))
+            {
+                try
+                {
+                    foreach (var file in Directory.EnumerateFiles(startupPath, "*.lnk", PathSafety.TopLevelNoReparse))
+                    {
+                        if (results.Any(r => r.Path.Equals(file, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+
+                        var target = ResolveShortcutTarget(file);
+                        if (target != null && PathSafety.IsSameOrUnder(target, installDir) &&
+                            PathSafety.IsSafeToDeleteFile(file, out _))
+                        {
+                            FileInfo info;
+                            try { info = new FileInfo(file); }
+                            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                            {
+                                DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable startup entry: {file}", ex);
+                                continue;
+                            }
+
+                            results.Add(new JunkItem
+                            {
+                                Path = file,
+                                Description = $"Startup shortcut to removed app: {Path.GetFileName(file)}",
+                                Type = JunkType.AbandonedFile,
+                                SizeBytes = info.Length,
+                                LastModified = info.LastWriteTime,
+                                IsSelected = false,
+                                LockingProcess = "Review before deleting"
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    DiagnosticLogger.Warn("UninstallerService", $"Skipped unreadable startup folder: {startupPath}", ex);
+                }
+            }
+        }
+    }
+
+    /// <summary>Reads a .lnk target path via the Shell COM object (late-bound, no new references).</summary>
+    private static string? ResolveShortcutTarget(string lnkPath)
+    {
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null)
+                return null;
+
+            dynamic shell = Activator.CreateInstance(shellType)!;
+            try
+            {
+                dynamic shortcut = shell.CreateShortcut(lnkPath);
+                try
+                {
+                    string? target = shortcut.TargetPath as string;
+                    return string.IsNullOrWhiteSpace(target) ? null : target;
+                }
+                finally
+                {
+                    System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shortcut);
+                }
+            }
+            finally
+            {
+                System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                                   System.Runtime.InteropServices.COMException or NotSupportedException)
+        {
+            DiagnosticLogger.Warn("UninstallerService", $"Could not resolve shortcut target: {lnkPath}", ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// True when any search term covers the name verbatim (normalized) or when any
+    /// ≥4-letter segment of the terms appears as a substring of the normalized name
+    /// (mirrors <see cref="RegistryScannerService.IsTraceValueMatch"/>).
+    /// </summary>
+    internal static bool MatchesAnySearchTerm(string name, HashSet<string> searchTerms)
+    {
+        var normalized = NormalizeSearchTerm(name);
+        if (string.IsNullOrEmpty(normalized))
+            return false;
+
+        if (searchTerms.Contains(normalized))
+            return true;
+
+        foreach (var term in searchTerms)
+        {
+            foreach (var segment in SplitSearchWords(term))
+            {
+                var normalizedSegment = NormalizeSearchTerm(segment);
+                if (normalizedSegment.Length >= 4 &&
+                    normalizedSegment.Any(char.IsLetter) &&
+                    normalized.Contains(normalizedSegment, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     internal static HashSet<string> BuildRemnantDirectorySearchTerms(
@@ -310,6 +570,27 @@ public static class UninstallerService
 
     private static string NormalizeSearchTerm(string value) =>
         string.Concat(value.Where(char.IsLetterOrDigit)).ToLowerInvariant();
+
+    /// <summary>
+    /// Trace-matcher split: normalized letter/digit segments (lowercase, no separators).
+    /// Shared with <see cref="RegistryScannerService"/> for value-level trace matching.
+    /// </summary>
+    internal static IEnumerable<string> SplitForTrace(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        return SplitSearchWords(value)
+            .Select(NormalizeSearchTerm)
+            .Where(t => t.Length > 0);
+    }
+
+    /// <summary>
+    /// Trace-matcher normalization: the input stripped to lowercase letters/digits.
+    /// Shared with <see cref="RegistryScannerService"/> for value-level trace matching.
+    /// </summary>
+    internal static string NormalizeForTrace(string value) =>
+        NormalizeSearchTerm(value ?? string.Empty);
 
     private static readonly HashSet<string> RemnantNoiseTerms = new(StringComparer.OrdinalIgnoreCase)
     {
