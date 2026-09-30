@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using AuraClean.Helpers;
 using AuraClean.Models;
 using AuraClean.Services;
@@ -38,6 +39,7 @@ public static class LogicTests
         Section("Theme mode rules", TestThemeModes);
         Section("Theme palette", TestThemePalette);
         Section("Motion easing", TestCubicBezier);
+        Section("Storage Map crawl", TestDiskAnalyzerCrawl);
 
         return (_pass, _fail);
     }
@@ -455,5 +457,86 @@ public static class LogicTests
         Check(!ThreatSignatureDatabase.SuspiciousTaskPatterns.Any(p =>
                 p.Contains(@"\AppData\Roaming\", StringComparison.OrdinalIgnoreCase)),
             "Ordinary AppData\\Roaming autoruns are not suspicious");
+    }
+
+    private sealed class RecordingProgress : IProgress<DiskAnalyzerService.ScanProgress>
+    {
+        public List<DiskAnalyzerService.ScanProgress> Reports { get; } = [];
+        public void Report(DiskAnalyzerService.ScanProgress value) => Reports.Add(value);
+    }
+
+    private static void TestDiskAnalyzerCrawl()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"AuraClean_StorageMap_{Guid.NewGuid():N}");
+        try
+        {
+            // root/top.txt (10)
+            // root/a/mid.bin (1000)
+            // root/a/b/c/d/e/deep.bin (5000)   <- well below the node depth limit used here
+            // root/a/b/c/d/e/f/tiny.txt (1)
+            // root/a/loop -> root              <- symlink cycle, must not be followed
+            var deepDir = Path.Combine(root, "a", "b", "c", "d", "e");
+            Directory.CreateDirectory(Path.Combine(deepDir, "f"));
+            File.WriteAllBytes(Path.Combine(root, "top.txt"), new byte[10]);
+            File.WriteAllBytes(Path.Combine(root, "a", "mid.bin"), new byte[1000]);
+            File.WriteAllBytes(Path.Combine(deepDir, "deep.bin"), new byte[5000]);
+            File.WriteAllBytes(Path.Combine(deepDir, "f", "tiny.txt"), new byte[1]);
+
+            bool loopCreated;
+            try
+            {
+                Directory.CreateSymbolicLink(Path.Combine(root, "a", "loop"), root);
+                loopCreated = true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                loopCreated = false; // Windows without Developer Mode / elevation
+            }
+
+            var progress = new RecordingProgress();
+            var result = DiskAnalyzerService.AnalyzeDirectoryAsync(root, maxDepth: 2, progress: progress)
+                .GetAwaiter().GetResult();
+
+            Check(result.TotalSizeBytes == 6011, $"Total size includes files below the node depth limit ({result.TotalSizeBytes} == 6011)");
+            Check(result.TotalFiles == 4, $"Every file is counted ({result.TotalFiles} == 4)");
+            Check(result.TotalDirectories == 6, $"Every real folder is counted ({result.TotalDirectories} == 6)");
+            Check(result.LargestFiles.FirstOrDefault()?.FullPath == Path.Combine(deepDir, "deep.bin"),
+                "Largest-files list includes files below the node depth limit");
+
+            var a = result.Root.Children.FirstOrDefault(n => n.Name == "a");
+            var b = a?.Children.FirstOrDefault(n => n.Name == "b");
+            Check(a?.SizeBytes == 6001 && b?.SizeBytes == 5001, "Folder nodes carry their full subtree size");
+            Check(b != null && b.Children.Count == 0 && b.DirectoryCount == 4,
+                "Folders at the depth limit are summarized, not expanded");
+            if (loopCreated)
+                Check(a?.Children.All(n => n.Name != "loop") == true, "Symlinked folder is not followed");
+
+            Check(progress.Reports.Count > 0, $"Progress is reported during the scan ({progress.Reports.Count})");
+            Check(progress.Reports.All(r => r.PercentEstimate is null), "No percent estimate for a custom folder");
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            bool cancelled;
+            try
+            {
+                DiskAnalyzerService.AnalyzeDirectoryAsync(root, ct: cts.Token).GetAwaiter().GetResult();
+                cancelled = false;
+            }
+            catch (OperationCanceledException)
+            {
+                cancelled = true;
+            }
+            Check(cancelled, "Cancellation stops the scan");
+
+            var missing = DiskAnalyzerService.AnalyzeDirectoryAsync(Path.Combine(root, "does-not-exist"))
+                .GetAwaiter().GetResult();
+            Check(missing.TotalSizeBytes == 0 && missing.TotalFiles == 0, "A missing folder yields an empty result, not a crash");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 }

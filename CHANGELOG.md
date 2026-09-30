@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Storage Map progress in huge folders** — `ReadDirectory` streams entries to a callback
+  so item/byte/percentage updates and cancellation fire while a large flat directory is
+  still being listed, instead of going silent until the whole listing is buffered.
+  Applies to both the crawl path and the below-depth-limit summation path.
+
 ### Changed
 
 - **OpenEval visual system (foundation)** — charcoal dark and white light palettes with a violet accent and semantic green / amber / red, blended (color-mix) surfaces for cards, sidebar, hover and active states, 12px cards, 8px actions, 6px controls, pill-shaped status badges, thin scrollbars, themed tooltips, and short `cubic-bezier(.2,0,0,1)` motion with a .96 press. All text colors meet WCAG AA on page and card surfaces in both themes.
@@ -28,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Storage Map scans no longer look stuck** — past four folder levels the scan switched to an unreported recursive size pass, so the counter froze (e.g. at "Scanned 60,000 items") while a whole-drive scan kept running for minutes. The scan now reads sizes straight from each directory listing (no extra file lookup per file, one pass per folder), reports progress continuously with the item count, bytes counted and the folder being read, and shows an estimated percentage when scanning a whole drive. Deep files now count toward the file total and the Largest Files list, a folder that fails mid-listing keeps what was read instead of dropping its whole subtree, and a drive that errors while listing drives is skipped instead of breaking the page.
 - **Sidebar selection** — only the current page is highlighted; previously one item stayed highlighted in every section you had visited.
 - **Sidebar labels** — the keyboard-shortcut hint no longer draws on top of the item name on hover.
 - **Collapsible group headers** rendered as a tiny centered box with the title missing (MaterialDesign's switch style was applied to the header toggle).

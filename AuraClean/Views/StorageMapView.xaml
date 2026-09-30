@@ -292,16 +292,24 @@
         </Grid>
 
         <!-- Progress / Loading -->
-        <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+        <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480"
                     Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
             <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
-                         IsIndeterminate="True" Width="64" Height="64"
+                         IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}"
+                         Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"
+                         Width="64" Height="64"
                          Foreground="{StaticResource AuraAmber}" />
             <TextBlock Text="{Binding StatusMessage}" FontSize="14"
                        AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource AuraTextSecondary}"
                        HorizontalAlignment="Center" Margin="0,12,0,0"
                        TextWrapping="Wrap" MaxWidth="400" TextAlignment="Center" />
+            <TextBlock Text="{Binding CurrentScanPath}" FontSize="12"
+                       FontFamily="{StaticResource AuraFontFamilyMono}"
+                       Foreground="{DynamicResource AuraTextMuted}"
+                       ToolTip="{Binding CurrentScanPath}"
+                       Margin="0,4,0,0" TextAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
         </StackPanel>
 
         <!-- Status -->
