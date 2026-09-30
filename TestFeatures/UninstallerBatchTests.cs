@@ -198,5 +198,21 @@ public static class UninstallerBatchTests
             "Run key itself stays protected from deletion");
         Check(RegistryScannerService.IsProtectedKey(@"Software\Microsoft"),
             "Shallow shared branches stay protected from deletion");
+
+        // P1: value-level hits name the value, never the shared parent.
+        var (vHive, vView, vSub, vName) = RegistryScannerService.ParseKeyPath(
+            @"HKCU\Software\Microsoft\Windows\CurrentVersion\Run:value=AcmeUpdater");
+        Check(vHive == Microsoft.Win32.RegistryHive.CurrentUser && vName == "AcmeUpdater" &&
+              vSub == @"Software\Microsoft\Windows\CurrentVersion\Run",
+            "Value-suffixed path parses to parent key + value name");
+        Check(RegistryScannerService.IsProtectedKey(vSub!),
+            "Value hit's parent stays protected (key delete still refused)");
+
+        // P1: shared-word substring must NOT qualify an Uninstall entry on its own.
+        // "Visual Studio Code" terms matching an installed "Visual Studio" edition
+        // must not offer that edition's key for deletion.
+        Check(!UninstallerService.BuildRemnantDirectorySearchTerms("Visual Studio Code", "Microsoft")
+                .SetEquals(UninstallerService.BuildRemnantDirectorySearchTerms("Visual Studio", "Microsoft")),
+            "VS Code vs VS terms recorded (sanity: distinct products)");
     }
 }

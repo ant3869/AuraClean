@@ -171,13 +171,15 @@ public static class RegistryScannerService
     /// Run/RunOnce values, the Uninstall key itself, Services/ImagePath, scheduled-task
     /// names, App Paths entries, and MUI cache values. Hits under a program-owned key
     /// (Uninstall entry, service, task, App Paths) point at that key and stay deletable
-    /// through the existing backup-then-delete path. Hits inside a shared container
-    /// (Run/RunOnce, MUI cache) point at the shared parent key and name the value(s) in
-    /// the description: they are listed for manual review and
-    /// <see cref="DeleteRegistryKeyAsync"/> refuses them via the protected-key guard.
+    /// through the existing backup-then-delete path. Hits naming individual values
+    /// inside a shared container (Run/RunOnce, MUI cache) point at the parent key with
+    /// a ":value=Name" suffix and delete just that value via
+    /// <see cref="DeleteRegistryKeyAsync"/>; the shared parent key itself is protected.
     /// Conservative matching: the same ≥4-char segment rule as the directory scan;
-    /// Services values additionally require the value data to contain the
-    /// install-location substring, never just the name.
+    /// the Uninstall subtree additionally requires an exact product/display-name
+    /// identity (or the install path / product identifier) before an entry is
+    /// offered for deletion; Services values additionally require the value data to
+    /// contain the install-location substring, never just the name.
     /// </summary>
     public static async Task<List<JunkItem>> ScanForProgramTracesAsync(
         string displayName, string publisher, string? installLocation,
@@ -209,7 +211,7 @@ public static class RegistryScannerService
                 try
                 {
                     using var baseKey = RegistryKey.OpenBaseKey(hive, view);
-                    ScanTraceTargets(baseKey, label, searchTerms, installDir, results, progress, ct);
+                    ScanTraceTargets(baseKey, label, searchTerms, installDir, results, progress, ct, displayName);
                 }
                 catch (System.Security.SecurityException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied scanning traces: {label}", ex); }
                 catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied scanning traces: {label}", ex); }
@@ -226,7 +228,8 @@ public static class RegistryScannerService
         HashSet<string> searchTerms, string? installDir,
         List<JunkItem> results,
         IProgress<string>? progress,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? displayName = null)
     {
         // Direct targets with a fixed location.
         foreach (var relative in GetTraceTargets(baseKey))
@@ -248,8 +251,8 @@ public static class RegistryScannerService
             }
         }
 
-        // Uninstall subtree: entry key name or any of its string values.
-        ScanTraceUninstallSubtree(baseKey, label, searchTerms, installDir, results, ct);
+        // Uninstall subtree: exact product identity (or install path / product id) required.
+        ScanTraceUninstallSubtree(baseKey, label, searchTerms, installDir, results, ct, displayName);
 
         // Services: ImagePath / value data must contain the install path (name alone is not enough).
         ScanTraceServicesSubtree(baseKey, label, searchTerms, installDir, results, ct);
@@ -280,7 +283,8 @@ public static class RegistryScannerService
     private static void ScanTraceUninstallSubtree(
         RegistryKey baseKey, string label,
         HashSet<string> searchTerms, string? installDir,
-        List<JunkItem> results, CancellationToken ct)
+        List<JunkItem> results, CancellationToken ct,
+        string? displayName = null)
     {
         const string relative = @"Software\Microsoft\Windows\CurrentVersion\Uninstall";
         RegistryKey? uninstallKey = null;
@@ -304,37 +308,90 @@ public static class RegistryScannerService
             }
 
             foreach (var entry in entryNames)
-            {
-                ct.ThrowIfCancellationRequested();
-                try
                 {
-                    using var entryKey = uninstallKey.OpenSubKey(entry);
-                    if (entryKey == null)
-                        continue;
-
-                    if (IsTraceValueMatch(entry, searchTerms, installPathRequired: false, installDir: null))
+                    ct.ThrowIfCancellationRequested();
+                    try
                     {
-                        TryAddTraceHit(results, $"{label}\\{relative}\\{entry}",
-                            $"Leftover uninstall entry: {entry}");
-                        continue;
-                    }
+                        using var entryKey = uninstallKey.OpenSubKey(entry);
+                        if (entryKey == null)
+                            continue;
 
-                    foreach (var value in GetStringValues(entryKey))
-                    {
-                        if (IsTraceValueMatch(value.Data, searchTerms, installPathRequired: false, installDir: null))
+                        if (IsUninstallEntryIdentityMatch(entryKey, entry, displayName, installDir))
                         {
                             TryAddTraceHit(results, $"{label}\\{relative}\\{entry}",
-                                $"Leftover uninstall entry: {entry} (value {value.Name})");
-                            break;
+                                $"Leftover uninstall entry: {entry}");
+                            continue;
                         }
                     }
+                    catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+                    {
+                        DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied at: {label}\\{relative}\\{entry}", ex);
+                    }
                 }
+        }
+    }
+
+    /// <summary>
+    /// Identity gate for Uninstall-subtree entries: an entry is offered for deletion
+    /// only when it really is the uninstalled product — the entry's DisplayName
+    /// exactly equals the product name (normalized), or one of its path-like values
+    /// (InstallLocation, DisplayIcon, UninstallString, QuietUninstallString,
+    /// InstallSource) sits under the original install location, or the entry key
+    /// name carries the product id ({GUID} / product code) recorded at enum time.
+    /// Shared-word substring matches (e.g. "Visual Studio Code" terms matching an
+    /// installed "Visual Studio" edition's DisplayName) never qualify on their own.
+    /// </summary>
+    internal static bool IsUninstallEntryIdentityMatch(
+        RegistryKey entryKey, string entryName,
+        string? displayName, string? installDir)
+    {
+        string? entryDisplayName = null;
+        try { entryDisplayName = entryKey.GetValue("DisplayName") as string; }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+        {
+            return false;
+        }
+
+        // 1. Exact display-name identity (normalized, case-insensitive).
+        if (!string.IsNullOrWhiteSpace(displayName) && !string.IsNullOrWhiteSpace(entryDisplayName) &&
+            string.Equals(
+                UninstallerService.NormalizeForTrace(entryDisplayName),
+                UninstallerService.NormalizeForTrace(displayName),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // 2. Entry key name carries the product id ({GUID} form): a stable identity
+        // that survives renames. Matches when the id appears in the product name/id.
+        if (entryName.StartsWith("{", StringComparison.Ordinal) && entryName.EndsWith("}", StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(displayName) &&
+            displayName.Contains(entryName, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // 3. One of the entry's path-like values sits under the install location.
+        if (!string.IsNullOrWhiteSpace(installDir))
+        {
+            foreach (var valueName in new[] { "InstallLocation", "DisplayIcon", "UninstallString", "QuietUninstallString", "InstallSource" })
+            {
+                string? data = null;
+                try { data = entryKey.GetValue(valueName) as string; }
                 catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
                 {
-                    DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied at: {label}\\{relative}\\{entry}", ex);
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(data) &&
+                    data.Contains(installDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
                 }
             }
         }
+
+        return false;
     }
 
     private static void ScanTraceServicesSubtree(
@@ -525,9 +582,10 @@ public static class RegistryScannerService
     }
 
     /// <summary>
-    /// Collects the matching values under a shared container key into a single review
-    /// hit: the Path stays the shared parent (protected from deletion), the value
-    /// names go in the description for manual removal.
+    /// Collects the matching values under a shared container key into one hit per
+    /// value: the Path names the individual value ("KeyPath:value=Name") so
+    /// <see cref="DeleteRegistryKeyAsync"/> removes just that value; the shared
+    /// parent key itself stays protected and is never deleted.
     /// </summary>
     private static void ScanTraceValues(
         RegistryKey key, string displayPath,
@@ -549,22 +607,19 @@ public static class RegistryScannerService
         if (matched.Count == 0)
             return;
 
-        var description = matched.Count == 1
-            ? $"{hitLabel}: {matched[0]} (shared key — remove the value manually)"
-            : $"{hitLabel}s: {string.Join(", ", matched.Take(5))}" +
-              (matched.Count > 5 ? $" (+{matched.Count - 5} more)" : string.Empty) +
-              " (shared key — remove the values manually)";
-
-        results.Add(new JunkItem
+        foreach (var name in matched)
         {
-            Path = displayPath,
-            Description = description,
-            Type = JunkType.OrphanedRegistryKey,
-            SizeBytes = 0,
-            LastModified = DateTime.Now,
-            IsSelected = false,
-            LockingProcess = "Review before deleting (shared key — remove the value manually)"
-        });
+            results.Add(new JunkItem
+            {
+                Path = $"{displayPath}:value={name}",
+                Description = $"{hitLabel}: {name} (shared key — only this value is removed)",
+                Type = JunkType.OrphanedRegistryKey,
+                SizeBytes = 0,
+                LastModified = DateTime.Now,
+                IsSelected = false,
+                LockingProcess = "Review before deleting"
+            });
+        }
     }
 
     private static List<(string Name, string Data)> GetStringValues(RegistryKey key)
@@ -702,10 +757,9 @@ public static class RegistryScannerService
     {
         try
         {
-            var (hive, view, subKey) = ParseKeyPath(keyPath);
+            var (hive, view, subKey, _) = ParseKeyPath(keyPath);
             if (hive == null || subKey == null)
                 return null;
-
             var backupDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "AuraClean", "Backups");
@@ -741,12 +795,16 @@ public static class RegistryScannerService
     /// <summary>
     /// Deletes a registry key after successfully backing it up. The key is left untouched when
     /// the backup cannot be written or when the key is a protected shared location.
+    /// Hits that name individual values (Path ends in ":value=Name") delete just that value.
     /// </summary>
     public static async Task<(bool Success, string Message)> DeleteRegistryKeyAsync(string keyPath)
     {
-        var (hive, view, subKeyPath) = ParseKeyPath(keyPath);
+        var (hive, view, subKeyPath, valueName) = ParseKeyPath(keyPath);
         if (hive == null || subKeyPath == null)
             return (false, "Invalid registry key path.");
+
+        if (valueName != null)
+            return await DeleteRegistryValueAsync(hive.Value, view, subKeyPath, valueName);
 
         if (IsProtectedKey(subKeyPath))
             return (false, "This is a shared system key and was not deleted.");
@@ -777,15 +835,27 @@ public static class RegistryScannerService
     /// <summary>
     /// Parses display paths ("HKCU\…", "HKLM (32-bit)\…", "HKEY_LOCAL_MACHINE\…",
     /// "CurrentUser\…", "LocalMachine\…") into hive, view, and hive-relative subkey.
+    /// A trailing ":value=Name" suffix names an individual value under the key.
     /// </summary>
-    internal static (RegistryHive? Hive, RegistryView View, string? SubKey) ParseKeyPath(string keyPath)
+    internal static (RegistryHive? Hive, RegistryView View, string? SubKey, string? ValueName) ParseKeyPath(string keyPath)
     {
         if (string.IsNullOrWhiteSpace(keyPath))
-            return (null, RegistryView.Default, null);
+            return (null, RegistryView.Default, null, null);
+
+        // Value-level hits end in ":value=Name" (see ScanTraceValues).
+        string? valueName = null;
+        var valueSep = keyPath.LastIndexOf(":value=", StringComparison.OrdinalIgnoreCase);
+        if (valueSep >= 0)
+        {
+            valueName = keyPath[(valueSep + ":value=".Length)..].Trim();
+            keyPath = keyPath[..valueSep].TrimEnd();
+            if (string.IsNullOrEmpty(valueName))
+                return (null, RegistryView.Default, null, null);
+        }
 
         var firstSlash = keyPath.IndexOf('\\');
         if (firstSlash <= 0 || firstSlash == keyPath.Length - 1)
-            return (null, RegistryView.Default, null);
+            return (null, RegistryView.Default, null, null);
 
         var hiveToken = keyPath[..firstSlash].Trim();
         var subKey = keyPath[(firstSlash + 1)..].Trim('\\');
@@ -812,6 +882,45 @@ public static class RegistryScannerService
         if (hive == RegistryHive.LocalMachine && view == RegistryView.Default)
             view = RegistryView.Registry64;
 
-        return (hive, view, string.IsNullOrEmpty(subKey) ? null : subKey);
+        return (hive, view, string.IsNullOrEmpty(subKey) ? null : subKey, valueName);
+    }
+
+    /// <summary>
+    /// Deletes a single registry value (after exporting the parent key as backup).
+    /// The parent key itself is never deleted, so shared containers (Run, MUI cache)
+    /// survive; only the named value is removed.
+    /// </summary>
+    private static async Task<(bool Success, string Message)> DeleteRegistryValueAsync(
+        RegistryHive hive, RegistryView view, string subKeyPath, string valueName)
+    {
+        try
+        {
+            using (var baseKey = RegistryKey.OpenBaseKey(hive, view))
+            using (var existing = baseKey.OpenSubKey(subKeyPath))
+            {
+                if (existing == null)
+                    return (true, "Already removed.");
+
+                if (existing.GetValue(valueName) == null)
+                    return (true, "Already removed.");
+            }
+
+            var backup = await BackupRegistryKeyAsync(
+                $"{(hive == RegistryHive.CurrentUser ? "HKCU" : "HKLM")}\\{subKeyPath}");
+            if (backup == null)
+                return (false, "Backup failed — value was not deleted.");
+
+            using var root = RegistryKey.OpenBaseKey(hive, view);
+            using var key = root.OpenSubKey(subKeyPath, writable: true);
+            if (key == null)
+                return (true, "Already removed.");
+
+            key.DeleteValue(valueName, throwOnMissingValue: false);
+            return (true, $"Deleted value. Backup saved to: {backup}");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Failed to delete registry value: {ex.Message}");
+        }
     }
 }

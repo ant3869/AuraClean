@@ -164,14 +164,14 @@ public static class LogicTests
                 @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{GUID}"),
             "Individual uninstall entry is deletable");
 
-        var (hive, view, sub) = RegistryScannerService.ParseKeyPath(@"HKLM (32-bit)\Software\Vendor");
+        var (hive, view, sub, _) = RegistryScannerService.ParseKeyPath(@"HKLM (32-bit)\Software\Vendor");
         Check(hive == Microsoft.Win32.RegistryHive.LocalMachine && view == Microsoft.Win32.RegistryView.Registry32 &&
               sub == @"Software\Vendor", "HKLM (32-bit) display path parsed");
 
-        var (hkcu, _, hkcuSub) = RegistryScannerService.ParseKeyPath(@"HKCU\Software\Vendor\App");
+        var (hkcu, _, hkcuSub, _) = RegistryScannerService.ParseKeyPath(@"HKCU\Software\Vendor\App");
         Check(hkcu == Microsoft.Win32.RegistryHive.CurrentUser && hkcuSub == @"Software\Vendor\App", "HKCU path parsed");
 
-        var (bad, _, _) = RegistryScannerService.ParseKeyPath("CurrentConfig\\Foo");
+        var (bad, _, _, _) = RegistryScannerService.ParseKeyPath("CurrentConfig\\Foo");
         Check(bad == null, "Unsupported hive rejected");
     }
 
