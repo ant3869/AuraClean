@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Shared-registry-container deletes are value-scoped** — Run/RunOnce and MUI-cache
+  hits now name the individual value (`KeyPath:value=Name`) and delete only that
+  value after backup; the shared parent key is never deleted.
+- **Uninstall-subtree hits require product identity** — an entry is offered for
+  deletion only on exact display-name match, install-path/product-id evidence, or a
+  path-like value under the original install location. Shared-word substrings
+  (e.g. VS Code terms vs an installed Visual Studio) no longer qualify.
+
 ### Added
 
 - **Uninstaller sorting + Drive column** — every column header sorts (click toggles

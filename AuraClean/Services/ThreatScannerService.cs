@@ -1885,7 +1885,7 @@ public static class ThreatScannerService
     private static async Task<(bool Ok, string Message)> RemoveAutorunAsync(
         ThreatItem threat, bool permanentDelete, IProgress<string>? progress, CancellationToken ct)
     {
-        var (hive, view, subKey) = RegistryScannerService.ParseKeyPath(threat.RegistryKeyPath);
+        var (hive, view, subKey, _) = RegistryScannerService.ParseKeyPath(threat.RegistryKeyPath);
         if (hive == null || subKey == null)
             return (false, "Invalid startup registry location.");
 
