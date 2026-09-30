@@ -41,7 +41,7 @@ public partial class ResultCard : UserControl
         var accentKey = severity switch
         {
             Severity.Warning => "AuraAmber",
-            Severity.Danger => "AuraWarning",
+            Severity.Danger => "AuraDanger",
             _ => "AuraSuccess"
         };
 

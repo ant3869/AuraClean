@@ -96,8 +96,11 @@ public static class DiskOptimizerService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        var letter = driveLetter.TrimEnd('\\', ':');
-        var volume = $"{letter}:";
+        if (!TryNormalizeDriveLetter(driveLetter, out var volume))
+        {
+            DiagnosticLogger.Warn("DiskOptimizer", $"Refused to optimize invalid drive reference: '{driveLetter}'");
+            return (false, $"Invalid drive: '{driveLetter}'. Expected a single drive letter (A-Z).");
+        }
 
         progress?.Report($"Optimizing {volume}...");
         DiagnosticLogger.Info("DiskOptimizer", $"Starting optimization of {volume}");
@@ -136,8 +139,11 @@ public static class DiskOptimizerService
         string driveLetter,
         CancellationToken ct = default)
     {
-        var letter = driveLetter.TrimEnd('\\', ':');
-        var volume = $"{letter}:";
+        if (!TryNormalizeDriveLetter(driveLetter, out var volume))
+        {
+            DiagnosticLogger.Warn("DiskOptimizer", $"Refused to analyze invalid drive reference: '{driveLetter}'");
+            return (0, $"Invalid drive: '{driveLetter}'. Expected a single drive letter (A-Z).");
+        }
 
         try
         {
@@ -149,6 +155,25 @@ public static class DiskOptimizerService
         {
             return (0, "Unable to analyze drive.");
         }
+    }
+
+    /// <summary>
+    /// Validates a drive reference and normalizes it to "X:" form. Only a single ASCII
+    /// letter A-Z (optionally with trailing ':'/'\\' and surrounding whitespace) is
+    /// accepted, so nothing else can be interpolated into the defrag command line.
+    /// </summary>
+    internal static bool TryNormalizeDriveLetter(string? driveLetter, out string volume)
+    {
+        volume = string.Empty;
+        if (string.IsNullOrWhiteSpace(driveLetter))
+            return false;
+
+        var letter = driveLetter.Trim().TrimEnd('\\', ':');
+        if (letter.Length != 1 || !(letter[0] is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z')))
+            return false;
+
+        volume = $"{char.ToUpperInvariant(letter[0])}:";
+        return true;
     }
 
     private static int ParseFragmentationPercent(string output)

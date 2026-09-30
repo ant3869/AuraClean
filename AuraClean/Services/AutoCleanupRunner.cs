@@ -17,7 +17,13 @@ public static class AutoCleanupRunner
         var items = await FileCleanerService.AnalyzeSystemJunkAsync(ct: ct, includeReviewOnlyCategories: false);
         CleanupModePolicy.ApplyDefaultSelection(items, settings, isAdvancedMode: false);
 
-        var selected = items.Where(i => i.IsSelected).ToList();
+        // D2: narrow the unattended run to the user's chosen categories when configured.
+        // Empty (or fully invalid) config falls back to the Normal-mode defaults.
+        var allowed = CleanupModePolicy.ResolveScheduledCategories(settings.ScheduledCleanupCategories);
+        if (settings.ScheduledCleanupCategories is { Count: > 0 })
+            DiagnosticLogger.Info("AutoCleanup", $"Scheduled categories: {string.Join(", ", allowed)}.");
+
+        var selected = items.Where(i => i.IsSelected && allowed.Contains(i.Type)).ToList();
         if (selected.Count == 0)
         {
             DiagnosticLogger.Info("AutoCleanup", "No eligible junk found.");

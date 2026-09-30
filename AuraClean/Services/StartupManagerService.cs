@@ -135,8 +135,8 @@ public static partial class StartupManagerService
                         entries.Add(entry);
                     }
                 }
-                catch (System.Security.SecurityException) { }
-                catch (UnauthorizedAccessException) { }
+                catch (System.Security.SecurityException ex) { DiagnosticLogger.Warn("StartupManager", $"Registry access denied scanning Run key: {subKey} ({label})", ex); }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("StartupManager", $"Registry access denied scanning Run key: {subKey} ({label})", ex); }
             }
 
             // 2. Startup folder
@@ -512,7 +512,10 @@ public static partial class StartupManagerService
                 return versionInfo.CompanyName ?? string.Empty;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("StartupManager", $"Failed to read publisher for: {filePath}", ex);
+        }
         return string.Empty;
     }
 
@@ -523,7 +526,10 @@ public static partial class StartupManagerService
             if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                 return new FileInfo(filePath).Length;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("StartupManager", $"Failed to read file size for: {filePath}", ex);
+        }
         return 0;
     }
 
@@ -543,7 +549,10 @@ public static partial class StartupManagerService
                 _ => StartupImpact.None
             };
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("StartupManager", $"Failed to estimate impact for: {filePath}", ex);
+        }
         return StartupImpact.Unknown;
     }
 

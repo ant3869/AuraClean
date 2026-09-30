@@ -136,6 +136,55 @@ public static class CleanupHistoryService
     };
 
     /// <summary>
+    /// Per-day (date, operations, bytes freed) for the last <paramref name="days"/> days
+    /// ending today, oldest first. Days without operations are included with zeros.
+    /// Never throws.
+    /// </summary>
+    public static IReadOnlyList<DailyTrendPoint> GetDailyTrend(int days)
+    {
+        try
+        {
+            return BuildDailyTrend(LoadHistory().Records, days, DateTime.Today);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("CleanupHistoryService", "Failed to build daily trend", ex);
+            return BuildDailyTrend([], days, DateTime.Today);
+        }
+    }
+
+    /// <summary>Pure daily-trend builder over an in-memory record list (oldest first).</summary>
+    public static IReadOnlyList<DailyTrendPoint> BuildDailyTrend(
+        IReadOnlyList<CleanupRecord> records, int days, DateTime today)
+    {
+        days = Math.Clamp(days, 1, 365);
+        var start = today.Date.AddDays(-(days - 1));
+
+        var byDay = new Dictionary<DateTime, (int Ops, long Bytes)>();
+        foreach (var record in records)
+        {
+            if (record == null)
+                continue;
+            var day = record.Timestamp.Date;
+            if (day < start || day > today.Date)
+                continue;
+            if (byDay.TryGetValue(day, out var current))
+                byDay[day] = (current.Ops + 1, current.Bytes + Math.Max(0, record.BytesFreed));
+            else
+                byDay[day] = (1, Math.Max(0, record.BytesFreed));
+        }
+
+        var trend = new List<DailyTrendPoint>(days);
+        for (int i = 0; i < days; i++)
+        {
+            var day = start.AddDays(i);
+            byDay.TryGetValue(day, out var point);
+            trend.Add(new DailyTrendPoint(day, point.Ops, point.Bytes));
+        }
+        return trend;
+    }
+
+    /// <summary>
     /// Exports history as a human-readable text report.
     /// </summary>
     public static string ExportAsText()
@@ -167,6 +216,58 @@ public static class CleanupHistoryService
     }
 
     /// <summary>
+    /// Builds an Excel-compatible CSV snapshot of the history: one header row plus one
+    /// row per record (newest first). Fields containing commas, quotes, or newlines are
+    /// RFC-4180 quoted; UTF-8 output should be written with a BOM so Excel detects it.
+    /// Pure over an in-memory record list; never throws.
+    /// </summary>
+    public static string BuildHistoryCsv(IReadOnlyList<CleanupRecord>? records)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Timestamp,Operation,Items Cleaned,Space Freed (bytes),Dry Run,Details");
+        if (records == null)
+            return sb.ToString();
+
+        foreach (var record in records)
+        {
+            if (record == null)
+                continue;
+            sb.Append(record.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")).Append(',')
+                .Append(EscapeCsvField(record.OperationType.ToDisplayString())).Append(',')
+                .Append(record.ItemCount).Append(',')
+                .Append(Math.Max(0, record.BytesFreed)).Append(',')
+                .Append(record.WasDryRun ? "Yes" : "No").Append(',')
+                .AppendLine(EscapeCsvField(record.Details ?? string.Empty));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds the CSV snapshot for the history currently on disk. Never throws.
+    /// </summary>
+    public static string ExportAsCsv()
+    {
+        try
+        {
+            return BuildHistoryCsv(LoadHistory().Records);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("CleanupHistoryService", "Failed to build CSV export", ex);
+            return BuildHistoryCsv([]);
+        }
+    }
+
+    private static string EscapeCsvField(string value)
+    {
+        const char Quote = '"';
+        if (value.Contains(Quote))
+            value = value.Replace(Quote.ToString(), new string(Quote, 2));
+        return value.IndexOfAny([',', Quote, '\r', '\n']) >= 0 ? Quote + value + Quote : value;
+    }
+
+/// <summary>
     /// Returns the history storage directory path.
     /// </summary>
     public static string GetHistoryDirectory() => HistoryDir;
@@ -297,4 +398,13 @@ public class HistorySummary
     public DateTime? LastOperation { get; set; }
     public Dictionary<CleanupOperationType, int> OperationsByType { get; set; } = [];
     public Dictionary<CleanupOperationType, long> BytesByType { get; set; } = [];
+}
+
+/// <summary>One day of cleanup activity for the history trend strip.</summary>
+public sealed record DailyTrendPoint(DateTime Date, int Operations, long BytesFreed)
+{
+    public string DayLabel => Date.ToString("ddd");
+    public string DateLabel => Date.ToString("MMM d");
+    public string BytesLabel => FormatHelper.FormatBytes(BytesFreed);
+    public string Tooltip => $"{Date:MMM d, yyyy} — {Operations} operation(s), {BytesLabel} freed";
 }

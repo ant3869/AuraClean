@@ -4,7 +4,12 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:AuraClean.Converters"
              xmlns:helpers="clr-namespace:AuraClean.Helpers"
+             xmlns:services="clr-namespace:AuraClean.Services"
              xmlns:controls="clr-namespace:AuraClean.Views.Controls">
+
+    <UserControl.Resources>
+        <services:PathExcludedToVisibilityConverter x:Key="ExcludedToVis" />
+    </UserControl.Resources>
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
@@ -135,7 +140,7 @@
             <ItemsControl ItemsSource="{Binding Categories}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Style="{StaticResource AuraGlassCardFlush}" CornerRadius="8"
+                        <Border Style="{StaticResource AuraDataCard}" CornerRadius="8"
                                 Margin="0,0,0,8">
                             <Expander IsExpanded="{Binding IsExpanded}"
                                       Style="{StaticResource AuraGroupExpander}"
@@ -225,6 +230,15 @@
                                                                    FontSize="11"
                                                                    Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                                    TextTrimming="CharacterEllipsis" />
+                                                        <!-- Exclusion reason badge (D1) -->
+                                                        <Border Style="{StaticResource AuraPillNeutral}"
+                                                                HorizontalAlignment="Left"
+                                                                Margin="0,3,0,0"
+                                                                Visibility="{Binding Path, Converter={StaticResource ExcludedToVis}}"
+                                                                ToolTip="This path is on your exclusion list (Settings) and will never be cleaned.">
+                                                            <TextBlock Text="Excluded — skipped by exclusion list"
+                                                                       FontSize="10" FontWeight="Medium" />
+                                                        </Border>
                                                     </StackPanel>
 
                                                     <!-- Lock indicator -->
@@ -261,7 +275,7 @@
         </ScrollViewer>
 
         <!-- Status Bar -->
-        <Border Grid.Row="3" Style="{StaticResource AuraGlassCardCompact}"
+        <Border Grid.Row="3" Style="{StaticResource AuraStatCard}"
                 CornerRadius="6" Margin="0,8,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -280,6 +294,13 @@
                            VerticalAlignment="Center" />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- Excluded-count badge (D1) -->
+                    <Border Style="{StaticResource AuraPillWarn}"
+                            Visibility="{Binding HasExcludedItems, Converter={StaticResource BoolToVis}}"
+                            Margin="0,0,16,0" VerticalAlignment="Center"
+                            ToolTip="These items match your exclusion list (Settings) and were deselected.">
+                        <TextBlock Text="{Binding ExcludedNotice}" FontSize="11" />
+                    </Border>
                     <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding TotalJunkCount, StringFormat='{}{0} items'}"
                                Foreground="{DynamicResource AuraTextSecondary}"
                                FontSize="12"

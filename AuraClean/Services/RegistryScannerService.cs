@@ -95,8 +95,8 @@ public static class RegistryScannerService
 
                     ScanKeyRecursive(softwareKey, searchTerms, results, $"{label}\\Software", "Software", 0, ct);
                 }
-                catch (System.Security.SecurityException) { }
-                catch (UnauthorizedAccessException) { }
+                catch (System.Security.SecurityException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied scanning hive: {label}", ex); }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied scanning hive: {label}", ex); }
             }
         }, ct);
 
@@ -156,9 +156,9 @@ public static class RegistryScannerService
 
                 ScanKeyRecursive(subKey, searchTerms, results, childDisplay, childRelative, depth + 1, ct);
             }
-            catch (System.Security.SecurityException) { }
-            catch (UnauthorizedAccessException) { }
-            catch (IOException) { }
+            catch (System.Security.SecurityException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied at: {childDisplay}", ex); }
+            catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry access denied at: {childDisplay}", ex); }
+            catch (IOException ex) { DiagnosticLogger.Warn("RegistryScanner", $"Registry IO failure at: {childDisplay}", ex); }
         }
     }
 

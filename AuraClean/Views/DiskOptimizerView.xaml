@@ -28,7 +28,7 @@
         </StackPanel>
 
         <!-- Action Bar -->
-        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource AuraCard}" Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

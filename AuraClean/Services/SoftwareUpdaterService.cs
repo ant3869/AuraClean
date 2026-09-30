@@ -238,9 +238,10 @@ public static class SoftwareUpdaterService
                     });
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 // Skip malformed lines
+                DiagnosticLogger.Warn("SoftwareUpdater", $"Skipped malformed winget line: {line}", ex);
             }
         }
 

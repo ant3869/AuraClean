@@ -106,8 +106,8 @@ public static class InstallMonitorService
                         SnapshotRegistryRecursive(rootKey, $"{regLabel}", snapshot.RegistryEntries, 0, 4, ct);
                     }
                 }
-                catch (System.Security.SecurityException) { }
-                catch (UnauthorizedAccessException) { }
+                catch (System.Security.SecurityException ex) { DiagnosticLogger.Warn("InstallMonitor", $"Registry access denied snapshotting: {regLabel}", ex); }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("InstallMonitor", $"Registry access denied snapshotting: {regLabel}", ex); }
             }
 
             // Phase 2: Snapshot file system
@@ -120,8 +120,8 @@ public static class InstallMonitorService
                 {
                     SnapshotFileSystemRecursive(dir, snapshot, 0, 3, ct);
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (DirectoryNotFoundException) { }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("InstallMonitor", $"Access denied snapshotting directory: {dir}", ex); }
+                catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("InstallMonitor", $"Directory vanished during snapshot: {dir}", ex); }
             }
         }, ct);
 
@@ -315,7 +315,10 @@ public static class InstallMonitorService
                     if (subKey != null)
                         SnapshotRegistryRecursive(subKey, $"{path}\\{sub}", entries, depth + 1, maxDepth, ct);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("InstallMonitor", $"Skipped unreadable registry subkey '{sub}' under {path}", ex);
+                }
             }
         }
         catch (Exception ex) { DiagnosticLogger.Warn("InstallMonitor", $"Registry snapshot failed at: {path}", ex); }
@@ -339,7 +342,10 @@ public static class InstallMonitorService
                     var fi = new FileInfo(file);
                     snapshot.FileEntries[file] = fi.Length;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("InstallMonitor", $"Skipped unreadable snapshot file: {file}", ex);
+                }
             }
 
             foreach (var dir in Directory.EnumerateDirectories(directory, "*", PathSafety.TopLevelNoReparse))
@@ -350,7 +356,10 @@ public static class InstallMonitorService
                     SnapshotFileSystemRecursive(dir, snapshot, depth + 1, maxDepth, ct);
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    DiagnosticLogger.Warn("InstallMonitor", $"Skipped unreadable snapshot directory: {dir}", ex);
+                }
             }
         }
         catch (OperationCanceledException) { throw; }
@@ -397,7 +406,7 @@ public static class InstallMonitorService
 
     private static void TryDelete(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); } catch { }
+        try { if (File.Exists(path)) File.Delete(path); } catch (Exception ex) { DiagnosticLogger.Warn("InstallMonitor", $"Failed to delete snapshot temp file: {path}", ex); }
     }
 
     #endregion

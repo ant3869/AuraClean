@@ -36,7 +36,7 @@ public static class DiagnosticLogger
 
     /// <summary>
     /// Logs a warning-level message with optional exception details.
-    /// Used to replace bare <c>catch { }</c> blocks.
+    /// Used to replace bare catch blocks that would otherwise swallow exceptions.
     /// </summary>
     public static void Warn(string source, string message, Exception? ex = null)
     {

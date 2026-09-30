@@ -29,7 +29,7 @@
         </StackPanel>
 
         <!-- Controls -->
-        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+        <Border Grid.Row="1" Style="{StaticResource AuraCard}"
                 Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -64,8 +64,8 @@
                             Margin="0,0,8,0" />
                     <Button Content="Cancel"
                             Style="{StaticResource AuraOutlinedButton}"
-                            BorderBrush="{StaticResource AuraWarning}"
-                            Foreground="{StaticResource AuraWarning}"
+                            BorderBrush="{StaticResource AuraDanger}"
+                            Foreground="{StaticResource AuraDanger}"
                             Command="{Binding CancelAnalysisCommand}"
                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
                 </StackPanel>
@@ -83,7 +83,7 @@
 
             <!-- Summary Stats -->
             <WrapPanel Grid.Row="0" Margin="0,0,0,12">
-                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Harddisk" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -95,7 +95,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="File" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -107,7 +107,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Folder" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -119,7 +119,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource AuraGlassCardCompact}">
+                <Border Style="{StaticResource AuraStatCard}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Timer" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -222,7 +222,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Style="{StaticResource AuraGlassCard}"
+                    <Border Grid.Row="0" Style="{StaticResource AuraCard}"
                             Padding="12" Margin="0,0,0,8">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -255,7 +255,7 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+                    <Border Grid.Row="1" Style="{StaticResource AuraCard}"
                             Padding="12">
                         <Grid>
                             <Grid.RowDefinitions>

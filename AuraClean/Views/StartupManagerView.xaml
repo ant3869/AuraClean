@@ -36,7 +36,7 @@
 
             <!-- Stat Cards -->
             <WrapPanel Grid.Row="0" Margin="0,0,0,12">
-                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Apps" Foreground="{DynamicResource AuraInfo}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -48,7 +48,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="CheckCircle" Foreground="{StaticResource AuraSuccess}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -60,7 +60,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource AuraGlassCardCompact}" Margin="0,0,10,0">
+                <Border Style="{StaticResource AuraStatCard}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="MinusCircle" Foreground="{DynamicResource AuraTextSecondary}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -72,14 +72,14 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource AuraGlassCardCompact}">
+                <Border Style="{StaticResource AuraStatCard}">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AlertCircle" Foreground="{StaticResource AuraWarning}"
+                        <materialDesign:PackIcon Kind="AlertCircle" Foreground="{StaticResource AuraDanger}"
                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource AuraTextSecondary}">
                             <Run Text="High Impact: " />
                             <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding HighImpactCount, Mode=OneWay}" FontWeight="SemiBold"
-                                 Foreground="{StaticResource AuraWarning}" />
+                                 Foreground="{StaticResource AuraDanger}" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -136,8 +136,8 @@
 
                 <Button Grid.Column="4"
                         Style="{StaticResource AuraOutlinedButton}"
-                        BorderBrush="{StaticResource AuraWarning}"
-                        Foreground="{StaticResource AuraWarning}"
+                        BorderBrush="{StaticResource AuraDanger}"
+                        Foreground="{StaticResource AuraDanger}"
                         Padding="12,8"
                         Command="{Binding DisableAllHighImpactCommand}"
                         ToolTip="Disable all high-impact startup items"
@@ -176,7 +176,7 @@
         </Grid>
 
         <!-- Startup Entries List -->
-        <Border Grid.Row="2" Style="{StaticResource AuraGlassCardFlush}"
+        <Border Grid.Row="2" Style="{StaticResource AuraDataCard}"
                 CornerRadius="8">
             <Grid>
                 <!-- Loading overlay -->
@@ -259,7 +259,7 @@
                                                     <Style TargetType="TextBlock">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding Impact}" Value="High">
-                                                                <Setter Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                                <Setter Property="Foreground" Value="{StaticResource AuraDanger}" />
                                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Impact}" Value="Medium">
@@ -276,7 +276,7 @@
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding Impact}" Value="High">
                                                 <Setter TargetName="ImpactIcon" Property="Kind" Value="AlertCircle" />
-                                                <Setter TargetName="ImpactIcon" Property="Foreground" Value="{StaticResource AuraWarning}" />
+                                                <Setter TargetName="ImpactIcon" Property="Foreground" Value="{StaticResource AuraDanger}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Impact}" Value="Medium">
                                                 <Setter TargetName="ImpactIcon" Property="Kind" Value="Alert" />
@@ -344,7 +344,7 @@
         </Border>
 
         <!-- Status Bar -->
-        <Border Grid.Row="3" Style="{StaticResource AuraGlassCardCompact}"
+        <Border Grid.Row="3" Style="{StaticResource AuraStatCard}"
                 CornerRadius="6" Margin="0,8,0,0">
             <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
                        AutomationProperties.LiveSetting="Polite"

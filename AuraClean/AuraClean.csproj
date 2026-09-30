@@ -36,8 +36,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\auraimage.png" />
-    <Resource Include="Assets\icon2.png" />
     <Resource Include="Assets\icon.ico" />
   </ItemGroup>
 

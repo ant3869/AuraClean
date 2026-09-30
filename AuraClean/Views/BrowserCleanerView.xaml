@@ -30,7 +30,7 @@
         </StackPanel>
 
         <!-- Options Row -->
-        <Border Grid.Row="1" Style="{StaticResource AuraGlassCard}"
+        <Border Grid.Row="1" Style="{StaticResource AuraCard}"
                 Margin="0,0,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -132,7 +132,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Hero stat: Total Data Found -->
-                    <Border Grid.Column="0" Style="{StaticResource AuraGlassCard}"
+                    <Border Grid.Column="0" Style="{StaticResource AuraCard}"
                             BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
                         <StackPanel>
                             <TextBlock Text="Total Data Found" FontSize="12"
@@ -146,7 +146,7 @@
                     </Border>
 
                     <!-- Compact: Reclaimable Space -->
-                    <Border Grid.Column="2" Style="{StaticResource AuraGlassCardCompact}"
+                    <Border Grid.Column="2" Style="{StaticResource AuraStatCard}"
                             BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}"
                             Padding="14,12">
                         <StackPanel>
@@ -159,7 +159,7 @@
                     </Border>
 
                     <!-- Compact: Clean Targets -->
-                    <Border Grid.Column="4" Style="{StaticResource AuraGlassCardCompact}"
+                    <Border Grid.Column="4" Style="{StaticResource AuraStatCard}"
                             BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}"
                             Padding="14,12">
                         <StackPanel>
@@ -176,7 +176,7 @@
                 <ItemsControl ItemsSource="{Binding BrowserResults}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Style="{StaticResource AuraGlassCard}"
+                            <Border Style="{StaticResource AuraCard}"
                                     Margin="0,0,0,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>

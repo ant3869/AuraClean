@@ -118,9 +118,18 @@ public static class ForceDeleteService
                         if (IsSystemCriticalProcess(proc))
                             continue;
 
+                        var actualName = proc.ProcessName;
+                        if (IsNeverKillProcess(actualName))
+                        {
+                            DiagnosticLogger.Warn("ForceDelete",
+                                $"Refused to terminate {actualName} ({pid}): on the never-kill list (holds user data or a live database).");
+                            continue;
+                        }
+
                         proc.Kill(entireProcessTree: true);
                         proc.WaitForExit(5000);
                         killedProcesses.Add(name);
+                        DiagnosticLogger.Info("ForceDelete", $"Terminated {actualName} ({pid}) to release {path}.");
                     }
                     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
                     {
@@ -290,11 +299,17 @@ public static class ForceDeleteService
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("ForceDelete", $"Failed to inspect modules of PID {proc.Id} ({proc.ProcessName})", ex);
+                }
                 finally { proc.Dispose(); }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("ForceDelete", $"Locking-process scan failed for {filePath}", ex);
+        }
 
         // Also use Restart Manager
         var rmLockers = FileLockDetector.GetLockingProcesses(filePath);
@@ -329,6 +344,23 @@ public static class ForceDeleteService
     {
         return FindAllLockingProcessDetails(directory).Select(x => x.Name).Distinct().ToList();
     }
+
+    /// <summary>
+    /// Processes that must never be terminated: killing them loses unsaved user documents
+    /// (Office) or risks corrupting live databases and indexes (DB/writer engines).
+    /// Compared case-insensitively against Process.ProcessName (no .exe extension).
+    /// </summary>
+    internal static readonly HashSet<string> NeverKillProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Office + document editors (unsaved user data).
+        "WINWORD", "EXCEL", "POWERPNT", "OUTLOOK", "MSACCESS", "ONENOTE", "MSPUB", "VISIO", "WINPROJ",
+        // Database / index writers (corruption risk).
+        "sqlservr", "mysqld", "mariadbd", "postgres", "mongod", "oracle", "db2sysc", "firebird",
+        "elasticsearch", "redis-server", "influxd",
+    };
+
+    internal static bool IsNeverKillProcess(string? processName) =>
+        !string.IsNullOrWhiteSpace(processName) && NeverKillProcesses.Contains(processName);
 
     private static bool IsSystemCriticalProcess(Process proc)
     {

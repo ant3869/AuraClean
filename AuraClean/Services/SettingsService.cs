@@ -29,15 +29,17 @@ public static class SettingsService
     };
 
     /// <summary>
-    /// Loads settings from disk, or returns cached copy if already loaded.
+    /// Loads settings from disk, or returns a copy of the cached settings if already loaded.
     /// Falls back to defaults on any read error. Out-of-range values are clamped.
+    /// The returned object is a defensive copy: mutating it never affects the cache or
+    /// other callers — call <see cref="Save(AppSettings)"/> to persist changes.
     /// </summary>
     public static AppSettings Load()
     {
         lock (_lock)
         {
             if (_cached != null)
-                return _cached;
+                return Clone(_cached);
 
             try
             {
@@ -47,7 +49,7 @@ public static class SettingsService
                     _cached = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
                     _cached.Normalize();
                     DiagnosticLogger.Info("SettingsService", $"Loaded settings from {SettingsFile}");
-                    return _cached;
+                    return Clone(_cached);
                 }
             }
             catch (Exception ex)
@@ -57,7 +59,7 @@ public static class SettingsService
             }
 
             _cached = new AppSettings();
-            return _cached;
+            return Clone(_cached);
         }
     }
 
@@ -79,7 +81,7 @@ public static class SettingsService
         lock (_lock)
         {
             settings.Normalize();
-            _cached = settings;
+            _cached = Clone(settings);
             launchAtStartup = settings.LaunchAtStartup;
 
             try
@@ -112,7 +114,7 @@ public static class SettingsService
     {
         var defaults = new AppSettings();
         Save(defaults);
-        return defaults;
+        return Load();
     }
 
     /// <summary>
@@ -129,6 +131,17 @@ public static class SettingsService
         {
             _cached = null;
         }
+    }
+
+    /// <summary>
+    /// Deep-copies settings through JSON so the cache never shares references with callers:
+    /// Load() results can be mutated freely without corrupting the cache, and post-Save
+    /// caller mutations cannot leak into it either.
+    /// </summary>
+    private static AppSettings Clone(AppSettings source)
+    {
+        var json = JsonSerializer.Serialize(source, JsonOptions);
+        return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
     }
 
     private static void PreserveCorruptSettingsFile()
@@ -204,6 +217,19 @@ public class AppSettings
     public string ScheduledCleanupTime { get; set; } = "03:00";       // 24h format
     public int ScheduledCleanupDayOfWeek { get; set; } = 1;           // 1=Mon ... 7=Sun (for Weekly)
 
+    /// <summary>
+    /// Junk categories the scheduled headless run may clean (JunkType names).
+    /// Empty = fall back to the Normal-mode default set in CleanupModePolicy.
+    /// </summary>
+    public List<string> ScheduledCleanupCategories { get; set; } = [];
+
+    // ── Cleaner exclusions ──
+    /// <summary>
+    /// Full paths (files or folders) the cleaner must never touch. Case-insensitive match;
+    /// a folder entry excludes everything beneath it.
+    /// </summary>
+    public List<string> CleanerExcludedPaths { get; set; } = [];
+
     // ── Onboarding ──
     public bool HasCompletedOnboarding { get; set; } = false;
 
@@ -243,6 +269,20 @@ public class AppSettings
         ScheduledCleanupTime = TryParseScheduleTime(ScheduledCleanupTime, out var time)
             ? time.ToString(@"hh\:mm", CultureInfo.InvariantCulture)
             : "03:00";
+
+        ScheduledCleanupCategories = NormalizeStringList(ScheduledCleanupCategories);
+        CleanerExcludedPaths = NormalizeStringList(CleanerExcludedPaths);
+    }
+
+    private static List<string> NormalizeStringList(List<string>? values)
+    {
+        if (values == null)
+            return [];
+        return values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>Parses a 24-hour "HH:mm" (or "H:mm") time of day.</summary>

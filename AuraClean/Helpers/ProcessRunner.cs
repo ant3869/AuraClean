@@ -79,7 +79,11 @@ public static class ProcessRunner
 
         // Tools that prompt (e.g. winget agreements) must see EOF instead of hanging forever.
         try { process.StandardInput.Close(); }
-        catch (IOException) { /* Process already exited. */ }
+        catch (IOException ex)
+        {
+            // Process already exited.
+            System.Diagnostics.Debug.WriteLine($"[AuraClean] Stdin close raced process exit for {fileName}: {ex.Message}");
+        }
 
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();

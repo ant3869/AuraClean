@@ -49,7 +49,7 @@ public static class EmptyFolderFinderService
                     ScanDirectoryRecursive(root, isRoot: true, results, ct);
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (UnauthorizedAccessException) { }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("EmptyFolderFinder", $"Access denied scanning root: {root}", ex); }
                 catch (Exception ex)
                 {
                     DiagnosticLogger.Warn("EmptyFolderFinder", $"Error scanning {root}", ex);

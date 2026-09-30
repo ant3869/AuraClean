@@ -427,14 +427,14 @@
                             </RadioButton>
                         </StackPanel>
 
-                        <!-- ─── UTILITIES section (collapsible) ─── -->
+                        <!-- ─── TOOLS section (collapsible) ─── -->
                         <Button Style="{StaticResource NavGroupHeader}"
-                                Command="{Binding ToggleUtilitiesCommand}"
-                                AutomationProperties.Name="Utilities section"
-                                AutomationProperties.HelpText="Show or hide utilities"
-                                ToolTip="Show or hide utilities">
+                                Command="{Binding ToggleToolsCommand}"
+                                AutomationProperties.Name="Tools section"
+                                AutomationProperties.HelpText="Show or hide file tools"
+                                ToolTip="Show or hide file tools">
                             <Grid>
-                                <controls:TrackedText Text="Utilities" Tracking="0.1" VerticalAlignment="Center"
+                                <controls:TrackedText Text="Tools" Tracking="0.1" VerticalAlignment="Center"
                                                       FontWeight="SemiBold"
                                                       Foreground="{DynamicResource AuraWarn}" />
                                 <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
@@ -442,13 +442,13 @@
                                                          HorizontalAlignment="Right" VerticalAlignment="Center"
                                                          RenderTransformOrigin="0.5,0.5">
                                     <materialDesign:PackIcon.RenderTransform>
-                                        <RotateTransform Angle="{Binding IsUtilitiesExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
+                                        <RotateTransform Angle="{Binding IsToolsExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
                                     </materialDesign:PackIcon.RenderTransform>
                                 </materialDesign:PackIcon>
                             </Grid>
                         </Button>
 
-                        <StackPanel Visibility="{Binding IsUtilitiesExpanded, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Visibility="{Binding IsToolsExpanded, Converter={StaticResource BoolToVis}}">
                             <RadioButton x:Name="NavLargeFiles"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
@@ -487,6 +487,64 @@
                                     </Border>
                                 </Grid>
                             </RadioButton>
+                            <RadioButton x:Name="NavFileRecovery"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="FileRecovery"
+                                         AutomationProperties.Name="File Recovery">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="FileRestore" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
+                                    <TextBlock Grid.Column="1" Text="File Recovery" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </RadioButton>
+                            <RadioButton x:Name="NavEmptyFolders"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="EmptyFolders"
+                                         AutomationProperties.Name="Empty Folders">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="FolderRemove" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
+                                    <TextBlock Grid.Column="1" Text="Empty Folders" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </RadioButton>
+                        </StackPanel>
+
+                        <!-- ─── SYSTEM section (collapsible) ─── -->
+                        <Button Style="{StaticResource NavGroupHeader}"
+                                Command="{Binding ToggleSystemCommand}"
+                                AutomationProperties.Name="System section"
+                                AutomationProperties.HelpText="Show or hide system tools"
+                                ToolTip="Show or hide system tools">
+                            <Grid>
+                                <controls:TrackedText Text="System" Tracking="0.1" VerticalAlignment="Center"
+                                                      FontWeight="SemiBold"
+                                                      Foreground="{DynamicResource AuraWarn}" />
+                                <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource AuraWarn}"
+                                                         HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                         RenderTransformOrigin="0.5,0.5">
+                                    <materialDesign:PackIcon.RenderTransform>
+                                        <RotateTransform Angle="{Binding IsSystemExpanded, Converter={StaticResource ExpandedChevronAngle}}" />
+                                    </materialDesign:PackIcon.RenderTransform>
+                                </materialDesign:PackIcon>
+                            </Grid>
+                        </Button>
+
+                        <StackPanel Visibility="{Binding IsSystemExpanded, Converter={StaticResource BoolToVis}}">
                             <RadioButton x:Name="NavSystemInfo"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"
@@ -535,40 +593,6 @@
                                     <materialDesign:PackIcon Kind="Update" Width="18" Height="18" VerticalAlignment="Center"
                                                              Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="Software Updater" Margin="8,0,0,0"
-                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                </Grid>
-                            </RadioButton>
-                            <RadioButton x:Name="NavFileRecovery"
-                                         Style="{StaticResource AuraNavButton}"
-                                         Command="{Binding NavigateToCommand}"
-                                         CommandParameter="FileRecovery"
-                                         AutomationProperties.Name="File Recovery">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="FileRestore" Width="18" Height="18" VerticalAlignment="Center"
-                                                             Foreground="{DynamicResource AuraWarn}" />
-                                    <TextBlock Grid.Column="1" Text="File Recovery" Margin="8,0,0,0"
-                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                </Grid>
-                            </RadioButton>
-                            <RadioButton x:Name="NavEmptyFolders"
-                                         Style="{StaticResource AuraNavButton}"
-                                         Command="{Binding NavigateToCommand}"
-                                         CommandParameter="EmptyFolders"
-                                         AutomationProperties.Name="Empty Folders">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="FolderRemove" Width="18" Height="18" VerticalAlignment="Center"
-                                                             Foreground="{DynamicResource AuraWarn}" />
-                                    <TextBlock Grid.Column="1" Text="Empty Folders" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
                             </RadioButton>
@@ -748,112 +772,13 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- View Content: switched by CurrentViewName -->
-            <Grid Grid.Row="0">
-                <!-- Dashboard View -->
+            <!-- View Content: switched by CurrentViewName (lazy: Dashboard eager, rest on first navigate) -->
+            <Grid Grid.Row="0" x:Name="ViewContainer">
+                <!-- Dashboard View (eager: default view) -->
                 <views:DashboardView DataContext="{Binding}"
                                      Visibility="Collapsed"
                                      x:Name="DashboardContent" />
-
-                <!-- Uninstaller View -->
-                <views:UninstallerView DataContext="{Binding Uninstaller}"
-                                       Visibility="Collapsed"
-                                       x:Name="UninstallerContent" />
-
-                <!-- Cleaner View -->
-                <views:CleanerView DataContext="{Binding Cleaner}"
-                                   Visibility="Collapsed"
-                                   x:Name="CleanerContent" />
-
-                <!-- Memory Boost View -->
-                <views:MemoryBoostView DataContext="{Binding Memory}"
-                                       Visibility="Collapsed"
-                                       x:Name="MemoryContent" />
-
-                <!-- Browser Cleaner View -->
-                <views:BrowserCleanerView DataContext="{Binding BrowserCleaner}"
-                                          Visibility="Collapsed"
-                                          x:Name="BrowserContent" />
-
-                <!-- Storage Map View -->
-                <views:StorageMapView DataContext="{Binding DiskAnalyzer}"
-                                      Visibility="Collapsed"
-                                      x:Name="StorageMapContent" />
-
-                <!-- Install Monitor View -->
-                <views:InstallMonitorView DataContext="{Binding InstallMonitor}"
-                                          Visibility="Collapsed"
-                                          x:Name="MonitorContent" />
-
-                <!-- Startup Manager View -->
-                <views:StartupManagerView DataContext="{Binding StartupManager}"
-                                          Visibility="Collapsed"
-                                          x:Name="StartupContent" />
-
-                <!-- Duplicate Finder View -->
-                <views:DuplicateFinderView DataContext="{Binding DuplicateFinder}"
-                                           Visibility="Collapsed"
-                                           x:Name="DuplicatesContent" />
-
-                <!-- File Shredder View -->
-                <views:FileShredderView DataContext="{Binding FileShredder}"
-                                        Visibility="Collapsed"
-                                        x:Name="ShredderContent" />
-
-                <!-- Large File Finder View -->
-                <views:LargeFileFinderView DataContext="{Binding LargeFileFinder}"
-                                           Visibility="Collapsed"
-                                           x:Name="LargeFilesContent" />
-
-                <!-- System Info View -->
-                <views:SystemInfoView DataContext="{Binding SystemInfo}"
-                                      Visibility="Collapsed"
-                                      x:Name="SystemInfoContent" />
-
-                <!-- Settings View -->
-                <views:SettingsView DataContext="{Binding Settings}"
-                                    Visibility="Collapsed"
-                                    x:Name="SettingsContent" />
-
-                <!-- Cleanup History View -->
-                <views:CleanupHistoryView DataContext="{Binding CleanupHistory}"
-                                          Visibility="Collapsed"
-                                          x:Name="HistoryContent" />
-
-                <!-- Quarantine View -->
-                <views:QuarantineView DataContext="{Binding Quarantine}"
-                                      Visibility="Collapsed"
-                                      x:Name="QuarantineContent" />
-
-                <!-- Threat Scanner View -->
-                <views:ThreatScannerView DataContext="{Binding ThreatScanner}"
-                                         Visibility="Collapsed"
-                                         x:Name="ThreatScannerContent" />
-
-                <!-- Software Updater View -->
-                <views:SoftwareUpdaterView DataContext="{Binding SoftwareUpdater}"
-                                           Visibility="Collapsed"
-                                           x:Name="SoftwareUpdaterContent" />
-
-                <!-- Disk Optimizer View -->
-                <views:DiskOptimizerView DataContext="{Binding DiskOptimizer}"
-                                         Visibility="Collapsed"
-                                         x:Name="DiskOptimizerContent" />
-
-                <!-- File Recovery View -->
-                <views:FileRecoveryView DataContext="{Binding FileRecovery}"
-                                        Visibility="Collapsed"
-                                        x:Name="FileRecoveryContent" />
-
-                <!-- Empty Folder Finder View -->
-                <views:EmptyFolderFinderView DataContext="{Binding EmptyFolderFinder}"
-                                              Visibility="Collapsed"
-                                              x:Name="EmptyFoldersContent" />
-
-                <!-- App Bundle Installer View -->
-                <views:AppInstallerView DataContext="{Binding AppInstaller}"
-                                        Visibility="Collapsed"
-                                        x:Name="AppInstallerContent" />
+                <!-- All other views are constructed on first navigate (see MainWindow.xaml.cs _viewFactories). -->
             </Grid>
 
             <!-- Status Bar -->

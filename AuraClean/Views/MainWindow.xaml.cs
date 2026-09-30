@@ -15,6 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly Dictionary<string, FrameworkElement> _viewMap;
+    private readonly Dictionary<string, Func<FrameworkElement>> _viewFactories;
     private readonly Dictionary<string, RadioButton> _navMap;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private bool _forceClose;
@@ -29,29 +30,36 @@ public partial class MainWindow : Window
             _viewModel = (MainViewModel)DataContext;
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
+            // Lazy navigation: only Dashboard is constructed eagerly (default view).
+            // All other views are constructed on first navigate via _viewFactories,
+            // added to ViewContainer on demand, and cached in _viewMap.
             _viewMap = new Dictionary<string, FrameworkElement>
             {
                 ["Dashboard"] = DashboardContent,
-                ["Uninstaller"] = UninstallerContent,
-                ["Cleaner"] = CleanerContent,
-                ["Memory"] = MemoryContent,
-                ["Browser"] = BrowserContent,
-                ["StorageMap"] = StorageMapContent,
-                ["Monitor"] = MonitorContent,
-                ["Startup"] = StartupContent,
-                ["Duplicates"] = DuplicatesContent,
-                ["Shredder"] = ShredderContent,
-                ["LargeFiles"] = LargeFilesContent,
-                ["SystemInfo"] = SystemInfoContent,
-                ["Settings"] = SettingsContent,
-                ["History"] = HistoryContent,
-                ["Quarantine"] = QuarantineContent,
-                ["ThreatScanner"] = ThreatScannerContent,
-                ["SoftwareUpdater"] = SoftwareUpdaterContent,
-                ["DiskOptimizer"] = DiskOptimizerContent,
-                ["FileRecovery"] = FileRecoveryContent,
-                ["EmptyFolders"] = EmptyFoldersContent,
-                ["AppInstaller"] = AppInstallerContent,
+            };
+
+            _viewFactories = new Dictionary<string, Func<FrameworkElement>>
+            {
+                ["Uninstaller"] = () => new UninstallerView { DataContext = _viewModel.Uninstaller, Visibility = Visibility.Collapsed },
+                ["Cleaner"] = () => new CleanerView { DataContext = _viewModel.Cleaner, Visibility = Visibility.Collapsed },
+                ["Memory"] = () => new MemoryBoostView { DataContext = _viewModel.Memory, Visibility = Visibility.Collapsed },
+                ["Browser"] = () => new BrowserCleanerView { DataContext = _viewModel.BrowserCleaner, Visibility = Visibility.Collapsed },
+                ["StorageMap"] = () => new StorageMapView { DataContext = _viewModel.DiskAnalyzer, Visibility = Visibility.Collapsed },
+                ["Monitor"] = () => new InstallMonitorView { DataContext = _viewModel.InstallMonitor, Visibility = Visibility.Collapsed },
+                ["Startup"] = () => new StartupManagerView { DataContext = _viewModel.StartupManager, Visibility = Visibility.Collapsed },
+                ["Duplicates"] = () => new DuplicateFinderView { DataContext = _viewModel.DuplicateFinder, Visibility = Visibility.Collapsed },
+                ["Shredder"] = () => new FileShredderView { DataContext = _viewModel.FileShredder, Visibility = Visibility.Collapsed },
+                ["LargeFiles"] = () => new LargeFileFinderView { DataContext = _viewModel.LargeFileFinder, Visibility = Visibility.Collapsed },
+                ["SystemInfo"] = () => new SystemInfoView { DataContext = _viewModel.SystemInfo, Visibility = Visibility.Collapsed },
+                ["Settings"] = () => new SettingsView { DataContext = _viewModel.Settings, Visibility = Visibility.Collapsed },
+                ["History"] = () => new CleanupHistoryView { DataContext = _viewModel.CleanupHistory, Visibility = Visibility.Collapsed },
+                ["Quarantine"] = () => new QuarantineView { DataContext = _viewModel.Quarantine, Visibility = Visibility.Collapsed },
+                ["ThreatScanner"] = () => new ThreatScannerView { DataContext = _viewModel.ThreatScanner, Visibility = Visibility.Collapsed },
+                ["SoftwareUpdater"] = () => new SoftwareUpdaterView { DataContext = _viewModel.SoftwareUpdater, Visibility = Visibility.Collapsed },
+                ["DiskOptimizer"] = () => new DiskOptimizerView { DataContext = _viewModel.DiskOptimizer, Visibility = Visibility.Collapsed },
+                ["FileRecovery"] = () => new FileRecoveryView { DataContext = _viewModel.FileRecovery, Visibility = Visibility.Collapsed },
+                ["EmptyFolders"] = () => new EmptyFolderFinderView { DataContext = _viewModel.EmptyFolderFinder, Visibility = Visibility.Collapsed },
+                ["AppInstaller"] = () => new AppInstallerView { DataContext = _viewModel.AppInstaller, Visibility = Visibility.Collapsed },
             };
 
             _navMap = new Dictionary<string, RadioButton>
@@ -88,8 +96,7 @@ public partial class MainWindow : Window
                 OnboardingOverlay.Visibility = Visibility.Visible;
             }
 
-            _ = _viewModel.Uninstaller.LoadProgramsCommand.ExecuteAsync(null);
-
+            // NOTE: no Uninstaller preload — programs load on first navigate to Uninstaller (see ShowView).
             InitializeTrayIcon();
             ContentRendered += OnFirstContentRendered;
 
@@ -304,7 +311,15 @@ public partial class MainWindow : Window
     private void ShowView(string viewName)
     {
         if (!_viewMap.TryGetValue(viewName, out var target))
-            return;
+        {
+            // Construct on first navigate, add to the container, and cache.
+            if (!_viewFactories.TryGetValue(viewName, out var factory))
+                return;
+            target = factory();
+            target.Visibility = Visibility.Collapsed;
+            ViewContainer.Children.Add(target);
+            _viewMap[viewName] = target;
+        }
 
         FrameworkElement? outgoing = null;
         if (_currentViewKey != null && _currentViewKey != viewName &&
@@ -327,6 +342,11 @@ public partial class MainWindow : Window
         // Refresh data that other features may have changed while the page was hidden.
         switch (viewName)
         {
+            case "Uninstaller":
+                // Replaces the old startup preload: load on first navigate instead.
+                if (!_viewModel.Uninstaller.HasScanned && !_viewModel.Uninstaller.IsBusy)
+                    _viewModel.Uninstaller.LoadProgramsCommand.Execute(null);
+                break;
             case "Quarantine":
                 _viewModel.Quarantine.LoadEntriesCommand.Execute(null);
                 break;
@@ -356,9 +376,11 @@ public partial class MainWindow : Window
             case "Memory" or "DiskOptimizer" or "Startup":
                 _viewModel.IsOptimizeExpanded = true;
                 break;
-            case "LargeFiles" or "Shredder" or "SystemInfo" or "Quarantine" or "SoftwareUpdater"
-                or "FileRecovery" or "EmptyFolders" or "AppInstaller" or "Monitor":
-                _viewModel.IsUtilitiesExpanded = true;
+            case "LargeFiles" or "Shredder" or "FileRecovery" or "EmptyFolders":
+                _viewModel.IsToolsExpanded = true;
+                break;
+            case "SystemInfo" or "Quarantine" or "SoftwareUpdater" or "AppInstaller" or "Monitor":
+                _viewModel.IsSystemExpanded = true;
                 break;
         }
 

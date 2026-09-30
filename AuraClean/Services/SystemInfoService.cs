@@ -305,9 +305,10 @@ public static class SystemInfoService
             if (dwVal is int intVal && intVal > 0) return intVal;
             if (dwVal is uint uintVal && uintVal > 0) return uintVal;
         }
-        catch
+        catch (Exception ex)
         {
             // Registry access may fail without admin — fall back to WMI value
+            DiagnosticLogger.Warn("SystemInfo", "GPU VRAM registry read failed; falling back to WMI", ex);
         }
 
         return 0;
@@ -345,7 +346,10 @@ public static class SystemInfoService
                     entries.Add(new InfoEntry(cat, $"{drive.Name} Format", drive.DriveFormat, "Harddisk"));
                     entries.Add(new InfoEntry(cat, $"{drive.Name} Type", drive.DriveType.ToString(), "Harddisk"));
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("SystemInfo", $"Skipped unreadable drive: {drive.Name}", ex);
+                }
             }
 
             // Physical disk info via WMI

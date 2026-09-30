@@ -87,7 +87,7 @@
             <StackPanel>
 
                 <!-- ═══ APPEARANCE ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="ThemeLightDark" Width="16" Height="16"
@@ -134,7 +134,7 @@
                 </Border>
 
                 <!-- ═══ GENERAL ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12">
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <materialDesign:PackIcon Kind="CogOutline" Width="16" Height="16"
@@ -167,7 +167,7 @@
                 </Border>
 
                 <!-- ═══ CLEANER DEFAULTS ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -227,7 +227,7 @@
                 </Border>
 
                 <!-- ═══ TOOLS ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -282,7 +282,7 @@
                 </Border>
 
                 <!-- ═══ QUARANTINE ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -316,7 +316,7 @@
                 </Border>
 
                 <!-- ═══ HISTORY ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -349,7 +349,7 @@
                 <!-- Storage path info -->
 
                 <!-- ═══ SCHEDULED CLEANUP ═══ -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,12"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -407,11 +407,110 @@
                                       Foreground="{DynamicResource AuraTextPrimary}"
                                       Background="{DynamicResource AuraSurfaceLight}" />
                         </StackPanel>
+
+                        <!-- D2: per-category scheduled cleanup -->
+                        <Rectangle Height="1" Fill="{DynamicResource AuraBorderSubtle}" Margin="0,12" />
+                        <StackPanel IsEnabled="{Binding ScheduledCleanupEnabled}">
+                            <TextBlock Text="Categories to clean on schedule:"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource AuraTextSecondary}" Margin="0,0,0,6" />
+                            <ItemsControl ItemsSource="{Binding ScheduledCategories}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Style="{StaticResource AuraToggle}" Width="220"
+                                                  IsChecked="{Binding IsSelected}"
+                                                  Content="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="Only low-risk categories can run unattended. All checked = clean every low-risk category."
+                                       FontSize="11"
+                                       Foreground="{DynamicResource AuraTextMuted}" Margin="0,6,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══ CLEANER EXCLUSIONS (D1) ═══ -->
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,12"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <materialDesign:PackIcon Kind="ShieldOff" Width="16" Height="16"
+                                                     Foreground="{DynamicResource AuraTextMuted}"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="Cleaner Exclusions" Style="{StaticResource SectionHeader}" Margin="10,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SectionDesc}"
+                                   Text="Files and folders the cleaner will never touch. A folder excludes everything beneath it." />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Style="{StaticResource AuraGhostButton}"
+                                    Command="{Binding AddExcludedFileCommand}"
+                                    Padding="14,6" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FilePlusOutline" Width="15" Height="15"
+                                                     VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Add file" VerticalAlignment="Center" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource AuraGhostButton}"
+                                    Command="{Binding AddExcludedFolderCommand}"
+                                    Padding="14,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FolderPlusOutline" Width="15" Height="15"
+                                                     VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Add folder" VerticalAlignment="Center" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <TextBlock Text="No exclusions — the cleaner may touch anything it finds."
+                                   FontSize="12" FontStyle="Italic"
+                                   Foreground="{DynamicResource AuraTextMuted}"
+                                   Visibility="{Binding HasExcludedPaths, Converter={StaticResource BoolToVis}, ConverterParameter=Inverse}" />
+
+                        <ItemsControl ItemsSource="{Binding CleanerExcludedPaths}"
+                                      Visibility="{Binding HasExcludedPaths, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource AuraBorder}"
+                                            BorderThickness="0,0,0,1" Padding="0,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding}"
+                                                       FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource AuraTextPrimary}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding}" />
+                                            <Button Grid.Column="1" Style="{StaticResource AuraGhostButton}"
+                                                    Command="{Binding DataContext.RemoveExcludedPathCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="10,4" Margin="8,0,0,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Close" Width="14" Height="14"
+                                                             VerticalAlignment="Center" Margin="0,0,4,0" />
+                                                    <TextBlock Text="Remove" VerticalAlignment="Center" FontSize="12" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </Border>
 
                 <!-- Storage path info -->
-                <Border Style="{StaticResource AuraGlassCard}" Margin="0,0,0,20"
+                <Border Style="{StaticResource AuraCard}" Margin="0,0,0,20"
                         Padding="14"
                         Background="{StaticResource AuraOverlaySubtle}">
                     <StackPanel Orientation="Horizontal">

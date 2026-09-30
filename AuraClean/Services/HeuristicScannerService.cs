@@ -1,3 +1,4 @@
+using AuraClean.Helpers;
 using AuraClean.Models;
 using Microsoft.Win32;
 using System.IO;
@@ -87,8 +88,8 @@ public static class HeuristicScannerService
                         }
                     }
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (DirectoryNotFoundException) { }
+                catch (UnauthorizedAccessException ex) { DiagnosticLogger.Warn("HeuristicScanner", $"Access denied scanning: {basePath}", ex); }
+                catch (DirectoryNotFoundException ex) { DiagnosticLogger.Warn("HeuristicScanner", $"Directory vanished while scanning: {basePath}", ex); }
 
                 return ValueTask.CompletedTask;
             });
@@ -146,10 +147,16 @@ public static class HeuristicScannerService
                             if (!string.IsNullOrWhiteSpace(publisher))
                                 names.Add(publisher);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            DiagnosticLogger.Warn("HeuristicScanner", $"Skipped unreadable uninstall entry '{keyName}'", ex);
+                        }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("HeuristicScanner", $"Failed reading uninstall key: {subKey}", ex);
+                }
             }
 
             // Remove common noise terms that would match too many directories
@@ -174,10 +181,16 @@ public static class HeuristicScannerService
             foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Take(maxFiles))
             {
                 try { size += new FileInfo(file).Length; }
-                catch { }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Warn("HeuristicScanner", $"Skipped unreadable file during size cap calc: {file}", ex);
+                }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("HeuristicScanner", $"Failed capped size calc: {path}", ex);
+        }
         return size;
     }
 

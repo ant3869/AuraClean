@@ -38,7 +38,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- File List -->
-            <Border x:Name="DropZoneBorder" Grid.Column="0" Style="{StaticResource AuraGlassCardFlush}"
+            <Border x:Name="DropZoneBorder" Grid.Column="0" Style="{StaticResource AuraDataCard}"
                     CornerRadius="12"
                     BorderThickness="1.5"
                     BorderBrush="Transparent"
@@ -137,7 +137,7 @@
                                     <Button Grid.Column="4"
                                             Style="{StaticResource AuraGhostButton}"
                                             Content="{materialDesign:PackIcon Kind=Close}"
-                                            Padding="4" Foreground="{StaticResource AuraWarning}"
+                                            Padding="4" Foreground="{StaticResource AuraDanger}"
                                             Command="{Binding DataContext.RemoveFileCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                                             CommandParameter="{Binding}"
                                             ToolTip="Remove from list" />
@@ -239,7 +239,7 @@
                 </Border>
 
                 <!-- Algorithm Selection -->
-                <Border Style="{StaticResource AuraGlassCard}"
+                <Border Style="{StaticResource AuraCard}"
                         CornerRadius="12" Margin="0,0,0,16"
                         Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
@@ -323,7 +323,7 @@
                 </Button>
 
                 <!-- Results Card -->
-                <Border Style="{StaticResource AuraGlassCard}"
+                <Border Style="{StaticResource AuraCard}"
                         CornerRadius="12"
                         Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
@@ -338,7 +338,7 @@
                         <Grid Margin="0,4">
                             <TextBlock Text="Failed" Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LastFailed}" HorizontalAlignment="Right"
-                                       Foreground="{StaticResource AuraWarning}" FontWeight="SemiBold" />
+                                       Foreground="{StaticResource AuraDanger}" FontWeight="SemiBold" />
                         </Grid>
                         <Grid Margin="0,4">
                             <TextBlock Text="Data Overwritten" Foreground="{DynamicResource AuraTextSecondary}" />

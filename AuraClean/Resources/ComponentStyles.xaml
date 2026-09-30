@@ -480,9 +480,6 @@
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
-    <!-- Legacy alias — all Glass references keep working -->
-    <Style x:Key="AuraGlassCard" TargetType="Border" BasedOn="{StaticResource AuraCard}" />
-
     <!-- Stat tile: translucent over the page, 8px radius, compact -->
     <Style x:Key="AuraStatCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource AuraStatBackground}" />
@@ -492,9 +489,6 @@
         <Setter Property="Padding" Value="12,10" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
-
-    <!-- Legacy alias -->
-    <Style x:Key="AuraGlassCardCompact" TargetType="Border" BasedOn="{StaticResource AuraStatCard}" />
 
     <!-- Selected / starter card: accent-tinted border and fill -->
     <Style x:Key="AuraActionCard" TargetType="Border" BasedOn="{StaticResource AuraCard}">
@@ -506,9 +500,6 @@
     <Style x:Key="AuraDataCard" TargetType="Border" BasedOn="{StaticResource AuraCard}">
         <Setter Property="Padding" Value="0" />
     </Style>
-
-    <!-- Legacy alias -->
-    <Style x:Key="AuraGlassCardFlush" TargetType="Border" BasedOn="{StaticResource AuraDataCard}" />
 
     <!-- Section card: standard card with bottom margin for vertical stacking -->
     <Style x:Key="AuraSectionCard" TargetType="Border" BasedOn="{StaticResource AuraCard}">

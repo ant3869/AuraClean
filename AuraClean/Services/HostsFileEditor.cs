@@ -98,9 +98,10 @@ public static class HostsFileEditor
                 File.Copy(path, backup, overwrite: false);
                 return backup;
             }
-            catch (IOException) when (attempt < MaxBackupNameAttempts - 1 && File.Exists(backup))
+            catch (IOException ex) when (attempt < MaxBackupNameAttempts - 1 && File.Exists(backup))
             {
                 // Name taken by an earlier backup in the same millisecond — try the next suffix.
+                DiagnosticLogger.Warn("HostsFileEditor", $"Backup name taken, retrying: {backup}", ex);
             }
         }
     }
