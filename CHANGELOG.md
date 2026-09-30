@@ -9,8 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Uninstaller sorting + Drive column** — every column header sorts (click toggles
+  direction, ▲/▼ glyph); Unknown sizes and unparseable dates sort last in both
+  directions; new Drive column derived from the install location.
+- **Revo-style deep leftover scan** — post-uninstall now also scans the surviving
+  InstallLocation itself, one level deeper under AppData/ProgramData, Startup-folder
+  entries (incl. `.lnk` targets under the install location), and registry value traces
+  across Run/RunOnce, the Uninstall subtree, Services (install-path match required),
+  scheduled tasks, App Paths, and MUI cache. Shared containers surface as explicit
+  review hits instead of false-success deletes.
+- **Dashboard disk + hardware tiles** — system-drive free-space % and hardware grade
+  (shown once System Info has run; dashboard never blocks on it).
+
 ### Fixed
 
+- **One health-score formula** — idle and Health Check paths share `ComputeHealthScore`
+  (junk + threats + startup + browser + recency; missing inputs count 0), so the score
+  no longer silently changes definition. Hero tooltip describes the real inputs.
+- **Dashboard stops lying with zeros** — primes the Uninstaller load + Cleaner analysis
+  on first show, shows "Not scanned yet" instead of 0, junk tile has a 3-state display.
+- **Honest button labels** — "Analyze & Clean" → "Analyze" (it only analyzes),
+  "Undo Clean" → "Open System Restore…" (it launches rstrui.exe).
 - **Storage Map progress in huge folders** — `ReadDirectory` streams entries to a callback
   so item/byte/percentage updates and cancellation fire while a large flat directory is
   still being listed, instead of going silent until the whole listing is buffered.

@@ -10,6 +10,17 @@ using System.Windows.Threading;
 
 namespace AuraClean.ViewModels;
 
+/// <summary>Sortable columns of the uninstaller program list.</summary>
+public enum UninstallerSortColumn
+{
+    Name,
+    Publisher,
+    Version,
+    Size,
+    Installed,
+    Drive
+}
+
 /// <summary>
 /// ViewModel for the Uninstaller view.
 /// Manages the installed program list, search/filter, and deep uninstall workflow.
@@ -32,6 +43,20 @@ public partial class UninstallerViewModel : ObservableObject
     [ObservableProperty] private int _selectedCount;
     [ObservableProperty] private bool _isAllSelected;
     public bool HasCheckedItems => SelectedCount > 0;
+
+    /// <summary>Sortable column of the program list. Default: Name ascending.</summary>
+    [ObservableProperty] private UninstallerSortColumn _sortColumn = UninstallerSortColumn.Name;
+    [ObservableProperty] private bool _sortAscending = true;
+
+    public string NameHeader => "Name" + SortGlyph(UninstallerSortColumn.Name);
+    public string PublisherHeader => "Publisher" + SortGlyph(UninstallerSortColumn.Publisher);
+    public string VersionHeader => "Version" + SortGlyph(UninstallerSortColumn.Version);
+    public string SizeHeader => "Size" + SortGlyph(UninstallerSortColumn.Size);
+    public string InstalledHeader => "Installed" + SortGlyph(UninstallerSortColumn.Installed);
+    public string DriveHeader => "Drive" + SortGlyph(UninstallerSortColumn.Drive);
+
+    private string SortGlyph(UninstallerSortColumn column) =>
+        SortColumn != column ? string.Empty : SortAscending ? " ▲" : " ▼";
 
     /// <summary>The program whose leftovers are currently listed (it may already be uninstalled).</summary>
     private InstalledProgram? _leftoverScanTarget;
@@ -98,14 +123,80 @@ public partial class UninstallerViewModel : ObservableObject
     {
         var query = SearchText?.Trim() ?? string.Empty;
 
-        FilteredPrograms = string.IsNullOrEmpty(query)
-            ? new ObservableCollection<InstalledProgram>(Programs)
-            : new ObservableCollection<InstalledProgram>(
-                Programs.Where(p =>
-                    p.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                    p.Publisher.Contains(query, StringComparison.OrdinalIgnoreCase)));
+        IEnumerable<InstalledProgram> items = string.IsNullOrEmpty(query)
+            ? Programs
+            : Programs.Where(p =>
+                p.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                p.Publisher.Contains(query, StringComparison.OrdinalIgnoreCase));
+
+        var sorted = ApplySort(items).ToList();
+        FilteredPrograms = new ObservableCollection<InstalledProgram>(sorted);
 
         UpdateSelectionCount();
+    }
+
+    [RelayCommand]
+    private void Sort(string? column)
+    {
+        if (!Enum.TryParse<UninstallerSortColumn>(column, ignoreCase: true, out var parsed))
+            return;
+
+        if (SortColumn == parsed)
+        {
+            SortAscending = !SortAscending;
+        }
+        else
+        {
+            SortColumn = parsed;
+            SortAscending = true;
+        }
+
+        NotifySortHeaders();
+        ApplyFilter();
+    }
+
+    private void NotifySortHeaders()
+    {
+        OnPropertyChanged(nameof(NameHeader));
+        OnPropertyChanged(nameof(PublisherHeader));
+        OnPropertyChanged(nameof(VersionHeader));
+        OnPropertyChanged(nameof(SizeHeader));
+        OnPropertyChanged(nameof(InstalledHeader));
+        OnPropertyChanged(nameof(DriveHeader));
+    }
+
+    /// <summary>
+    /// Orders programs by the active sort column (stable, tie-break DisplayName).
+    /// Unknown sizes (&lt;=0) and unparseable dates sort LAST in both directions.
+    /// </summary>
+    internal IEnumerable<InstalledProgram> ApplySort(IEnumerable<InstalledProgram> programs)
+    {
+        var list = programs.ToList();
+
+        IOrderedEnumerable<InstalledProgram> ordered = SortColumn switch
+        {
+            UninstallerSortColumn.Publisher => SortAscending
+                ? list.OrderBy(p => p.Publisher, StringComparer.OrdinalIgnoreCase)
+                : list.OrderByDescending(p => p.Publisher, StringComparer.OrdinalIgnoreCase),
+            UninstallerSortColumn.Version => SortAscending
+                ? list.OrderBy(p => p.DisplayVersion, StringComparer.OrdinalIgnoreCase)
+                : list.OrderByDescending(p => p.DisplayVersion, StringComparer.OrdinalIgnoreCase),
+            UninstallerSortColumn.Size => SortAscending
+                ? list.OrderBy(p => p.EstimatedSizeKB <= 0).ThenBy(p => p.EstimatedSizeKB)
+                : list.OrderBy(p => p.EstimatedSizeKB <= 0).ThenByDescending(p => p.EstimatedSizeKB),
+            UninstallerSortColumn.Installed => SortAscending
+                ? list.OrderBy(p => p.InstallDateParsed == null).ThenBy(p => p.InstallDateParsed)
+                : list.OrderBy(p => p.InstallDateParsed == null).ThenByDescending(p => p.InstallDateParsed),
+            UninstallerSortColumn.Drive => SortAscending
+                ? list.OrderBy(p => p.DriveLetter, StringComparer.OrdinalIgnoreCase)
+                : list.OrderByDescending(p => p.DriveLetter, StringComparer.OrdinalIgnoreCase),
+            _ => SortAscending
+                ? list.OrderBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
+                : list.OrderByDescending(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
+        };
+
+        // Stable: equal keys keep DisplayName order (DisplayName sort itself is stable upstream).
+        return ordered.ThenBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase);
     }
 
     [RelayCommand]

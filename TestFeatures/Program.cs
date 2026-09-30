@@ -55,6 +55,7 @@ class Program
 
         _fail += SafetyHardeningTests.Run();
         _fail += FeatureBatchDTests.Run();
+        _fail += UninstallerBatchTests.Run();
 
         Console.WriteLine("\n════════════════════════════════════════");
         Console.ForegroundColor = _fail == 0 ? ConsoleColor.Green : ConsoleColor.Red;
