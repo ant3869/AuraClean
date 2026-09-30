@@ -264,17 +264,25 @@ public static class DiskAnalyzerService
             LastModified = lastModified
         };
 
-        foreach (var entry in ReadDirectory(path, context.Ct))
+        // Stream entries so progress reports fire as they're read (a huge flat directory
+        // would otherwise show nothing until the whole listing is buffered).
+        var entries = ReadDirectory(path, context.Ct, entry =>
         {
-            context.Ct.ThrowIfCancellationRequested();
-
             if (!entry.IsDirectory)
             {
                 node.SizeBytes += entry.Length;
                 node.FileCount++;
                 context.CountFile(path, entry);
-                continue;
             }
+            context.Report(path);
+        });
+
+        foreach (var entry in entries)
+        {
+            context.Ct.ThrowIfCancellationRequested();
+
+            if (!entry.IsDirectory)
+                continue; // already counted during streaming
 
             // Junctions / symlinks point elsewhere on disk: following them double-counts and can loop.
             if (entry.IsReparsePoint) continue;
@@ -326,7 +334,8 @@ public static class DiskAnalyzerService
             var path = pending.Pop();
             context.Report(path);
 
-            foreach (var entry in ReadDirectory(path, context.Ct))
+            // Same streaming treatment as CrawlDirectory: report as entries arrive.
+            var entries = ReadDirectory(path, context.Ct, entry =>
             {
                 if (!entry.IsDirectory)
                 {
@@ -334,6 +343,13 @@ public static class DiskAnalyzerService
                     files++;
                     context.CountFile(path, entry);
                 }
+                context.Report(path);
+            });
+
+            foreach (var entry in entries)
+            {
+                if (!entry.IsDirectory)
+                    continue; // already counted during streaming
                 else if (!entry.IsReparsePoint)
                 {
                     directories++;
@@ -347,10 +363,12 @@ public static class DiskAnalyzerService
     }
 
     /// <summary>
-    /// Reads one directory level. Returns whatever was read before an error: a folder that
-    /// vanishes, is locked, or fails mid-listing never aborts the whole scan.
+    /// Reads one directory level, streaming entries to <paramref name="onEntry"/> as they
+    /// arrive so progress stays live even in a huge flat directory. Returns whatever was
+    /// read before an error: a folder that vanishes, is locked, or fails mid-listing
+    /// never aborts the whole scan.
     /// </summary>
-    private static List<ScanEntry> ReadDirectory(string path, CancellationToken ct)
+    private static List<ScanEntry> ReadDirectory(string path, CancellationToken ct, Action<ScanEntry>? onEntry = null)
     {
         var entries = new List<ScanEntry>();
         try
@@ -369,6 +387,7 @@ public static class DiskAnalyzerService
             {
                 ct.ThrowIfCancellationRequested();
                 entries.Add(entry);
+                onEntry?.Invoke(entry);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)

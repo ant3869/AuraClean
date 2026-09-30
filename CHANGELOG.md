@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Storage Map progress in huge folders** — `ReadDirectory` streams entries to a callback
+  so item/byte/percentage updates and cancellation fire while a large flat directory is
+  still being listed, instead of going silent until the whole listing is buffered.
+  Applies to both the crawl path and the below-depth-limit summation path.
+
 ### Changed
 
 - **OpenEval visual system (foundation)** — charcoal dark and white light palettes with a violet accent and semantic green / amber / red, blended (color-mix) surfaces for cards, sidebar, hover and active states, 12px cards, 8px actions, 6px controls, pill-shaped status badges, thin scrollbars, themed tooltips, and short `cubic-bezier(.2,0,0,1)` motion with a .96 press. All text colors meet WCAG AA on page and card surfaces in both themes.
