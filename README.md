@@ -17,7 +17,8 @@
 ## Screenshots
 
 <div align="center">
-  <img src="docs/screenshot-dashboard.png" alt="Dashboard" width="%">
+  <img src="docs/screenshot-dashboard.png" alt="Dashboard — System Health" width="%">
+  <img src="docs/screenshot-uninstaller.png" alt="Surgical Uninstaller" width="%">
   <img src="docs/screenshot-systeminfo.png" alt="System Info" width="%">
 </div>
 
