@@ -430,6 +430,7 @@ public partial class UninstallerViewModel : ObservableObject
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
             var junk = await UninstallerService.PostUninstallScanAsync(program, progress);
+            LeftoverOwnershipEvaluator.Annotate(junk, program, Programs);
 
             PostUninstallJunk = new ObservableCollection<JunkItem>(junk);
             HasPostUninstallResults = PostUninstallJunk.Count > 0;
@@ -462,7 +463,8 @@ public partial class UninstallerViewModel : ObservableObject
 
         if (PostUninstallJunk.Count == 0) return;
 
-        var selectedItems = PostUninstallJunk.Where(j => j.IsSelected).ToList();
+        // Blocked items are never cleaned, even if a stale selection survived.
+        var selectedItems = PostUninstallJunk.Where(j => j.IsSelected && !j.IsOwnershipBlocked).ToList();
         if (selectedItems.Count == 0)
         {
             StatusMessage = "No leftover items selected for cleanup.";
@@ -473,19 +475,18 @@ public partial class UninstallerViewModel : ObservableObject
         if (IsDryRun || settings.DryRunMode)
         {
             var registryCount = selectedItems.Count(j => j.Type == JunkType.OrphanedRegistryKey);
-            var fileItems = selectedItems.Where(j => j.Type != JunkType.OrphanedRegistryKey);
-            var (_, protectedSkipped, wouldFree, _) =
-                await FileCleanerService.CleanItemsAsync(fileItems, dryRun: true);
+            var fileBytes = selectedItems.Where(j => j.Type != JunkType.OrphanedRegistryKey).Sum(j => j.SizeBytes);
+            var blockedCount = PostUninstallJunk.Count(j => j.IsOwnershipBlocked);
 
-            StatusMessage = $"Dry run: would clean {selectedItems.Count - protectedSkipped} leftover item(s) " +
-                $"({registryCount} registry, {FormatHelper.FormatBytes(wouldFree)} files). " +
-                $"{protectedSkipped} protected media file(s) skipped.";
+            StatusMessage = $"Dry run: would remove {selectedItems.Count} leftover item(s) " +
+                $"({registryCount} registry, {FormatHelper.FormatBytes(fileBytes)} files moved to a restorable backup). " +
+                $"{blockedCount} blocked item(s) will not be touched.";
             return;
         }
 
         if (!SafetyPromptService.ConfirmDestructiveAction(
                 $"Clean {selectedItems.Count} selected leftover item(s)? Registry keys are backed up first. " +
-                "Review vendor/shared folders carefully."))
+                "Files and folders are re-checked, then moved to a restorable backup instead of being deleted."))
         {
             StatusMessage = "Leftover cleanup cancelled.";
             return;
@@ -519,18 +520,53 @@ public partial class UninstallerViewModel : ObservableObject
                 if (success) regCleaned++;
             }
 
+            // Files and folders: re-authorized per item, then moved (not deleted) into a
+            // restorable backup. Without a known target there is no ownership basis: refuse.
             var fileItems = selectedItems.Where(j => j.Type != JunkType.OrphanedRegistryKey).ToList();
-            var (deleted, skipped, bytesFreed, _) =
-                await FileCleanerService.CleanItemsAsync(fileItems, progress);
+            int moved = 0, skipped = 0;
+            long bytesMoved = 0;
+            if (fileItems.Count > 0)
+            {
+                if (_leftoverScanTarget == null)
+                {
+                    foreach (var item in fileItems)
+                    {
+                        item.IsLocked = true;
+                        item.LockingProcess = "No scan target; rescan before cleaning.";
+                    }
+                    skipped = fileItems.Count;
+                }
+                else
+                {
+                    var backupStore = LeftoverBackupStore.CreateDefault();
+                    backupStore.RecoverInterrupted();
+                    var results = await LeftoverRemovalService.RemoveAsync(
+                        fileItems, _leftoverScanTarget, Programs, backupStore, progress);
+                    for (int i = 0; i < results.Count; i++)
+                    {
+                        if (results[i].Outcome == LeftoverRemovalOutcome.MovedToBackup)
+                        {
+                            moved++;
+                            bytesMoved += fileItems[i].SizeBytes;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                    }
+                }
+            }
 
             var regFailed = selectedItems.Count(j => j.Type == JunkType.OrphanedRegistryKey && j.IsLocked);
-            StatusMessage = $"Cleaned: {deleted + regCleaned} items ({FormatHelper.FormatBytes(bytesFreed)} freed). " +
-                           $"Skipped: {skipped + regFailed}.";
+            StatusMessage = $"Removed {moved + regCleaned} item(s): {regCleaned} registry (backed up), " +
+                           $"{moved} file/folder(s) moved to a restorable backup ({FormatHelper.FormatBytes(bytesMoved)}). " +
+                           $"Skipped: {skipped + regFailed} (see each item for the reason).";
 
             CleanupHistoryService.Record(CleanupOperationType.RegistryClean, regCleaned, 0,
                 $"Leftover registry keys for {_leftoverScanTarget?.DisplayName}");
-            CleanupHistoryService.Record(CleanupOperationType.Uninstall, deleted, bytesFreed,
-                $"Leftover files for {_leftoverScanTarget?.DisplayName}");
+            CleanupHistoryService.Record(CleanupOperationType.Uninstall, moved, 0,
+                $"Leftover files for {_leftoverScanTarget?.DisplayName} moved to restorable backup " +
+                $"({FormatHelper.FormatBytes(bytesMoved)})");
 
             foreach (var item in selectedItems.Where(j => !j.IsLocked).ToList())
                 PostUninstallJunk.Remove(item);

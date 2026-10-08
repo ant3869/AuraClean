@@ -292,6 +292,8 @@
                                     </Grid.ColumnDefinitions>
                                     <CheckBox Grid.Column="0"
                                               IsChecked="{Binding IsSelected}"
+                                              IsEnabled="{Binding CanSelect}"
+                                              ToolTip="{Binding OwnershipSummary}"
                                               Margin="0,0,8,0" />
                                     <StackPanel Grid.Column="1">
                                         <TextBlock Text="{Binding Description}"
@@ -301,6 +303,27 @@
                                                    Foreground="{DynamicResource AuraTextSecondary}"
                                                    FontSize="11"
                                                    TextTrimming="CharacterEllipsis" />
+                                        <!-- Why AuraClean thinks this belongs to the program (or why it is blocked) -->
+                                        <TextBlock Text="{Binding OwnershipSummary}"
+                                                   ToolTip="{Binding OwnershipSummary}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource AuraTextSecondary}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOwnershipBlocked}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource AuraWarn}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding LockingProcess}"
+                                                   Visibility="{Binding IsLocked, Converter={StaticResource BoolToVis}}"
+                                                   Foreground="{DynamicResource AuraWarn}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap" />
                                     </StackPanel>
                                     <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="2"
                                                Text="{Binding FormattedSize}"

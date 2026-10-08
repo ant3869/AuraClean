@@ -1,0 +1,405 @@
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using AuraClean.Helpers;
+
+namespace AuraClean.Services;
+
+public enum LeftoverBackupState { Pending, Moved, Restored }
+
+/// <summary>One journaled leftover removal. Dates are UTC, serialized ISO-8601.</summary>
+public sealed class LeftoverBackupEntry
+{
+    public string Id { get; set; } = string.Empty;
+    public string OriginalPath { get; set; } = string.Empty;
+    public string BackupPath { get; set; } = string.Empty;
+    public bool IsDirectory { get; set; }
+    public LeftoverBackupState State { get; set; }
+    public string ProgramName { get; set; } = string.Empty;
+    public string Evidence { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
+    public DateTime CreatedUtc { get; set; }
+}
+
+public enum LeftoverRemovalOutcome { MovedToBackup, Missing, Refused, Failed }
+
+public sealed record LeftoverRemovalResult(
+    string Path, LeftoverRemovalOutcome Outcome, string Message, string? BackupEntryId = null,
+    AuraClean.Models.OwnershipAssessment? RefusedOwnership = null);
+
+/// <summary>
+/// Recoverable removal for uninstall leftovers. Each item is renamed (never copied, never
+/// deleted) into a per-operation folder under <see cref="RootDirectory"/>, which must be on the
+/// same volume: a same-volume rename is atomic, so a folder with a locked file is either moved
+/// whole or not at all. Write-ahead journal: an entry is saved as Pending before the move and
+/// as Moved after it, so a crash between the two is resolved by <see cref="RecoverInterrupted"/>.
+/// Cross-volume items, an unreadable journal, or any doubt fail closed (nothing is removed).
+/// Space is only freed when the backup is purged.
+/// </summary>
+public sealed class LeftoverBackupStore
+{
+    private static readonly object JournalLock = new();
+
+    /// <summary>Serializes journal access across AuraClean processes for this user session.</summary>
+    private const string JournalMutexName = @"Local\AuraClean.LeftoverBackupJournal";
+    private static readonly TimeSpan JournalMutexTimeout = TimeSpan.FromSeconds(30);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool MoveFileExW(string existing, string target, uint flags);
+
+    /// <summary>
+    /// Same-volume file rename only. File.Move may silently fall back to copy+delete across
+    /// volumes (e.g. a mount point under the same drive letter); flags=0 forbids that.
+    /// </summary>
+    private static void MoveFileNoCopy(string source, string destination)
+    {
+        if (!MoveFileExW(source, destination, 0))
+            throw new IOException(new Win32Exception(Marshal.GetLastWin32Error()).Message);
+    }
+
+    /// <summary>Runs <paramref name="body"/> under the in-process lock and the cross-process mutex.</summary>
+    private static T WithJournalLock<T>(Func<T> body, Func<T> onTimeout)
+    {
+        lock (JournalLock)
+        {
+            using var mutex = new Mutex(false, JournalMutexName);
+            bool acquired;
+            try { acquired = mutex.WaitOne(JournalMutexTimeout); }
+            catch (AbandonedMutexException) { acquired = true; }
+            if (!acquired)
+                return onTimeout();
+            try { return body(); }
+            finally { mutex.ReleaseMutex(); }
+        }
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    public LeftoverBackupStore(string rootDirectory)
+    {
+        RootDirectory = PathSafety.Normalize(rootDirectory)
+            ?? throw new ArgumentException("Backup root must be a fully qualified path.", nameof(rootDirectory));
+    }
+
+    public static LeftoverBackupStore CreateDefault() => new(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuraClean", "LeftoverBackup"));
+
+    public string RootDirectory { get; }
+
+    private string JournalPath => Path.Combine(RootDirectory, "journal.json");
+
+    /// <summary>The previous journal version. Every transition is write-ahead (Pending is saved
+    /// before the move, the move happens before Moved/Restored is saved), so the previous
+    /// version is always a safe state to recover from if the current one is torn or missing.</summary>
+    private string PreviousJournalPath => Path.Combine(RootDirectory, "journal.prev.json");
+
+    /// <summary>
+    /// Test-only crash injection. Invoked with a named point; a test throws an exception no
+    /// production catch filter handles, which stops the operation exactly like process death.
+    /// </summary>
+    internal Action<string>? CrashPoint { get; init; }
+
+    public IReadOnlyList<LeftoverBackupEntry> GetEntries() =>
+        WithJournalLock<IReadOnlyList<LeftoverBackupEntry>>(
+            () => TryLoad(out var entries, out _) ? entries : [], () => []);
+
+    /// <summary>
+    /// Moves an already-validated path into the backup. The caller is responsible for ownership
+    /// and path-safety validation immediately before calling (see <see cref="LeftoverRemovalService"/>).
+    /// </summary>
+    public LeftoverRemovalResult MoveToBackup(
+        string path, bool isDirectory, string programName, string evidence, long sizeBytes)
+    {
+        var source = PathSafety.Normalize(path);
+        if (source == null)
+            return new(path, LeftoverRemovalOutcome.Refused, "The path is not fully qualified.");
+
+        if (PathSafety.IsSameOrUnder(source, RootDirectory) || PathSafety.IsSameOrUnder(RootDirectory, source))
+            return new(source, LeftoverRemovalOutcome.Refused, "It overlaps the leftover backup folder.");
+
+        if (!string.Equals(Path.GetPathRoot(source), Path.GetPathRoot(RootDirectory), StringComparison.OrdinalIgnoreCase))
+            return new(source, LeftoverRemovalOutcome.Refused,
+                "It is on a different drive than the backup folder, so it cannot be removed recoverably. Nothing was removed.");
+
+        return WithJournalLock(() => MoveLocked(source, isDirectory, programName, evidence, sizeBytes),
+            () => new LeftoverRemovalResult(source, LeftoverRemovalOutcome.Refused,
+                "The backup journal is busy in another AuraClean window. Nothing was removed."));
+    }
+
+    private LeftoverRemovalResult MoveLocked(
+        string source, bool isDirectory, string programName, string evidence, long sizeBytes)
+    {
+        {
+            if (!TryLoad(out var entries, out var loadError))
+                return new(source, LeftoverRemovalOutcome.Refused, $"The backup journal is unreadable ({loadError}). Nothing was removed.");
+
+            var id = Guid.NewGuid().ToString("N")[..12];
+            var container = Path.Combine(RootDirectory, id);
+            var entry = new LeftoverBackupEntry
+            {
+                Id = id,
+                OriginalPath = source,
+                BackupPath = Path.Combine(container, Path.GetFileName(source)),
+                IsDirectory = isDirectory,
+                State = LeftoverBackupState.Pending,
+                ProgramName = programName,
+                Evidence = evidence,
+                SizeBytes = sizeBytes,
+                CreatedUtc = DateTime.UtcNow
+            };
+
+            try
+            {
+                Directory.CreateDirectory(container);
+                entries.Add(entry);
+                Save(entries);
+                CrashPoint?.Invoke("move:after-pending-saved");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                TryDeleteEmptyDirectory(container);
+                return new(source, LeftoverRemovalOutcome.Failed, $"Could not prepare the backup: {ex.Message} Nothing was removed.");
+            }
+
+            try
+            {
+                if (isDirectory)
+                    Directory.Move(source, entry.BackupPath);
+                else
+                    MoveFileNoCopy(source, entry.BackupPath);
+                CrashPoint?.Invoke("move:after-move");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                entries.Remove(entry);
+                TrySave(entries);
+                TryDeleteEmptyDirectory(container);
+                return new(source, LeftoverRemovalOutcome.Failed,
+                    $"It is in use or access was denied, so nothing was removed: {ex.Message}");
+            }
+
+            entry.State = LeftoverBackupState.Moved;
+            if (!TrySave(entries))
+            {
+                // The Pending record already points at the backup, so the item stays findable
+                // and RecoverInterrupted() will promote it to Moved.
+                DiagnosticLogger.Warn("LeftoverBackupStore", $"Moved {source} but could not mark it Moved; left Pending.");
+            }
+
+            return new(source, LeftoverRemovalOutcome.MovedToBackup, "Moved to the leftover backup; it can be restored.", id);
+        }
+    }
+
+    /// <summary>Moves a backed-up item back to its original path. Never overwrites.</summary>
+    public (bool Success, string Message) Restore(string entryId) =>
+        WithJournalLock(() => RestoreLocked(entryId), () => (false, "The backup journal is busy in another AuraClean window."));
+
+    private (bool Success, string Message) RestoreLocked(string entryId)
+    {
+        {
+            if (!TryLoad(out var entries, out var loadError))
+                return (false, $"The backup journal is unreadable ({loadError}).");
+
+            var entry = entries.FirstOrDefault(e => e.Id == entryId);
+            if (entry == null)
+                return (false, "No such backup entry.");
+            // Pending with an intact backup and no original means the move completed but was
+            // never marked Moved (crash or failed journal save): still restorable.
+            bool pendingButMoved = entry.State == LeftoverBackupState.Pending &&
+                                   Exists(entry.BackupPath, entry.IsDirectory) &&
+                                   !File.Exists(entry.OriginalPath) && !Directory.Exists(entry.OriginalPath);
+            if (entry.State != LeftoverBackupState.Moved && !pendingButMoved)
+                return (false, $"The entry is {entry.State}, not restorable.");
+            if (PathSafety.Normalize(entry.OriginalPath) is not { } target ||
+                PathSafety.IsProtectedRoot(target) || PathSafety.IsWithinWindowsDirectory(target))
+                return (false, "The original location is not a safe restore target.");
+            if (LeftoverRemovalService.HasReparseAncestor(target, out var link))
+                return (false, $"A parent folder ({link}) is now a junction or link; restore refused.");
+            if (File.Exists(entry.OriginalPath) || Directory.Exists(entry.OriginalPath))
+                return (false, "Something already exists at the original location; restore refused to avoid overwriting it.");
+            if (!Exists(entry.BackupPath, entry.IsDirectory))
+                return (false, "The backup copy is missing.");
+
+            try
+            {
+                var parent = Path.GetDirectoryName(entry.OriginalPath);
+                if (!string.IsNullOrEmpty(parent))
+                    Directory.CreateDirectory(parent);
+
+                if (entry.IsDirectory)
+                    Directory.Move(entry.BackupPath, entry.OriginalPath);
+                else
+                    MoveFileNoCopy(entry.BackupPath, entry.OriginalPath);
+                CrashPoint?.Invoke("restore:after-move");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                return (false, $"Restore failed: {ex.Message}");
+            }
+
+            entry.State = LeftoverBackupState.Restored;
+            TrySave(entries);
+            TryDeleteEmptyDirectory(Path.GetDirectoryName(entry.BackupPath));
+            return (true, $"Restored {entry.OriginalPath}.");
+        }
+    }
+
+    /// <summary>
+    /// Resolves entries left Pending by a crash: promotes them to Moved when the backup exists and
+    /// the original is gone, drops them when the move never happened, and reports conflicts.
+    /// </summary>
+    public IReadOnlyList<string> RecoverInterrupted() =>
+        WithJournalLock<IReadOnlyList<string>>(RecoverLocked, () => ["The backup journal is busy in another AuraClean window."]);
+
+    private IReadOnlyList<string> RecoverLocked()
+    {
+        var report = new List<string>();
+        {
+            if (!TryLoad(out var entries, out var loadError))
+                return [$"The backup journal is unreadable ({loadError})."];
+
+            foreach (var entry in entries.Where(e => e.State == LeftoverBackupState.Pending).ToList())
+            {
+                bool backupExists = Exists(entry.BackupPath, entry.IsDirectory);
+                bool originalExists = Exists(entry.OriginalPath, entry.IsDirectory);
+
+                if (backupExists && !originalExists)
+                {
+                    entry.State = LeftoverBackupState.Moved;
+                    report.Add($"Recovered interrupted removal of {entry.OriginalPath}.");
+                }
+                else if (!backupExists && originalExists)
+                {
+                    entries.Remove(entry);
+                    TryDeleteEmptyDirectory(Path.GetDirectoryName(entry.BackupPath));
+                    report.Add($"Interrupted removal of {entry.OriginalPath} never started; it is untouched.");
+                }
+                else
+                {
+                    report.Add($"Needs manual review: {entry.OriginalPath} (original {(originalExists ? "present" : "missing")}, " +
+                               $"backup {(backupExists ? "present" : "missing")}).");
+                }
+            }
+
+            TrySave(entries);
+        }
+        return report;
+    }
+
+    private static bool Exists(string path, bool isDirectory) =>
+        isDirectory ? Directory.Exists(path) : File.Exists(path);
+
+    private bool TryLoad(out List<LeftoverBackupEntry> entries, out string error)
+    {
+        entries = [];
+        error = string.Empty;
+        // Current journal first; if it is missing or torn (e.g. power loss mid-replace), fall
+        // back to the previous version. Fail closed only when neither is readable.
+        if (TryRead(JournalPath, out entries, out error))
+            return true;
+
+        var primaryError = error;
+        if (TryRead(PreviousJournalPath, out entries, out error))
+        {
+            DiagnosticLogger.Warn("LeftoverBackupStore",
+                $"Journal unreadable or missing ({primaryError}); recovered from the previous version.");
+            return true;
+        }
+
+        if (!File.Exists(JournalPath) && !File.Exists(PreviousJournalPath))
+        {
+            entries = [];
+            error = string.Empty;
+            return true;   // no journal yet
+        }
+
+        error = File.Exists(JournalPath) ? primaryError : error;
+        return false;
+    }
+
+    /// <summary>Reads one journal file. A missing file counts as unreadable here.</summary>
+    private static bool TryRead(string path, out List<LeftoverBackupEntry> entries, out string error)
+    {
+        entries = [];
+        error = string.Empty;
+        try
+        {
+            if (!File.Exists(path))
+            {
+                error = "missing";
+                return false;
+            }
+            var parsed = JsonSerializer.Deserialize<List<LeftoverBackupEntry>>(File.ReadAllText(path), JsonOptions);
+            if (parsed == null || parsed.Any(e => e == null || string.IsNullOrEmpty(e.Id)))
+            {
+                error = "malformed entries";
+                return false;
+            }
+            entries = parsed;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            error = ex.Message;
+            DiagnosticLogger.Warn("LeftoverBackupStore", $"Journal file unreadable: {path}", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Durable replace: write and flush a temp file to disk, then swap it in with ReplaceFile,
+    /// which keeps the prior journal as <see cref="PreviousJournalPath"/>. Without the flush a
+    /// power loss can leave a renamed but empty journal.
+    /// </summary>
+    private void Save(List<LeftoverBackupEntry> entries)
+    {
+        Directory.CreateDirectory(RootDirectory);
+        var temp = $"{JournalPath}.{Guid.NewGuid():N}.tmp";
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(entries, JsonOptions);
+        using (var fs = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            fs.Write(bytes);
+            fs.Flush(flushToDisk: true);
+        }
+
+        if (TryRead(JournalPath, out _, out _))
+            File.Replace(temp, JournalPath, PreviousJournalPath, ignoreMetadataErrors: true);
+        else
+            File.Move(temp, JournalPath, overwrite: true);   // never rotate a torn journal into the fallback slot
+    }
+
+    private bool TrySave(List<LeftoverBackupEntry> entries)
+    {
+        try
+        {
+            Save(entries);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("LeftoverBackupStore", "Journal save failed", ex);
+            return false;
+        }
+    }
+
+    private static void TryDeleteEmptyDirectory(string? dir)
+    {
+        try
+        {
+            if (dir != null && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+                Directory.Delete(dir);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLogger.Warn("LeftoverBackupStore", $"Could not remove empty backup folder {dir}", ex);
+        }
+    }
+}
