@@ -304,15 +304,7 @@ public partial class MainViewModel : ObservableObject
             if (report.Count == 0)
                 return;
 
-            // A message starting with "Error:" means the check itself couldn't run (journal
-            // unreadable or busy) — nothing was resolved. "Needs manual review:" means the check
-            // ran fine but found a Pending entry with neither a clean promote nor a clean drop
-            // (both original and backup present, or both missing) — the entry stays Pending,
-            // unresolved, pending a human look. Neither counts as resolved. See
-            // LeftoverBackupStore.RecoverInterrupted's contract.
-            var errors = report.Count(m => m.StartsWith("Error:"));
-            var needsReview = report.Count(m => m.StartsWith("Needs manual review:"));
-            var resolved = report.Count - errors - needsReview;
+            var (resolved, needsReview, errors) = LeftoverBackupStore.CategorizeRecoveryReport(report);
             if (resolved > 0)
             {
                 CleanupHistoryService.Record(CleanupOperationType.LeftoverRestore, resolved, 0,

@@ -109,8 +109,53 @@ public sealed class LeftoverBackupStore
     /// here is logged and swallowed — it never blocks the feature, and the BackupPath check in
     /// <see cref="Restore"/> is independent defense-in-depth either way.
     /// </summary>
+    /// <summary>
+    /// True when <paramref name="path"/> itself, or any ancestor, is a reparse point (junction or
+    /// symbolic link) — or could not be inspected, which fails closed the same way. An attacker
+    /// could pre-plant a junction at this exact path before AuraClean's elevated process ever
+    /// creates the real folder (Directory.CreateDirectory on an existing reparse point is a
+    /// silent no-op), or swap the real folder for one afterward: the parent (e.g.
+    /// %LocalAppData%\AuraClean) is not itself ACL-hardened, and by default grants the owning
+    /// user delete rights over its children regardless of a child's own restrictive ACL. Checked
+    /// before hardening and at the start of every journal operation, so a tampered root always
+    /// fails closed instead of being silently followed.
+    /// </summary>
+    private static bool IsReparseOrTampered(string path, out string reason)
+    {
+        if (Directory.Exists(path))
+        {
+            try
+            {
+                if (new DirectoryInfo(path).Attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    reason = $"'{path}' is a junction or symbolic link, not a real folder.";
+                    return true;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                reason = $"'{path}' could not be inspected: {ex.Message}";
+                return true;
+            }
+        }
+        if (LeftoverRemovalService.HasReparseAncestor(path, out var link))
+        {
+            reason = $"A parent folder ({link}) is a junction or link.";
+            return true;
+        }
+        reason = string.Empty;
+        return false;
+    }
+
     internal static void TryHardenRootAcl(string root)
     {
+        if (IsReparseOrTampered(root, out var tamperReason))
+        {
+            DiagnosticLogger.Warn("LeftoverBackupStore",
+                $"Refusing to create or harden the backup folder: {tamperReason}");
+            return;
+        }
+
         var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
         try
         {
@@ -173,8 +218,15 @@ public sealed class LeftoverBackupStore
     internal Action<string>? CrashPoint { get; init; }
 
     public IReadOnlyList<LeftoverBackupEntry> GetEntries() =>
-        WithJournalLock<IReadOnlyList<LeftoverBackupEntry>>(
-            () => TryLoad(out var entries, out _) ? entries : [], () => []);
+        WithJournalLock<IReadOnlyList<LeftoverBackupEntry>>(() =>
+        {
+            if (IsReparseOrTampered(RootDirectory, out var tamperReason))
+            {
+                DiagnosticLogger.Warn("LeftoverBackupStore", $"Refusing to list backup entries: {tamperReason}");
+                return [];
+            }
+            return TryLoad(out var entries, out _) ? entries : [];
+        }, () => []);
 
     /// <summary>
     /// Moves an already-validated path into the backup. The caller is responsible for ownership
@@ -203,6 +255,9 @@ public sealed class LeftoverBackupStore
         string source, bool isDirectory, string programName, string evidence, long sizeBytes)
     {
         {
+            if (IsReparseOrTampered(RootDirectory, out var tamperReason))
+                return new(source, LeftoverRemovalOutcome.Refused, $"The backup folder itself can't be trusted ({tamperReason}). Nothing was removed.");
+
             if (!TryLoad(out var entries, out var loadError))
                 return new(source, LeftoverRemovalOutcome.Refused, $"The backup journal is unreadable ({loadError}). Nothing was removed.");
 
@@ -270,6 +325,9 @@ public sealed class LeftoverBackupStore
     private (bool Success, string Message) RestoreLocked(string entryId)
     {
         {
+            if (IsReparseOrTampered(RootDirectory, out var tamperReason))
+                return (false, $"The backup folder itself can't be trusted ({tamperReason}).");
+
             if (!TryLoad(out var entries, out var loadError))
                 return (false, $"The backup journal is unreadable ({loadError}).");
 
@@ -300,6 +358,11 @@ public sealed class LeftoverBackupStore
                 return (false, "The original location is not a safe restore target.");
             if (LeftoverRemovalService.HasReparseAncestor(target, out var link))
                 return (false, $"A parent folder ({link}) is now a junction or link; restore refused.");
+            // Defense in depth: RootDirectory's own hardened ACL should already prevent an
+            // unprivileged process from planting a junction inside it, but this is cheap and
+            // catches it regardless of how it got there.
+            if (LeftoverRemovalService.HasReparseAncestor(backupPath, out var backupLink))
+                return (false, $"A parent folder ({backupLink}) of the backup copy is a junction or link; restore refused.");
             if (OccupiesOriginalPath(entry))
                 return (false, "Something already exists at the original location; restore refused to avoid overwriting it.");
             if (!Exists(entry.BackupPath, entry.IsDirectory))
@@ -340,10 +403,29 @@ public sealed class LeftoverBackupStore
     public IReadOnlyList<string> RecoverInterrupted() =>
         WithJournalLock<IReadOnlyList<string>>(RecoverLocked, () => ["Error: The backup journal is busy in another AuraClean window."]);
 
+    /// <summary>
+    /// Splits a <see cref="RecoverInterrupted"/> report by its documented message-prefix
+    /// contract: "Error:" means the check itself couldn't run (nothing resolved); "Needs manual
+    /// review:" means it ran fine but found an entry neither cleanly promotable nor droppable
+    /// (both original and backup present, or both missing), left Pending either way; anything
+    /// else is a genuine resolution (promoted, dropped, or reconciled). The single place that
+    /// owns this contract, so callers (e.g. MainViewModel's startup recovery) never have to
+    /// duplicate the prefix matching and risk it drifting out of sync.
+    /// </summary>
+    public static (int Resolved, int NeedsReview, int Errors) CategorizeRecoveryReport(IReadOnlyList<string> report)
+    {
+        var errors = report.Count(m => m.StartsWith("Error:"));
+        var needsReview = report.Count(m => m.StartsWith("Needs manual review:"));
+        return (report.Count - errors - needsReview, needsReview, errors);
+    }
+
     private IReadOnlyList<string> RecoverLocked()
     {
         var report = new List<string>();
         {
+            if (IsReparseOrTampered(RootDirectory, out var tamperReason))
+                return [$"Error: The backup folder itself can't be trusted ({tamperReason})."];
+
             if (!TryLoad(out var entries, out var loadError))
                 return [$"Error: The backup journal is unreadable ({loadError})."];
 

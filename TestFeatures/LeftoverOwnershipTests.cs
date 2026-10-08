@@ -43,7 +43,9 @@ public static class LeftoverOwnershipTests
             Section("Concurrent journal access", TestConcurrency);
             Section("Adversarial: paths beyond MAX_PATH", TestLongPaths);
             Section("Security: forged journal entries and root ACL hardening", TestForgedEntriesAndAclHardening);
+            Section("Security: junction-planted backup root fails closed", TestJunctionPlantedRoot);
             Section("Recovery save failure is reported honestly", TestRecoverySaveFailure);
+            Section("Recovery report distinguishes resolved from needs-review from error", TestRecoveryReportCategorization);
         }
         finally
         {
@@ -694,6 +696,62 @@ public static class LeftoverOwnershipTests
         }
     }
 
+    /// <summary>
+    /// An attacker could pre-plant a junction at the exact path AuraClean's backup root would
+    /// use, before the elevated app ever creates and hardens the real folder — or swap the real
+    /// folder for a junction afterward, since its parent isn't itself ACL-hardened. Every entry
+    /// point (MoveToBackup, Restore, RecoverInterrupted, GetEntries, TryHardenRootAcl) must detect
+    /// this and fail closed, never read or write through the junction to its real target.
+    /// </summary>
+    private static void TestJunctionPlantedRoot()
+    {
+        var junctionRoot = Path.Combine(_root, "_junctionRoot");
+        var realTarget = Dir("JunctionRealTarget");
+        File.WriteAllText(Path.Combine(realTarget, "sentinel.txt"), "the real target, untouched");
+
+        if (!TryCreateJunction(junctionRoot, realTarget))
+        {
+            Skip("junction-planted root (mklink /J unavailable)");
+            return;
+        }
+
+        // TryHardenRootAcl must not silently harden (or otherwise act on) the junction's target.
+        LeftoverBackupStore.TryHardenRootAcl(junctionRoot);
+        Assert(File.Exists(Path.Combine(realTarget, "sentinel.txt")), "Hardening a junctioned path leaves the real target's existing content alone");
+        var probe = Path.Combine(realTarget, "post-harden-probe.txt");
+        bool stillWritable;
+        try { File.WriteAllText(probe, "still writable"); stillWritable = true; }
+        catch (UnauthorizedAccessException) { stillWritable = false; }
+        Assert(stillWritable, "...and never restricted the real target's own permissions");
+        if (File.Exists(probe)) File.Delete(probe);
+
+        var store = new LeftoverBackupStore(junctionRoot);
+
+        Assert(store.GetEntries().Count == 0, "GetEntries refuses to read through a junctioned root (empty, not an exception)");
+
+        var leftover = Dir("JunctionVictim", "AcmeTool");
+        File.WriteAllText(Path.Combine(leftover, "data.txt"), "victim data");
+        var moveResult = store.MoveToBackup(leftover, true, "AcmeTool", "test", 0);
+        Assert(moveResult.Outcome == LeftoverRemovalOutcome.Refused && moveResult.Message.Contains("can't be trusted"),
+            $"MoveToBackup refuses a junctioned root ({moveResult.Outcome}: {moveResult.Message})");
+        Assert(Directory.Exists(leftover) && File.Exists(Path.Combine(leftover, "data.txt")),
+            "...and the leftover itself is untouched");
+        Assert(!File.Exists(Path.Combine(realTarget, "journal.json")),
+            "...and nothing was ever written into the junction's real target");
+
+        var recoverReport = store.RecoverInterrupted();
+        Assert(recoverReport.Count == 1 && recoverReport[0].StartsWith("Error:") && recoverReport[0].Contains("can't be trusted"),
+            $"RecoverInterrupted refuses a junctioned root ({(recoverReport.Count > 0 ? recoverReport[0] : "<empty>")})");
+
+        var (restoreOk, restoreMsg) = store.Restore("any-id-at-all");
+        Assert(!restoreOk && restoreMsg.Contains("can't be trusted"),
+            $"Restore refuses a junctioned root before even looking up the entry ({restoreMsg})");
+
+        Assert(File.Exists(Path.Combine(realTarget, "sentinel.txt")) &&
+               Directory.EnumerateFileSystemEntries(realTarget).Count() == 1,
+            "The junction's real target has nothing extra in it after all four operations were attempted");
+    }
+
     private static void TestRecoverySaveFailure()
     {
         var storeRoot = Path.Combine(_root, "_saveFailure");
@@ -726,6 +784,47 @@ public static class LeftoverOwnershipTests
         var retry = store.RecoverInterrupted();
         Assert(retry.Count == 1 && retry[0].StartsWith("Recovered"), "Once unlocked, the same recovery succeeds for real");
         Assert(store.GetEntries().Single().State == LeftoverBackupState.Moved, "...and the entry is now actually Moved");
+    }
+
+    private static void TestRecoveryReportCategorization()
+    {
+        var storeRoot = Path.Combine(_root, "_manualReview");
+        var store = new LeftoverBackupStore(storeRoot);
+        var dir = Dir("ManualReview", "AcmeTool");
+        File.WriteAllText(Path.Combine(dir, "data.txt"), "payload");
+        var moved = store.MoveToBackup(dir, true, "AcmeTool", "evidence", 0);
+        Assert(moved.Outcome == LeftoverRemovalOutcome.MovedToBackup, "Setup: item moved to backup");
+
+        // The genuinely ambiguous case RecoverInterrupted can't resolve on its own: rewind to
+        // Pending (as if the move's journal update never landed) while the original has also come
+        // back (e.g. a reinstall recreated it) — both original and backup now exist for one entry.
+        var journalPath = Path.Combine(storeRoot, "journal.json");
+        File.WriteAllText(journalPath, File.ReadAllText(journalPath).Replace("\"Moved\"", "\"Pending\""));
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "recreated.txt"), "reinstalled");
+
+        var report = store.RecoverInterrupted();
+        Assert(report.Count == 1 && report[0].StartsWith("Needs manual review:") &&
+               report[0].Contains("original present") && report[0].Contains("backup present"),
+            $"Ambiguous Pending entry (both present) surfaces as Needs manual review, not silently resolved ({(report.Count > 0 ? report[0] : "<empty>")})");
+        Assert(store.GetEntries().Single().State == LeftoverBackupState.Pending,
+            "...and the entry stays Pending — genuinely unresolved, not claimed as fixed");
+
+        var (resolved, needsReview, errors) = LeftoverBackupStore.CategorizeRecoveryReport(report);
+        Assert(resolved == 0 && needsReview == 1 && errors == 0,
+            $"CategorizeRecoveryReport — the exact method MainViewModel's startup recovery calls — excludes it from resolved (resolved={resolved}, needsReview={needsReview}, errors={errors})");
+
+        // A realistic mixed report (one of each kind) categorizes correctly too.
+        var mixed = new List<string>
+        {
+            "Recovered interrupted removal of C:\\a.",
+            "Reconciled C:\\b: its restore had completed but the journal was not updated before a crash.",
+            "Needs manual review: C:\\c (original present, backup present).",
+            "Error: The backup journal is unreadable (bad).",
+        };
+        var (mResolved, mNeedsReview, mErrors) = LeftoverBackupStore.CategorizeRecoveryReport(mixed);
+        Assert(mResolved == 2 && mNeedsReview == 1 && mErrors == 1,
+            $"A mixed report (promote + reconcile + review + error) categorizes each correctly (resolved={mResolved}, needsReview={mNeedsReview}, errors={mErrors})");
     }
 
     private static bool TryCreateJunction(string link, string target)
