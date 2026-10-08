@@ -150,7 +150,10 @@ public partial class LeftoverRestoreViewModel : ObservableObject
             var (success, message) = await Task.Run(() => _store.Restore(item.Entry.Id));
             if (success)
             {
-                CleanupHistoryService.Record(CleanupOperationType.LeftoverRestore, 1, item.SizeBytes,
+                // A restore moves the item back from the backup to its original location on the
+                // same volume — it frees no disk space, so bytesFreed is 0, not item.SizeBytes
+                // (which would otherwise inflate total/per-type cleanup statistics).
+                CleanupHistoryService.Record(CleanupOperationType.LeftoverRestore, 1, 0,
                     $"Restored leftover {item.OriginalPath} ({item.ProgramName})");
             }
             StatusMessage = message;

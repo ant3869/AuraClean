@@ -305,9 +305,14 @@ public partial class MainViewModel : ObservableObject
                 return;
 
             // A message starting with "Error:" means the check itself couldn't run (journal
-            // unreadable or busy) — nothing was resolved, so it must never be announced as if it
-            // were. See LeftoverBackupStore.RecoverInterrupted's contract.
-            var resolved = report.Count(m => !m.StartsWith("Error:"));
+            // unreadable or busy) — nothing was resolved. "Needs manual review:" means the check
+            // ran fine but found a Pending entry with neither a clean promote nor a clean drop
+            // (both original and backup present, or both missing) — the entry stays Pending,
+            // unresolved, pending a human look. Neither counts as resolved. See
+            // LeftoverBackupStore.RecoverInterrupted's contract.
+            var errors = report.Count(m => m.StartsWith("Error:"));
+            var needsReview = report.Count(m => m.StartsWith("Needs manual review:"));
+            var resolved = report.Count - errors - needsReview;
             if (resolved > 0)
             {
                 CleanupHistoryService.Record(CleanupOperationType.LeftoverRestore, resolved, 0,
@@ -315,11 +320,13 @@ public partial class MainViewModel : ObservableObject
                 WeakReferenceMessenger.Default.Send(LeftoverBackupChangedMessage.Instance);
             }
 
-            StatusBarText = resolved == report.Count
-                ? $"Resolved {resolved} interrupted leftover operation(s) from a previous session."
-                : resolved > 0
-                    ? $"Resolved {resolved} interrupted leftover operation(s); some couldn't be checked. See Leftover Backups for details."
-                    : "Couldn't check for interrupted leftover operations at startup. See Leftover Backups for details.";
+            StatusBarText = errors > 0
+                ? "Couldn't check for interrupted leftover operations at startup. See Leftover Backups for details."
+                : needsReview > 0
+                    ? $"Resolved {resolved} interrupted leftover operation(s); {needsReview} need manual review. See Leftover Backups for details."
+                    : resolved > 0
+                        ? $"Resolved {resolved} interrupted leftover operation(s) from a previous session."
+                        : StatusBarText;
         }
         catch (Exception ex)
         {

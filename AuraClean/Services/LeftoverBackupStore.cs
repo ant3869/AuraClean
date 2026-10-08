@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AuraClean.Helpers;
@@ -89,8 +91,71 @@ public sealed class LeftoverBackupStore
             ?? throw new ArgumentException("Backup root must be a fully qualified path.", nameof(rootDirectory));
     }
 
-    public static LeftoverBackupStore CreateDefault() => new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuraClean", "LeftoverBackup"));
+    public static LeftoverBackupStore CreateDefault()
+    {
+        var root = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuraClean", "LeftoverBackup");
+        TryHardenRootAcl(root);
+        return new(root);
+    }
+
+    /// <summary>
+    /// Best-effort: restricts the real backup root to Administrators + SYSTEM. AuraClean's
+    /// manifest always requires elevation, but without this the journal and backup payload
+    /// otherwise sit in ordinary, unelevated-writable LocalAppData — letting an unprivileged
+    /// process on the same account forge a journal entry (see <see cref="Restore"/>'s
+    /// BackupPath check) or plant a payload for one. Only called from <see cref="CreateDefault"/>;
+    /// a custom root (tests) never gets this, so non-elevated test runs are unaffected. Failure
+    /// here is logged and swallowed — it never blocks the feature, and the BackupPath check in
+    /// <see cref="Restore"/> is independent defense-in-depth either way.
+    /// </summary>
+    internal static void TryHardenRootAcl(string root)
+    {
+        var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+        try
+        {
+            Directory.CreateDirectory(root);
+            var info = new DirectoryInfo(root);
+
+            // The DACL restriction is the actual security property and must be applied on its
+            // own: setting it together with a new owner in one call fails the whole operation
+            // (ERROR_INVALID_OWNER, 1307 — verified) whenever the caller's token can't take
+            // ownership of the target SID, silently leaving the folder unrestricted. Modifying
+            // only the DACL always succeeds for whoever owns the folder (the creator here),
+            // regardless of elevation — a basic, always-available NTFS right.
+            var security = new DirectorySecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            security.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+            security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+            info.SetAccessControl(security);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SystemException)
+        {
+            DiagnosticLogger.Warn("LeftoverBackupStore",
+                "Could not restrict the backup folder's permissions to Administrators; continuing without it.", ex);
+            return;
+        }
+
+        // Best-effort only, separate from the DACL above: reassigning ownership to Administrators
+        // requires the caller's own token to already have that SID enabled (true for AuraClean's
+        // always-elevated process) or SeRestorePrivilege. When it isn't available the DACL
+        // restriction set above still holds either way, so this failing changes nothing load-bearing.
+        try
+        {
+            var info = new DirectoryInfo(root);
+            var security = info.GetAccessControl();
+            security.SetOwner(admins);
+            info.SetAccessControl(security);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SystemException)
+        {
+            DiagnosticLogger.Warn("LeftoverBackupStore",
+                "Could not reassign the backup folder's owner to Administrators; its access is still restricted.", ex);
+        }
+    }
 
     public string RootDirectory { get; }
 
@@ -211,6 +276,18 @@ public sealed class LeftoverBackupStore
             var entry = entries.FirstOrDefault(e => e.Id == entryId);
             if (entry == null)
                 return (false, "No such backup entry.");
+
+            // The journal lives in ordinary user-writable storage even though AuraClean always
+            // runs elevated, so an unprivileged process on the same account could otherwise forge
+            // an entry whose BackupPath points anywhere on disk and whose OriginalPath is a
+            // privileged destination, turning this elevated restore into an arbitrary-file-write.
+            // Every legitimate entry's BackupPath is generated by MoveToBackup() under
+            // RootDirectory, so this is a pure sanity check for real entries. Checked before the
+            // State check below too, since a forged BackupPath pointing at an attacker file that
+            // happens to exist could otherwise satisfy pendingButMoved regardless of claimed State.
+            if (PathSafety.Normalize(entry.BackupPath) is not { } backupPath || !PathSafety.IsSameOrUnder(backupPath, RootDirectory))
+                return (false, "The backup path is not inside this backup folder; refusing to restore from it.");
+
             // Pending with an intact backup and no original means the move completed but was
             // never marked Moved (crash or failed journal save): still restorable.
             bool pendingButMoved = entry.State == LeftoverBackupState.Pending &&
@@ -310,7 +387,18 @@ public sealed class LeftoverBackupStore
                 }
             }
 
-            TrySave(entries);
+            // A save failure here (disk full, journal unwritable) must not be reported as success:
+            // the entries above were only mutated in memory, so if the save doesn't stick, the
+            // next load sees the original Pending/stale-Moved state and must retry — a caller
+            // that recorded these as resolved (history, status bar) would otherwise lie.
+            if (report.Count == 0)
+            {
+                TrySave(entries);
+                return report;
+            }
+            if (!TrySave(entries))
+                return [$"Error: Found {report.Count} issue(s) to resolve, but could not save the journal " +
+                        "(disk full or inaccessible?). Nothing changed; it will be retried."];
         }
         return report;
     }

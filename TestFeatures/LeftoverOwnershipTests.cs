@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading;
 using AuraClean.Helpers;
 using AuraClean.Models;
@@ -40,6 +42,8 @@ public static class LeftoverOwnershipTests
             Section("Crash consistency (injected process death)", TestCrashConsistency);
             Section("Concurrent journal access", TestConcurrency);
             Section("Adversarial: paths beyond MAX_PATH", TestLongPaths);
+            Section("Security: forged journal entries and root ACL hardening", TestForgedEntriesAndAclHardening);
+            Section("Recovery save failure is reported honestly", TestRecoverySaveFailure);
         }
         finally
         {
@@ -607,6 +611,121 @@ public static class LeftoverOwnershipTests
         }
         Assert(longStore.GetEntries().All(e => e.State != LeftoverBackupState.Pending),
             "Either way, no dangling Pending journal entry from the long-path attempt");
+    }
+
+    /// <summary>
+    /// The journal lives in ordinary user-writable storage even though AuraClean always runs
+    /// elevated, so two things must hold: (1) a hand-forged entry whose BackupPath points outside
+    /// RootDirectory at an arbitrary file is refused, not restored, and (2) the real backup root
+    /// created by <see cref="LeftoverBackupStore.CreateDefault"/> is actually locked down so an
+    /// unprivileged process can't write to it or forge entries in the first place. Part 2 is
+    /// live-verified against this very (non-elevated) test process, not merely asserted.
+    /// </summary>
+    private static void TestForgedEntriesAndAclHardening()
+    {
+        // Part 1: a forged BackupPath pointing outside the backup folder is refused.
+        var storeRoot = Path.Combine(_root, "_forged");
+        var store = new LeftoverBackupStore(storeRoot);
+        Directory.CreateDirectory(storeRoot);
+
+        var attackerPayload = Dir("AttackerPayload");
+        File.WriteAllText(Path.Combine(attackerPayload, "evil.dll"), "not a real leftover");
+        var privilegedTarget = Path.Combine(_root, "ForgedRestoreTarget", "evil.dll");
+
+        var journalPath = Path.Combine(storeRoot, "journal.json");
+        var forgedId = Guid.NewGuid().ToString("N")[..12];
+        File.WriteAllText(journalPath,
+            $$"""
+            [{"id":"{{forgedId}}","originalPath":"{{privilegedTarget.Replace("\\", "\\\\")}}",
+              "backupPath":"{{Path.Combine(attackerPayload, "evil.dll").Replace("\\", "\\\\")}}",
+              "isDirectory":false,"state":"Moved","programName":"AcmeTool","evidence":"forged",
+              "sizeBytes":0,"createdUtc":"2026-01-01T00:00:00Z"}]
+            """);
+
+        var (restoreOk, restoreMsg) = store.Restore(forgedId);
+        Assert(!restoreOk && restoreMsg.Contains("not inside this backup folder"),
+            $"A forged entry whose BackupPath points outside RootDirectory is refused ({restoreMsg})");
+        Assert(!File.Exists(privilegedTarget), "...and nothing was ever written to the forged privileged destination");
+        Assert(File.Exists(Path.Combine(attackerPayload, "evil.dll")), "...and the attacker's own payload file is untouched");
+
+        // Part 2: the real backup root is actually locked down. Live-verified: this test process
+        // is not elevated (checked below), so if hardening works it genuinely cannot write here.
+        bool elevated;
+        try { elevated = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator); }
+        catch (Exception) { elevated = true; /* can't tell — skip the live check rather than assume */ }
+
+        if (elevated)
+        {
+            Skip("root ACL hardening live-check (this test process is itself elevated/Administrator)");
+            return;
+        }
+
+        var hardenedRoot = Path.Combine(_root, "_hardened_" + Guid.NewGuid().ToString("N")[..8]);
+        LeftoverBackupStore.TryHardenRootAcl(hardenedRoot);
+        try
+        {
+            Assert(Directory.Exists(hardenedRoot), "TryHardenRootAcl creates the directory");
+            var probe = Path.Combine(hardenedRoot, "probe.txt");
+            bool blocked;
+            try
+            {
+                File.WriteAllText(probe, "an unprivileged process should not be able to write this");
+                blocked = false;
+            }
+            catch (UnauthorizedAccessException) { blocked = true; }
+            Assert(blocked, "This non-elevated process cannot write into the hardened backup root");
+        }
+        finally
+        {
+            // Restore access so test cleanup (Directory.Delete of _root) can remove it: as
+            // creator/owner we always retain the right to change our own object's ACL, even
+            // without being granted data-access rights by that same ACL.
+            try
+            {
+                var security = new DirectorySecurity();
+                security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                security.AddAccessRule(new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!,
+                    FileSystemRights.FullControl,
+                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+                new DirectoryInfo(hardenedRoot).SetAccessControl(security);
+                Directory.Delete(hardenedRoot, recursive: true);
+            }
+            catch (Exception ex) { Console.WriteLine($"  (cleanup of {hardenedRoot} failed: {ex.Message})"); }
+        }
+    }
+
+    private static void TestRecoverySaveFailure()
+    {
+        var storeRoot = Path.Combine(_root, "_saveFailure");
+        var store = new LeftoverBackupStore(storeRoot);
+        var dir = Dir("SaveFail", "AcmeTool");
+        File.WriteAllText(Path.Combine(dir, "data.txt"), "payload");
+        var moved = store.MoveToBackup(dir, true, "AcmeTool", "evidence", 0);
+        Assert(moved.Outcome == LeftoverRemovalOutcome.MovedToBackup, "Setup: item moved to backup");
+
+        // Rewind to Pending (same technique as the crash-consistency tests) so there is something
+        // for RecoverInterrupted to actually resolve and persist.
+        var journalPath = Path.Combine(storeRoot, "journal.json");
+        File.WriteAllText(journalPath, File.ReadAllText(journalPath).Replace("\"Moved\"", "\"Pending\""));
+
+        // Hold a share-Read handle on journal.json: File.ReadAllText (TryLoad) still succeeds,
+        // but File.Replace (the durable save) cannot, since it needs exclusive/write access —
+        // simulating a save failure (disk full, journal locked) without needing elevation tricks.
+        List<string> report;
+        using (new FileStream(journalPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            report = store.RecoverInterrupted().ToList();
+        }
+
+        Assert(report.Count == 1 && report[0].StartsWith("Error:"),
+            $"A save failure during recovery is reported as an error, not a false success ({(report.Count > 0 ? report[0] : "<empty>")})");
+        Assert(store.GetEntries().Single().State == LeftoverBackupState.Pending,
+            "The entry is still Pending afterward — nothing was actually persisted, so nothing was silently lost either");
+
+        // And it genuinely is retryable: once the lock is released, a normal call resolves it.
+        var retry = store.RecoverInterrupted();
+        Assert(retry.Count == 1 && retry[0].StartsWith("Recovered"), "Once unlocked, the same recovery succeeds for real");
+        Assert(store.GetEntries().Single().State == LeftoverBackupState.Moved, "...and the entry is now actually Moved");
     }
 
     private static bool TryCreateJunction(string link, string target)
