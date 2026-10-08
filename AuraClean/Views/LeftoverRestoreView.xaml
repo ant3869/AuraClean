@@ -1,0 +1,275 @@
+<UserControl x:Class="AuraClean.Views.LeftoverRestoreView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:AuraClean.Converters">
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource AuraPageIcon}" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="FileRestore" Width="16" Height="16"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Leftover Backups" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Text="Uninstall leftovers that were moved here instead of deleted — restore any of them, or check for an interrupted removal"
+                           Style="{StaticResource AuraPageSubtitle}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource AuraOutlinedButton}"
+                        Command="{Binding RecoverInterruptedCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                        AutomationProperties.Name="Check for interrupted leftover operations"
+                        ToolTip="Resolves any leftover removal left unfinished by a crash or unexpected shutdown. Safe to run any time."
+                        Padding="16,8" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Check for Interrupted Operations" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource AuraGhostButton}"
+                        Command="{Binding OpenBackupFolderCommand}"
+                        AutomationProperties.Name="Open the leftover backup folder"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16"
+                                                 VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Open Folder" VerticalAlignment="Center" FontSize="13" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Summary Cards -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource AuraCard}" Padding="16"
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="FileRestore" Width="18" Height="18"
+                                                 Foreground="{DynamicResource AuraInfo}" />
+                        <TextBlock Text="Backed Up" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource AuraAccentTeal}">
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding Entries.Count, Mode=OneWay}" />
+                        <Run Text=" items" FontSize="13" FontWeight="Normal"
+                             Foreground="{DynamicResource AuraTextSecondary}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource AuraCard}" Padding="16"
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraAccentTeal}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="DatabaseClock" Width="18" Height="18"
+                                                 Foreground="{DynamicResource AuraInfo}" />
+                        <TextBlock Text="Storage Used" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular"
+                               Text="{Binding TotalSizeDisplay}" FontSize="24" FontWeight="SemiBold"
+                               Foreground="{StaticResource AuraAccentTeal}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="4" Style="{StaticResource AuraCard}" Padding="16"
+                    BorderThickness="3,0,0,0" BorderBrush="{StaticResource AuraWarn}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <materialDesign:PackIcon Kind="Restore" Width="18" Height="18"
+                                                 Foreground="{StaticResource AuraWarn}" />
+                        <TextBlock Text="Ready to Restore" FontSize="11" Margin="6,0,0,0"
+                                   Foreground="{DynamicResource AuraTextSecondary}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource AuraWarn}">
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding RestorableCount, Mode=OneWay}" />
+                        <Run Text=" items" FontSize="13" FontWeight="Normal"
+                             Foreground="{DynamicResource AuraTextSecondary}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- List -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource AuraCard}" Padding="0">
+                <ListView ItemsSource="{Binding Entries}"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          AutomationProperties.Name="Leftover backup list"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          VirtualizingPanel.IsVirtualizing="True">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="12,8" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="AutomationProperties.Name"
+                                    Value="{Binding OriginalPath}" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border x:Name="Bd" Background="Transparent"
+                                                Padding="{TemplateBinding Padding}"
+                                                BorderBrush="{DynamicResource AuraRowDivider}"
+                                                BorderThickness="0,0,0,1">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AuraOverlayFaint}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Item info -->
+                                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                    <TextBlock Text="{Binding OriginalPath}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AuraTextBright}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding OriginalPath}" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding ProgramName}" FontSize="10"
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
+                                        <TextBlock Text=" · " FontSize="10"
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
+                                        <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular"
+                                                   Text="{Binding CreatedDisplay}" FontSize="10"
+                                                   Foreground="{DynamicResource AuraTextMuted}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ConflictMessage}"
+                                               Visibility="{Binding HasConflict, Converter={StaticResource BoolToVis}}"
+                                               Foreground="{DynamicResource AuraWarn}"
+                                               FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                </StackPanel>
+
+                                <!-- Size -->
+                                <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular"
+                                           Grid.Column="1" Text="{Binding SizeDisplay}"
+                                           FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource AuraTextSecondary}"
+                                           Margin="0,0,12,0" />
+
+                                <!-- Status badge -->
+                                <Border Grid.Column="2" CornerRadius="6" Padding="8,3"
+                                        VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource AuraAccentTealBadge}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasConflict}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource AuraCoralSemi}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding StateDisplay}" FontSize="10" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource AuraAccentTeal}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasConflict}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource AuraDanger}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+
+                                <!-- Restore -->
+                                <Button Grid.Column="3" Style="{StaticResource AuraPrimaryButton}"
+                                        Command="{Binding DataContext.RestoreCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        IsEnabled="{Binding IsRestorable}"
+                                        AutomationProperties.Name="{Binding StateDisplay, StringFormat='Restore {0}'}"
+                                        ToolTip="{Binding ConflictMessage}"
+                                        Padding="12,6">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Restore" Width="14" Height="14"
+                                                                 VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBlock Text="Restore" VerticalAlignment="Center" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+
+            <!-- Empty state -->
+            <StackPanel Grid.Row="0"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding Entries.Count, Converter={StaticResource BoolToVis}, ConverterParameter=Inverse}">
+                <materialDesign:PackIcon Kind="FileRestore"
+                                         Width="48" Height="48"
+                                         HorizontalAlignment="Center"
+                                         Foreground="{DynamicResource AuraTextMuted}"
+                                         Opacity="0.5" />
+                <TextBlock Text="No leftover backups"
+                           FontSize="15" Margin="0,10,0,4"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource AuraTextSecondary}" />
+                <TextBlock Text="Uninstall leftovers removed from the Uninstaller's Deep Scan will appear here"
+                           FontSize="12" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource AuraTextMuted}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Status -->
+        <Grid Grid.Row="3" Margin="0,8,0,0">
+            <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
+                       AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource AuraTextSecondary}"
+                       FontSize="12" VerticalAlignment="Center" />
+            <TextBlock HorizontalAlignment="Right" FontSize="11"
+                       Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center">
+                <Run Text="Backup folder: " />
+                <Run Text="{Binding BackupPath, Mode=OneWay}" />
+            </TextBlock>
+        </Grid>
+    </Grid>
+</UserControl>

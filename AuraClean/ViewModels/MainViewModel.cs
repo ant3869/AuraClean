@@ -42,7 +42,7 @@ public partial class MainViewModel : ObservableObject
         "Dashboard", "Uninstaller", "Cleaner", "Memory", "Browser", "StorageMap", "Monitor",
         "Startup", "Duplicates", "Shredder", "LargeFiles", "SystemInfo", "Settings", "History",
         "Quarantine", "ThreatScanner", "SoftwareUpdater", "DiskOptimizer", "FileRecovery",
-        "EmptyFolders", "AppInstaller"
+        "EmptyFolders", "AppInstaller", "LeftoverRestore"
     };
 
     public string AppVersion { get; } = $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
@@ -148,6 +148,8 @@ public partial class MainViewModel : ObservableObject
     public AppInstallerViewModel AppInstaller => _appInstaller.Value;
     private readonly Lazy<OnboardingViewModel> _onboarding = new(() => new OnboardingViewModel());
     public OnboardingViewModel Onboarding => _onboarding.Value;
+    private readonly Lazy<LeftoverRestoreViewModel> _leftoverRestore = new(() => new LeftoverRestoreViewModel());
+    public LeftoverRestoreViewModel LeftoverRestore => _leftoverRestore.Value;
 
     // Dashboard freshness tiles (D1): cheapest existing data, never a new service.
     [ObservableProperty] private string _diskFreeDisplay = "Not scanned yet";
@@ -221,7 +223,8 @@ public partial class MainViewModel : ObservableObject
         (_appInstaller.IsValueCreated && AppInstaller.IsBusy) ||
         (_softwareUpdater.IsValueCreated && SoftwareUpdater.IsBusy) ||
         (_fileRecovery.IsValueCreated && FileRecovery.IsBusy) ||
-        (_installMonitor.IsValueCreated && InstallMonitor.IsBusy);
+        (_installMonitor.IsValueCreated && InstallMonitor.IsBusy) ||
+        (_leftoverRestore.IsValueCreated && LeftoverRestore.IsBusy);
 
     public MainViewModel()
     {
@@ -264,6 +267,8 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public async Task RunStartupMaintenanceAsync()
     {
+        await RecoverInterruptedLeftoversAsync();
+
         try
         {
             if (!SettingsService.Load().AutoPurgeExpiredQuarantine)
@@ -281,6 +286,31 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             DiagnosticLogger.Warn("MainViewModel", "Startup maintenance failed", ex);
+        }
+    }
+
+    /// <summary>
+    /// Resolves any leftover-removal entry left Pending by a crash or an unexpected shutdown,
+    /// so a stale journal never lingers until the user happens to open Leftover Backups or run
+    /// another deep clean. Safe to run every startup: <see cref="LeftoverBackupStore.RecoverInterrupted"/>
+    /// only touches entries still Pending and is a no-op once the journal is settled.
+    /// </summary>
+    private async Task RecoverInterruptedLeftoversAsync()
+    {
+        try
+        {
+            var store = LeftoverBackupStore.CreateDefault();
+            var report = await Task.Run(store.RecoverInterrupted);
+            if (report.Count > 0)
+            {
+                CleanupHistoryService.Record(CleanupOperationType.LeftoverRestore, report.Count, 0,
+                    $"Startup recovery resolved {report.Count} interrupted leftover operation(s)");
+                StatusBarText = $"Resolved {report.Count} interrupted leftover operation(s) from a previous session.";
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("MainViewModel", "Startup leftover recovery failed", ex);
         }
     }
 

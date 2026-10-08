@@ -60,6 +60,7 @@ public partial class MainWindow : Window
                 ["FileRecovery"] = () => new FileRecoveryView { DataContext = _viewModel.FileRecovery, Visibility = Visibility.Collapsed },
                 ["EmptyFolders"] = () => new EmptyFolderFinderView { DataContext = _viewModel.EmptyFolderFinder, Visibility = Visibility.Collapsed },
                 ["AppInstaller"] = () => new AppInstallerView { DataContext = _viewModel.AppInstaller, Visibility = Visibility.Collapsed },
+                ["LeftoverRestore"] = () => new LeftoverRestoreView { DataContext = _viewModel.LeftoverRestore, Visibility = Visibility.Collapsed },
             };
 
             _navMap = new Dictionary<string, RadioButton>
@@ -82,6 +83,7 @@ public partial class MainWindow : Window
                 ["FileRecovery"] = NavFileRecovery,
                 ["EmptyFolders"] = NavEmptyFolders,
                 ["AppInstaller"] = NavAppInstaller,
+                ["LeftoverRestore"] = NavLeftoverRestore,
                 ["Monitor"] = NavMonitor,
                 ["History"] = NavHistory,
                 ["Settings"] = NavSettings,
@@ -350,6 +352,9 @@ public partial class MainWindow : Window
             case "Quarantine":
                 _viewModel.Quarantine.LoadEntriesCommand.Execute(null);
                 break;
+            case "LeftoverRestore":
+                _viewModel.LeftoverRestore.LoadEntriesCommand.Execute(null);
+                break;
             case "History":
                 _viewModel.CleanupHistory.LoadHistoryCommand.Execute(null);
                 break;
@@ -379,7 +384,7 @@ public partial class MainWindow : Window
             case "LargeFiles" or "Shredder" or "FileRecovery" or "EmptyFolders":
                 _viewModel.IsToolsExpanded = true;
                 break;
-            case "SystemInfo" or "Quarantine" or "SoftwareUpdater" or "AppInstaller" or "Monitor":
+            case "SystemInfo" or "Quarantine" or "SoftwareUpdater" or "AppInstaller" or "Monitor" or "LeftoverRestore":
                 _viewModel.IsSystemExpanded = true;
                 break;
         }

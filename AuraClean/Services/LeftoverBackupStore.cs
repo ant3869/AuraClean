@@ -223,7 +223,7 @@ public sealed class LeftoverBackupStore
                 return (false, "The original location is not a safe restore target.");
             if (LeftoverRemovalService.HasReparseAncestor(target, out var link))
                 return (false, $"A parent folder ({link}) is now a junction or link; restore refused.");
-            if (File.Exists(entry.OriginalPath) || Directory.Exists(entry.OriginalPath))
+            if (OccupiesOriginalPath(entry))
                 return (false, "Something already exists at the original location; restore refused to avoid overwriting it.");
             if (!Exists(entry.BackupPath, entry.IsDirectory))
                 return (false, "The backup copy is missing.");
@@ -296,6 +296,15 @@ public sealed class LeftoverBackupStore
 
     private static bool Exists(string path, bool isDirectory) =>
         isDirectory ? Directory.Exists(path) : File.Exists(path);
+
+    /// <summary>
+    /// True when something already exists at <paramref name="entry"/>'s original path, i.e.
+    /// restoring it would overwrite that path. Exposed (read-only, no side effects) so a restore
+    /// list can show the conflict before the user tries to restore; <see cref="Restore"/> is the
+    /// only method that ever acts on it.
+    /// </summary>
+    public static bool OccupiesOriginalPath(LeftoverBackupEntry entry) =>
+        File.Exists(entry.OriginalPath) || Directory.Exists(entry.OriginalPath);
 
     private bool TryLoad(out List<LeftoverBackupEntry> entries, out string error)
     {

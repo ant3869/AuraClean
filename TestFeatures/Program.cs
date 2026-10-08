@@ -33,8 +33,18 @@ class Program
         Console.ResetColor();
     }
 
-    static async Task Main()
+    static async Task Main(string[] args)
     {
+        // Cross-process locking test support: a worker re-launches this same executable with
+        // this flag to perform one real OS-process backup move against a shared journal root,
+        // so the test can verify the named mutex serializes writes across actual processes
+        // (not just threads within one process). See LeftoverRestoreRecoveryTests.
+        if (args.Length == 3 && args[0] == "--leftover-worker")
+        {
+            Environment.ExitCode = RunLeftoverWorker(args[1], args[2]);
+            return;
+        }
+
         Console.WriteLine("╔════════════════════════════════════════╗");
         Console.WriteLine("║   AuraClean Feature Tests              ║");
         Console.WriteLine("╚════════════════════════════════════════╝\n");
@@ -57,6 +67,7 @@ class Program
         _fail += FeatureBatchDTests.Run();
         _fail += UninstallerBatchTests.Run();
         _fail += LeftoverOwnershipTests.Run();
+        _fail += LeftoverRestoreRecoveryTests.Run();
 
         Console.WriteLine("\n════════════════════════════════════════");
         Console.ForegroundColor = _fail == 0 ? ConsoleColor.Green : ConsoleColor.Red;
@@ -503,6 +514,23 @@ class Program
         }
 
         Console.WriteLine();
+    }
+
+    /// <summary>Cross-process worker body: see the Main() flag check above.</summary>
+    static int RunLeftoverWorker(string journalRoot, string sourceDirectory)
+    {
+        try
+        {
+            var store = new LeftoverBackupStore(journalRoot);
+            var result = store.MoveToBackup(sourceDirectory, isDirectory: true, "CrossProcessWorker", "cross-process lock test", 0);
+            Console.WriteLine(result.Outcome);
+            return result.Outcome == LeftoverRemovalOutcome.MovedToBackup ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("EXCEPTION: " + ex);
+            return 2;
+        }
     }
 
     static string NormalizeRoot(string path) =>
