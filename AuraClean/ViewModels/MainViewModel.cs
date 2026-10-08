@@ -293,7 +293,7 @@ public partial class MainViewModel : ObservableObject
     /// Resolves any leftover-removal entry left Pending by a crash or an unexpected shutdown,
     /// so a stale journal never lingers until the user happens to open Leftover Backups or run
     /// another deep clean. Safe to run every startup: <see cref="LeftoverBackupStore.RecoverInterrupted"/>
-    /// only touches entries still Pending and is a no-op once the journal is settled.
+    /// only touches entries still Pending/stale-Moved and is a no-op once the journal is settled.
     /// </summary>
     private async Task RecoverInterruptedLeftoversAsync()
     {
@@ -301,12 +301,25 @@ public partial class MainViewModel : ObservableObject
         {
             var store = LeftoverBackupStore.CreateDefault();
             var report = await Task.Run(store.RecoverInterrupted);
-            if (report.Count > 0)
+            if (report.Count == 0)
+                return;
+
+            // A message starting with "Error:" means the check itself couldn't run (journal
+            // unreadable or busy) — nothing was resolved, so it must never be announced as if it
+            // were. See LeftoverBackupStore.RecoverInterrupted's contract.
+            var resolved = report.Count(m => !m.StartsWith("Error:"));
+            if (resolved > 0)
             {
-                CleanupHistoryService.Record(CleanupOperationType.LeftoverRestore, report.Count, 0,
-                    $"Startup recovery resolved {report.Count} interrupted leftover operation(s)");
-                StatusBarText = $"Resolved {report.Count} interrupted leftover operation(s) from a previous session.";
+                CleanupHistoryService.Record(CleanupOperationType.LeftoverRestore, resolved, 0,
+                    $"Startup recovery resolved {resolved} interrupted leftover operation(s)");
+                WeakReferenceMessenger.Default.Send(LeftoverBackupChangedMessage.Instance);
             }
+
+            StatusBarText = resolved == report.Count
+                ? $"Resolved {resolved} interrupted leftover operation(s) from a previous session."
+                : resolved > 0
+                    ? $"Resolved {resolved} interrupted leftover operation(s); some couldn't be checked. See Leftover Backups for details."
+                    : "Couldn't check for interrupted leftover operations at startup. See Leftover Backups for details.";
         }
         catch (Exception ex)
         {

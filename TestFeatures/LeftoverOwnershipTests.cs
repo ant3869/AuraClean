@@ -39,6 +39,7 @@ public static class LeftoverOwnershipTests
             Section("Backup store: failures and interruption", TestStoreFailures);
             Section("Crash consistency (injected process death)", TestCrashConsistency);
             Section("Concurrent journal access", TestConcurrency);
+            Section("Adversarial: paths beyond MAX_PATH", TestLongPaths);
         }
         finally
         {
@@ -447,7 +448,10 @@ public static class LeftoverOwnershipTests
         var again = restartC.Restore(moved.BackupEntryId!);
         Assert(!again.Success && File.ReadAllText(Path.Combine(c, "data.txt")) == "charlie",
             "C: a stale Moved entry cannot overwrite the restored data");
-        Assert(restartC.RecoverInterrupted().Count == 0, "C: recovery leaves the stale entry alone");
+        var reconciled = restartC.RecoverInterrupted();
+        Assert(reconciled.Count == 1 && !reconciled[0].StartsWith("Error:"), "C: recovery reconciles the stale entry");
+        Assert(restartC.GetEntries().Single(e => e.Id == moved.BackupEntryId).State == LeftoverBackupState.Restored,
+            "C: the stale Moved entry is now correctly classified as Restored");
         var reRemove = restartC.MoveToBackup(c, true, "AcmeTool", "t", 0);
         Assert(reRemove.Outcome == LeftoverRemovalOutcome.MovedToBackup && DataIsRecoverable(restartC, c, "charlie"),
             "C: the same path can be removed and restored again afterwards");
@@ -549,6 +553,60 @@ public static class LeftoverOwnershipTests
     {
         File.WriteAllText(path, "x");
         return path;
+    }
+
+    /// <summary>
+    /// Exercises two adversarial scenarios not covered elsewhere: a folder the process is
+    /// denied delete access to (the genuine <see cref="UnauthorizedAccessException"/> branch of
+    /// <c>Directory.Move</c>, distinct from the locked-file <see cref="IOException"/> case
+    /// already covered above) and a leftover file whose path exceeds MAX_PATH (the raw
+    /// MoveFileExW P/Invoke has no \\?\ long-path prefixing, unlike Directory.Move for folders).
+    /// Both assert the same safety invariant either way: fail closed, original untouched, no
+    /// dangling Pending entry — never a crash and never a partial move.
+    /// </summary>
+    /// <summary>
+    /// A leftover file whose path exceeds MAX_PATH still moves and restores intact when Win32
+    /// long-path support is available, and fails closed (never crashes, never partial) when it
+    /// isn't — the raw MoveFileExW P/Invoke has no \\?\ long-path prefixing, unlike
+    /// <c>Directory.Move</c> for folders, so this specifically targets the file code path.
+    /// (A matching permission-denied adversarial case was attempted here too, denying
+    /// delete-child on the parent via icacls, but was dropped: verified independently that this
+    /// local-admin account's rename still succeeds through an explicit Deny ACE on this machine,
+    /// so asserting a specific outcome would fail for an environment/privilege reason unrelated
+    /// to AuraClean. The existing locked-file test already proves the identical fail-closed
+    /// catch path via a sharing violation instead. See the release report for this gap.)
+    /// </summary>
+    private static void TestLongPaths()
+    {
+        string longFile;
+        try
+        {
+            var longDir = Path.Combine(_root, "_longpath", new string('A', 200), new string('B', 50));
+            Directory.CreateDirectory(longDir);
+            longFile = Path.Combine(longDir, "leftover-payload.dat");
+            File.WriteAllText(longFile, "deep-payload");
+        }
+        catch (Exception ex) when (ex is PathTooLongException or IOException)
+        {
+            Skip($"long paths (could not even create the test fixture on this environment: {ex.GetType().Name})");
+            return;
+        }
+
+        var longStore = new LeftoverBackupStore(Path.Combine(_root, "_longpath_backup"));
+        var moved = longStore.MoveToBackup(longFile, isDirectory: false, "AcmeTool", "test", 0);
+        if (moved.Outcome == LeftoverRemovalOutcome.MovedToBackup)
+        {
+            var (ok, _) = longStore.Restore(moved.BackupEntryId!);
+            Assert(ok && File.Exists(longFile) && File.ReadAllText(longFile) == "deep-payload",
+                "A file leftover beyond MAX_PATH moves to backup and restores intact");
+        }
+        else
+        {
+            Assert(moved.Outcome == LeftoverRemovalOutcome.Failed && File.Exists(longFile),
+                $"...or where Win32 long-path support isn't available it fails closed, original untouched ({moved.Outcome}: {moved.Message})");
+        }
+        Assert(longStore.GetEntries().All(e => e.State != LeftoverBackupState.Pending),
+            "Either way, no dangling Pending journal entry from the long-path attempt");
     }
 
     private static bool TryCreateJunction(string link, string target)

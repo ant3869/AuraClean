@@ -253,18 +253,22 @@ public sealed class LeftoverBackupStore
     }
 
     /// <summary>
-    /// Resolves entries left Pending by a crash: promotes them to Moved when the backup exists and
-    /// the original is gone, drops them when the move never happened, and reports conflicts.
+    /// Resolves entries left Pending by a crash (promotes them to Moved when the backup exists
+    /// and the original is gone, drops them when the move never happened, reports conflicts) and
+    /// reconciles stale Moved entries whose restore actually completed before a crash prevented
+    /// the journal from recording it. Every returned message describes something that was
+    /// resolved or needs attention; a message starting with "Error:" means the check itself
+    /// could not run (journal unreadable or busy) and nothing was resolved.
     /// </summary>
     public IReadOnlyList<string> RecoverInterrupted() =>
-        WithJournalLock<IReadOnlyList<string>>(RecoverLocked, () => ["The backup journal is busy in another AuraClean window."]);
+        WithJournalLock<IReadOnlyList<string>>(RecoverLocked, () => ["Error: The backup journal is busy in another AuraClean window."]);
 
     private IReadOnlyList<string> RecoverLocked()
     {
         var report = new List<string>();
         {
             if (!TryLoad(out var entries, out var loadError))
-                return [$"The backup journal is unreadable ({loadError})."];
+                return [$"Error: The backup journal is unreadable ({loadError})."];
 
             foreach (var entry in entries.Where(e => e.State == LeftoverBackupState.Pending).ToList())
             {
@@ -286,6 +290,23 @@ public sealed class LeftoverBackupStore
                 {
                     report.Add($"Needs manual review: {entry.OriginalPath} (original {(originalExists ? "present" : "missing")}, " +
                                $"backup {(backupExists ? "present" : "missing")}).");
+                }
+            }
+
+            // A Moved entry whose backup is gone but whose original path is occupied again means
+            // Restore() actually completed (it moves backup -> original) but crashed before the
+            // journal recorded State=Restored. This never moves data — Restore() already refuses
+            // to touch an entry whose backup is missing — it only corrects bookkeeping once the
+            // filesystem shows the restore already happened, so a stale entry stops being shown
+            // as a false "needs review" conflict forever.
+            foreach (var entry in entries.Where(e => e.State == LeftoverBackupState.Moved).ToList())
+            {
+                bool backupExists = Exists(entry.BackupPath, entry.IsDirectory);
+                bool originalExists = Exists(entry.OriginalPath, entry.IsDirectory);
+                if (!backupExists && originalExists)
+                {
+                    entry.State = LeftoverBackupState.Restored;
+                    report.Add($"Reconciled {entry.OriginalPath}: its restore had completed but the journal was not updated before a crash.");
                 }
             }
 

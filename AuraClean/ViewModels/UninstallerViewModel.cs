@@ -3,6 +3,7 @@ using AuraClean.Models;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -554,6 +555,10 @@ public partial class UninstallerViewModel : ObservableObject
                             skipped++;
                         }
                     }
+
+                    // Let the Leftover Backups page (kept alive for the app's lifetime) know its
+                    // data is stale, whether or not it happens to be open right now.
+                    WeakReferenceMessenger.Default.Send(LeftoverBackupChangedMessage.Instance);
                 }
             }
 

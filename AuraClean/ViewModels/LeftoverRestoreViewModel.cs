@@ -2,10 +2,22 @@ using AuraClean.Helpers;
 using AuraClean.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
 using System.IO;
 
 namespace AuraClean.ViewModels;
+
+/// <summary>
+/// Message sent whenever something outside the Leftover Backups page changes the backup
+/// journal (a Deep Scan removal, or startup's interrupted-operation recovery), so the page's
+/// cached ViewModel (held alive by <c>MainViewModel._leftoverRestore</c>) refreshes without
+/// requiring the user to revisit the page or click "Check for Interrupted Operations".
+/// </summary>
+public sealed class LeftoverBackupChangedMessage
+{
+    public static readonly LeftoverBackupChangedMessage Instance = new();
+}
 
 /// <summary>
 /// ViewModel for the Leftover Backups page: the recovery experience for uninstall leftovers
@@ -22,6 +34,7 @@ public partial class LeftoverRestoreViewModel : ObservableObject
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string _statusMessage = "No leftover backups yet.";
     [ObservableProperty] private int _restorableCount;
+    [ObservableProperty] private int _backedUpCount;
     [ObservableProperty] private string _totalSizeDisplay = "0 B";
     [ObservableProperty] private string _backupPath = string.Empty;
 
@@ -34,6 +47,18 @@ public partial class LeftoverRestoreViewModel : ObservableObject
         _store = store;
         BackupPath = _store.RootDirectory;
         LoadEntries();
+
+        // Refresh when a Deep Scan removal or startup recovery changes the journal elsewhere;
+        // this ViewModel is held alive by MainViewModel for the app's lifetime, so without this
+        // the page would show stale data until the user revisits it or clicks Check/Restore.
+        WeakReferenceMessenger.Default.Register<LeftoverBackupChangedMessage>(this, (_, _) =>
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess())
+                LoadEntries();
+            else
+                dispatcher.BeginInvoke(LoadEntries);
+        });
     }
 
     [RelayCommand]
@@ -48,11 +73,18 @@ public partial class LeftoverRestoreViewModel : ObservableObject
 
             Entries = new ObservableCollection<LeftoverBackupEntryItem>(items);
             RestorableCount = items.Count(i => i.IsRestorable);
-            TotalSizeDisplay = FormatHelper.FormatBytes(items.Sum(i => i.SizeBytes));
+
+            // Only Moved entries still occupy real disk space in the backup folder; a Restored
+            // entry's content has already moved back to its original path, so it must not be
+            // counted toward current storage usage even though it stays in the list below as
+            // history.
+            var active = items.Where(i => i.Entry.State == LeftoverBackupState.Moved).ToList();
+            BackedUpCount = active.Count;
+            TotalSizeDisplay = FormatHelper.FormatBytes(active.Sum(i => i.SizeBytes));
 
             StatusMessage = Entries.Count == 0
                 ? "No leftover backups yet."
-                : $"{Entries.Count} backed-up item(s), {RestorableCount} ready to restore.";
+                : $"{BackedUpCount} backed-up item(s) using {TotalSizeDisplay}, {RestorableCount} ready to restore.";
         }
         catch (Exception ex)
         {

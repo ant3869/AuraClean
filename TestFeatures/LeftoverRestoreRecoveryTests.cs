@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using AuraClean.Services;
+using AuraClean.ViewModels;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace TestFeatures;
 
@@ -33,6 +35,8 @@ public static class LeftoverRestoreRecoveryTests
             Section("Restore list surfaces correct data", TestRestoreListData);
             Section("Individual restore: conflict detection without overwrite", TestConflictDetection);
             Section("Cross-process journal locking", TestCrossProcessLocking);
+            Section("ViewModel: storage visibility excludes restored history", TestStorageVisibility);
+            Section("ViewModel: live refresh on external backup change", TestLiveRefresh);
         }
         finally
         {
@@ -193,6 +197,52 @@ public static class LeftoverRestoreRecoveryTests
             $"No journal entry lost under real cross-process contention ({entries.Count}/{workerCount} Moved)");
         Assert(entries.Select(e => e.Id).Distinct().Count() == workerCount,
             "Every entry has a distinct id (no overwritten/duplicated journal record)");
+    }
+
+    private static void TestStorageVisibility()
+    {
+        var storeRoot = Path.Combine(_root, "_storagevis");
+        var store = new LeftoverBackupStore(storeRoot);
+
+        var a = Dir("StorA", "AcmeTool");
+        File.WriteAllText(Path.Combine(a, "f.txt"), "a");
+        var movedA = store.MoveToBackup(a, true, "AcmeTool", "evidence", 1000);
+        Assert(movedA.Outcome == LeftoverRemovalOutcome.MovedToBackup, "Setup: entry A moved (1000 bytes)");
+
+        var b = Dir("StorB", "AcmeTool2");
+        File.WriteAllText(Path.Combine(b, "f.txt"), "b");
+        var movedB = store.MoveToBackup(b, true, "AcmeTool2", "evidence", 2000);
+        Assert(movedB.Outcome == LeftoverRemovalOutcome.MovedToBackup, "Setup: entry B moved (2000 bytes)");
+        var (restoredOk, _) = store.Restore(movedB.BackupEntryId!);
+        Assert(restoredOk, "Setup: entry B restored (its bytes no longer occupy backup disk)");
+
+        var vm = new LeftoverRestoreViewModel(store);
+        Assert(vm.Entries.Count == 2, $"Both entries remain visible as history ({vm.Entries.Count})");
+        Assert(vm.BackedUpCount == 1, $"Only the still-Moved entry counts as backed up ({vm.BackedUpCount})");
+        Assert(vm.TotalSizeDisplay == AuraClean.Helpers.FormatHelper.FormatBytes(1000),
+            $"Total size reflects only active backup disk usage, not restored history ({vm.TotalSizeDisplay})");
+    }
+
+    private static void TestLiveRefresh()
+    {
+        var storeRoot = Path.Combine(_root, "_liverefresh");
+        var store = new LeftoverBackupStore(storeRoot);
+        var vm = new LeftoverRestoreViewModel(store);
+        Assert(vm.Entries.Count == 0, "Setup: ViewModel starts with no entries");
+
+        // Simulate an unrelated page (e.g. the Uninstaller's Deep Scan) moving a leftover into the
+        // same backup store and announcing it, exactly as production code now does, without this
+        // test ever calling vm.LoadEntries() itself.
+        var dir = Dir("LiveRefresh", "AcmeTool");
+        File.WriteAllText(Path.Combine(dir, "f.txt"), "data");
+        var moved = store.MoveToBackup(dir, true, "AcmeTool", "evidence", 500);
+        Assert(moved.Outcome == LeftoverRemovalOutcome.MovedToBackup, "Setup: an external operation moves an item to backup");
+        Assert(vm.Entries.Count == 0, "Before the message, the cached ViewModel is still stale (sanity check)");
+
+        WeakReferenceMessenger.Default.Send(LeftoverBackupChangedMessage.Instance);
+
+        Assert(vm.Entries.Count == 1, $"ViewModel refreshed itself after the change message ({vm.Entries.Count} entries)");
+        Assert(vm.BackedUpCount == 1, "BackedUpCount reflects the externally-added entry");
     }
 
     /// <summary>How to re-launch this same test executable as a worker, whether it's currently

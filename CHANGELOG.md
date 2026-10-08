@@ -9,8 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Evidence-based, recoverable leftover removal** — the Uninstaller's deep scan leftovers are
+  matched against the program's own install evidence (install folder, executable paths, name
+  overlap with *other* installed programs) before removal, and re-authorized again at execution
+  time since the scan may be minutes old. A leftover is never permanently deleted: it is renamed
+  (same-volume, atomic) into a write-ahead-journaled backup, so a crash between journaling and
+  the move can never leave an item half-removed. Registry leftovers keep their existing
+  backup-then-delete path.
+- **Leftover Backups page** — restore any leftover the Uninstaller moved, with proactive conflict
+  detection (refuses to overwrite something recreated at the original path), total backup disk
+  usage and backed-up item counts (restored items are excluded — they no longer occupy backup
+  disk space), and a "Check for Interrupted Operations" action for a crash or unexpected
+  shutdown mid-removal or mid-restore. The page refreshes live via `WeakReferenceMessenger`
+  whenever a Deep Scan removal or startup recovery changes the backup elsewhere, instead of
+  showing stale data until revisited.
+
 ### Fixed
 
+- **Stale "Moved" entries are reconciled** — a crash between a restore's move-back and the
+  journal recording `Restored` used to leave the entry stuck showing "Needs review" forever
+  (the backup was already gone, so it could never be restored again either). Startup and
+  manual recovery now detect this exact signature (backup missing, original occupied) and
+  correct the entry to `Restored`; this never moves data, only bookkeeping, since `Restore()`
+  already refuses to act on a missing backup.
+- **Startup leftover recovery no longer misreports failure as success** — if the backup journal
+  couldn't be read or was busy, the status bar used to say "Resolved N interrupted leftover
+  operation(s)" anyway; it now only counts and announces genuinely resolved entries.
 - **Uninstall identity requires the original product key** — the MSI product GUID /
   product code from `RegistryKeyPath` is threaded through the trace scan, so a
   partially removed entry with a wiped DisplayName still matches by its known GUID.

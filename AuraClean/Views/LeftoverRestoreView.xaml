@@ -73,7 +73,7 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource AuraAccentTeal}">
-                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding Entries.Count, Mode=OneWay}" />
+                        <Run FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding BackedUpCount, Mode=OneWay}" />
                         <Run Text=" items" FontSize="13" FontWeight="Normal"
                              Foreground="{DynamicResource AuraTextSecondary}" />
                     </TextBlock>
@@ -116,7 +116,7 @@
         </Grid>
 
         <!-- List -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="2" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
@@ -261,15 +261,24 @@
 
         <!-- Status -->
         <Grid Grid.Row="3" Margin="0,8,0,0">
-            <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
-                       AutomationProperties.LiveSetting="Polite"
-                       Foreground="{DynamicResource AuraTextSecondary}"
-                       FontSize="12" VerticalAlignment="Center" />
-            <TextBlock HorizontalAlignment="Right" FontSize="11"
-                       Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center">
-                <Run Text="Backup folder: " />
-                <Run Text="{Binding BackupPath, Mode=OneWay}" />
-            </TextBlock>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ProgressBar Grid.Row="0" IsIndeterminate="True" Height="3" Margin="0,0,0,6"
+                         Foreground="{StaticResource AuraAccentTeal}"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+            <Grid Grid.Row="1">
+                <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Text="{Binding StatusMessage}"
+                           AutomationProperties.LiveSetting="Polite"
+                           Foreground="{DynamicResource AuraTextSecondary}"
+                           FontSize="12" VerticalAlignment="Center" />
+                <TextBlock HorizontalAlignment="Right" FontSize="11"
+                           Foreground="{DynamicResource AuraTextMuted}" VerticalAlignment="Center">
+                    <Run Text="Backup folder: " />
+                    <Run Text="{Binding BackupPath, Mode=OneWay}" />
+                </TextBlock>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

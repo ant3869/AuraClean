@@ -25,7 +25,8 @@
 ## Features
 
 **Cleanup**
-- **Uninstaller** — Deep uninstall with review-first leftover scanning and force-remove support for broken MSI entries
+- **Uninstaller** — Deep uninstall with review-first leftover scanning and force-remove support for broken MSI entries. Leftover files and folders are matched against the program's own install evidence (never name-guessed alone) and moved — never permanently deleted — into a recoverable backup
+- **Leftover Backups** — Restore anything the Uninstaller's deep scan removed, see how much backup disk space is in use, and recover automatically from a crash or unexpected shutdown mid-removal or mid-restore
 - **System Cleaner** — Scans 15 junk categories: temp files, Windows Update cache, prefetch, crash dumps, Recycle Bin, WinSxS, and more
 - **RAM Booster** — Trim working sets and purge the standby list using native Windows APIs
 - **Privacy Clean** — Clear browser caches; in Advanced mode also site/tracking data (signs you out of websites), SQLite VACUUM, and DNS flush
@@ -133,6 +134,7 @@ All user data is stored locally in `%LocalAppData%\AuraClean\` — settings, cle
 - Cleaner preserves common photo/screenshot formats even when they appear inside selected junk folders
 - Abandoned application-data cleanup is opt-in and reviewed separately from routine system junk
 - Uninstaller leftovers, orphaned registry keys, and empty-folder results are review-first instead of preselected
+- Leftover removal never deletes: each item is moved into a crash-safe, write-ahead-journaled backup and can be restored from the Leftover Backups page; an interrupted removal is recovered automatically at the next startup
 - DoD 5220.22-M compliant file shredding
 - Quarantine with restore and auto-purge
 - WinSxS cleanup uses official DISM commands only
