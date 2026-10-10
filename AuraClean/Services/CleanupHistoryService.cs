@@ -345,7 +345,8 @@ public enum CleanupOperationType
     ThreatDelete,
     ManualQuarantine,
     EmptyFolderRemoval,
-    QuarantineRestore
+    QuarantineRestore,
+    LeftoverRestore
 }
 
 public static class CleanupOperationTypeExtensions
@@ -366,6 +367,7 @@ public static class CleanupOperationTypeExtensions
         CleanupOperationType.ManualQuarantine => "Manual Quarantine",
         CleanupOperationType.EmptyFolderRemoval => "Empty Folder Removal",
         CleanupOperationType.QuarantineRestore => "Quarantine Restore",
+        CleanupOperationType.LeftoverRestore => "Leftover Restore",
         _ => type.ToString()
     };
 
@@ -385,6 +387,7 @@ public static class CleanupOperationTypeExtensions
         CleanupOperationType.ManualQuarantine => "ShieldLock",
         CleanupOperationType.EmptyFolderRemoval => "FolderRemove",
         CleanupOperationType.QuarantineRestore => "Restore",
+        CleanupOperationType.LeftoverRestore => "Restore",
         _ => "ClipboardList"
     };
 }

@@ -579,6 +579,23 @@
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
                             </RadioButton>
+                            <RadioButton x:Name="NavLeftoverRestore"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="LeftoverRestore"
+                                         AutomationProperties.Name="Leftover Backups">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="FileRestore" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
+                                    <TextBlock Grid.Column="1" Text="Leftover Backups" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </RadioButton>
                             <RadioButton x:Name="NavSoftwareUpdater"
                                          Style="{StaticResource AuraNavButton}"
                                          Command="{Binding NavigateToCommand}"

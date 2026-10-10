@@ -46,6 +46,28 @@ public partial class JunkItem : ObservableObject
     [ObservableProperty] private string _lockingProcess = string.Empty;
     [ObservableProperty] private DateTime _lastModified;
 
+    /// <summary>Ownership verdict and evidence for uninstall leftovers; null for other junk.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOwnershipBlocked), nameof(CanSelect), nameof(OwnershipSummary))]
+    private OwnershipAssessment? _ownership;
+
+    public bool IsOwnershipBlocked => Ownership?.IsBlocked == true;
+    public bool CanSelect => !IsOwnershipBlocked;
+    public string OwnershipSummary => Ownership?.Summary ?? string.Empty;
+
+    /// <summary>A blocked leftover can never become selected, whatever the UI binding does.</summary>
+    partial void OnIsSelectedChanged(bool value)
+    {
+        if (value && IsOwnershipBlocked)
+            IsSelected = false;
+    }
+
+    partial void OnOwnershipChanged(OwnershipAssessment? value)
+    {
+        if (value?.IsBlocked == true)
+            IsSelected = false;
+    }
+
     /// <summary>Human-readable category label for UI grouping. Can be overridden.</summary>
     private string? _categoryOverride;
     public string Category
