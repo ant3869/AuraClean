@@ -108,6 +108,11 @@ public static class FileShredderService
                 shredded++;
                 DiagnosticLogger.Info("FileShredder", $"Shredded: {path} ({FormatHelper.FormatBytes(fileSize)})");
             }
+            catch (OperationCanceledException)
+            {
+                // Cancellation is not a per-file failure; surface it even for the last file.
+                throw;
+            }
             catch (Exception ex)
             {
                 failed++;

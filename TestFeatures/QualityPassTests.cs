@@ -240,6 +240,23 @@ public static class QualityPassTests
             }
 
             Check(File.Exists(path), "The file is untouched when shredding is cancelled before it starts");
+
+            // Codex finding on PR #16: cancelling while the ONLY/last file is mid-overwrite used to be
+            // swallowed by the per-file catch and reported as "1 failed" instead of cancellation.
+            var bigPath = Path.Combine(testDir, "big.bin");
+            File.WriteAllBytes(bigPath, new byte[32 * 1024 * 1024]);
+            using var midCts = new CancellationTokenSource();
+            var midProgress = new Progress<(int current, int total, string fileName)>(_ => midCts.CancelAfter(5));
+            try
+            {
+                var midResult = await FileShredderService.ShredFilesAsync(
+                    [bigPath], FileShredderService.ShredAlgorithm.Enhanced7Pass, midProgress, midCts.Token);
+                Check(false, $"Cancelling mid-overwrite of the last file must throw, not return ({midResult.FilesFailed} failed)");
+            }
+            catch (OperationCanceledException)
+            {
+                Check(true, "Cancellation during the last file's overwrite propagates instead of being counted as a failure");
+            }
         }
         finally
         {
