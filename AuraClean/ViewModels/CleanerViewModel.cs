@@ -180,6 +180,8 @@ public partial class CleanerViewModel : ObservableObject
 
     public string FormattedTotalSize => FormatHelper.FormatBytes(TotalJunkSize);
 
+    private CancellationTokenSource? _cts;
+
     private bool CanAnalyze() => !IsBusy;
     private bool CanClean() => !IsBusy && HasResults;
 
@@ -198,6 +200,8 @@ public partial class CleanerViewModel : ObservableObject
         ProgressValue = 0;
         ExcludedCount = 0;
 
+        _cts = new CancellationTokenSource();
+
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
@@ -206,10 +210,10 @@ public partial class CleanerViewModel : ObservableObject
 
             ProgressValue = 10;
             var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(
-                progress, includeReviewOnlyCategories: advanced);
+                progress, _cts.Token, includeReviewOnlyCategories: advanced);
 
             var abandonedTask = advanced && settings.RunHeuristicScan
-                ? HeuristicScannerService.ScanForAbandonedFilesAsync(settings.AbandonedFileDaysThreshold, progress)
+                ? HeuristicScannerService.ScanForAbandonedFilesAsync(settings.AbandonedFileDaysThreshold, progress, _cts.Token)
                 : Task.FromResult(new List<JunkItem>());
 
             var systemJunk = await systemJunkTask;
@@ -265,6 +269,10 @@ public partial class CleanerViewModel : ObservableObject
             if (excluded > 0)
                 StatusMessage += $" {excluded} item(s) deselected — on your exclusion list.";
         }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Analysis cancelled.";
+        }
         catch (Exception ex)
         {
             StatusMessage = "Something went wrong during analysis. Please try again.";
@@ -274,8 +282,13 @@ public partial class CleanerViewModel : ObservableObject
         {
             IsBusy = false;
             IsAnalyzing = false;
+            _cts?.Dispose();
+            _cts = null;
         }
     }
+
+    [RelayCommand]
+    private void CancelAnalysis() => _cts?.Cancel();
 
     [RelayCommand(CanExecute = nameof(CanClean))]
     private async Task CleanSelectedAsync()
