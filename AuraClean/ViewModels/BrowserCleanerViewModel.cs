@@ -17,6 +17,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
     private readonly object _browserResultsLock = new();
 
     [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private bool _isScanning;
     [ObservableProperty] private string _statusMessage = "Ready to scan browsers and cached data.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private bool _isDryRun;
@@ -55,6 +56,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
         if (IsBusy) return;
 
         IsBusy = true;
+        IsScanning = true;
         StatusMessage = "Detecting installed browsers...";
         BrowserResults.Clear();
         HasResults = false;
@@ -123,6 +125,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            IsScanning = false;
             _cts?.Dispose();
             _cts = null;
         }

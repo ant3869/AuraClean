@@ -26,20 +26,20 @@ public partial class MemoryViewModel : ObservableObject
     [ObservableProperty] private bool _hasBoostResult;
     [ObservableProperty] private bool _standbyPurged;
 
+    /// <summary>
+    /// Whether the displayed result came from a dry run. Captured at completion time so toggling
+    /// the live IsDryRun switch afterward can't relabel an already-completed result.
+    /// </summary>
+    [ObservableProperty] private bool _resultWasDryRun;
+
     public string FormattedTotal => FormatHelper.FormatBytes(TotalRamBytes);
     public string FormattedUsed => FormatHelper.FormatBytes(UsedRamBytes);
     public string FormattedAvailable => FormatHelper.FormatBytes(AvailableRamBytes);
     public string FormattedFreed => FormatHelper.FormatBytes(LastFreedBytes);
 
     /// <summary>Dry run never actually trims anything, so the result card must say so, not claim a byte figure.</summary>
-    public string FreedLabel => IsDryRun ? "Memory Freed (preview — no changes made)" : "Memory Freed";
-    public string TrimmedLabel => IsDryRun ? "Processes eligible" : "Processes trimmed";
-
-    partial void OnIsDryRunChanged(bool value)
-    {
-        OnPropertyChanged(nameof(FreedLabel));
-        OnPropertyChanged(nameof(TrimmedLabel));
-    }
+    public string FreedLabel => ResultWasDryRun ? "Memory Freed (preview — no changes made)" : "Memory Freed";
+    public string TrimmedLabel => ResultWasDryRun ? "Processes eligible" : "Processes trimmed";
 
     public MemoryViewModel()
     {
@@ -94,6 +94,7 @@ public partial class MemoryViewModel : ObservableObject
             LastFreedBytes = result.MemoryFreedBytes;
             LastTrimmedCount = result.ProcessesTrimmed;
             StandbyPurged = result.StandbyListPurged;
+            ResultWasDryRun = IsDryRun;
             HasBoostResult = true;
 
             await RefreshStatsAsync();
@@ -105,6 +106,8 @@ public partial class MemoryViewModel : ObservableObject
                   (result.StandbyListPurged ? ", cleared cached memory." : ".");
 
             OnPropertyChanged(nameof(FormattedFreed));
+            OnPropertyChanged(nameof(FreedLabel));
+            OnPropertyChanged(nameof(TrimmedLabel));
 
             if (!IsDryRun)
                 CleanupHistoryService.Record(CleanupOperationType.MemoryBoost, result.ProcessesTrimmed,

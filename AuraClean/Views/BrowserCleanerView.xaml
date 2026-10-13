@@ -78,7 +78,7 @@
                             Style="{StaticResource AuraGhostButton}"
                             Padding="16,8"
                             Command="{Binding CancelScanCommand}"
-                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                            Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"
                             Margin="0,0,8,0" />
                     <Button Content="Clean"
                             Style="{StaticResource AuraOutlinedButton}"
