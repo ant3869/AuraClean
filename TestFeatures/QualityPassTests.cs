@@ -26,6 +26,7 @@ public static class QualityPassTests
         Section("Memory dry run reports honest values", TestMemoryDryRunHonesty);
         SectionAsync("System Cleaner analyze honors cancellation", TestAnalyzeCancellation).GetAwaiter().GetResult();
         SectionAsync("Browser scan honors cancellation", TestBrowserScanCancellation).GetAwaiter().GetResult();
+        Section("Restore point policy check reads the documented signal", TestRestorePointPolicyCheck);
 
         return (_pass, _fail);
     }
@@ -84,6 +85,18 @@ public static class QualityPassTests
             $"not the full process count ({totalProcessCount}) the old fabricated path claimed");
         Check(result.WorkingSetBefore == result.WorkingSetAfter,
             "Dry run leaves the reported working-set before/after identical (no simulated reduction)");
+    }
+
+    private static void TestRestorePointPolicyCheck()
+    {
+        // Ground-truthed live on this machine via `reg query` (read-only): no
+        // HKLM\SOFTWARE\Policies\Microsoft\Windows NT\SystemRestore key exists here, so the
+        // policy check must report "not disabled" rather than guessing from the old, undocumented
+        // RPSessionInterval heuristic (which read 1, not 0, despite System Restore being actively
+        // enabled and in use — 387 existing restore points on this machine).
+        var disabledByPolicy = RestorePointService.IsSystemRestoreDisabledByPolicy();
+        Check(!disabledByPolicy,
+            "No Group Policy SystemRestore key present on this machine, so the check correctly reports 'not disabled'");
     }
 
     private static async Task TestAnalyzeCancellation()

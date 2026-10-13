@@ -11,6 +11,7 @@ namespace AuraClean.Services;
 public static class RestorePointService
 {
     private const string SystemRestoreKey = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore";
+    private const string PolicyKey = @"SOFTWARE\Policies\Microsoft\Windows NT\SystemRestore";
     private const string FrequencyValueName = "SystemRestorePointCreationFrequency";
 
     /// <summary>
@@ -23,10 +24,9 @@ public static class RestorePointService
     {
         try
         {
-            if (!IsSystemRestoreEnabled())
+            if (IsSystemRestoreDisabledByPolicy())
             {
-                return (false, "System Restore is disabled on this machine. " +
-                               "Enable it in System Properties → System Protection.");
+                return (false, "System Restore is disabled by Group Policy on this machine.");
             }
 
             // Windows refuses a second restore point within 24 hours by default. The limit is
@@ -69,27 +69,31 @@ public static class RestorePointService
         var returnValue = Convert.ToUInt32(outParams?["ReturnValue"] ?? 1u);
         return returnValue == 0
             ? (true, $"Restore point '{description}' created successfully.")
-            : (false, $"Failed to create restore point. Return code: {returnValue}");
+            : (false, $"Failed to create restore point (code {returnValue}). This usually means System " +
+                      "Restore is turned off for this drive — check System Properties → System Protection.");
     }
 
     /// <summary>
-    /// Checks whether System Restore is enabled on the system drive.
+    /// Checks the one System Restore "off" signal that is actually documented and certain: the
+    /// Group Policy "Turn off System Restore" setting. There is no reliable single registry flag
+    /// for the common end-user case (System Protection toggled off per-drive in Control Panel) —
+    /// that state lives in VSS/COM, not the registry — so this deliberately does not try to guess
+    /// it; the real WMI creation call below reports that case on its own via its return code.
     /// </summary>
-    private static bool IsSystemRestoreEnabled()
+    internal static bool IsSystemRestoreDisabledByPolicy()
     {
         try
         {
-            using var key = Registry.LocalMachine.OpenSubKey(SystemRestoreKey);
+            using var key = Registry.LocalMachine.OpenSubKey(PolicyKey);
             if (key == null) return false;
 
-            // RPSessionInterval is 0 when System Restore is turned off.
-            var value = key.GetValue("RPSessionInterval");
-            return value is not int intVal || intVal != 0;
+            bool Flag(string name) => key.GetValue(name) is int v && v != 0;
+            return Flag("DisableSR") || Flag("DisableConfig");
         }
         catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
         {
-            DiagnosticLogger.Warn("RestorePoint", "Could not read System Restore state", ex);
-            return true; // Let WMI report the real state.
+            DiagnosticLogger.Warn("RestorePoint", "Could not read System Restore policy state", ex);
+            return false; // Unknown — let the real WMI call decide.
         }
     }
 
