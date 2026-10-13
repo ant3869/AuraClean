@@ -164,7 +164,7 @@
 
                                         <CheckBox Grid.Column="0"
                                                   IsChecked="{Binding IsAllSelected}"
-                                                  AutomationProperties.Name="Select All Cleanup Results"
+                                                  AutomationProperties.Name="{Binding Name, StringFormat='Select all in {0}'}"
                                                   Margin="0,0,12,0"
                                                   VerticalAlignment="Center" />
 
@@ -173,7 +173,7 @@
                                                    Style="{StaticResource AuraGroupTitle}" />
 
                                         <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Grid.Column="2"
-                                                   Text="{Binding ItemCount, StringFormat='{}{0} items'}"
+                                                   Text="{Binding ItemCountLabel}"
                                                    Foreground="{DynamicResource AuraTextSecondary}"
                                                    FontSize="12"
                                                    VerticalAlignment="Center"

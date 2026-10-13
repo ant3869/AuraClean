@@ -163,9 +163,21 @@ public partial class MainViewModel : ObservableObject
     /// Junk tile copy: the size when results exist, "Nothing to clean" when an analyze
     /// ran but found zero junk, "Not scanned yet" when no analyze has ever run.
     /// </summary>
-    public string JunkTileDisplay =>
-        _cleaner.IsValueCreated && Cleaner.HasResults ? Cleaner.FormattedTotalSize
-        : CleanerAnalyzedOnce ? "Nothing to clean"
+    public string JunkTileDisplay => FormatJunkTile(
+        _cleaner.IsValueCreated && Cleaner.IsAnalyzing,
+        _cleaner.IsValueCreated && Cleaner.HasResults,
+        _cleaner.IsValueCreated && Cleaner.HasCompletedAnalysis,
+        _cleaner.IsValueCreated ? Cleaner.FormattedTotalSize : string.Empty);
+
+    /// <summary>
+    /// "Scanning…" while an analyze runs, the size when results exist, "Nothing to clean" only
+    /// after an analysis that completed with zero junk, otherwise "Not scanned yet" (never
+    /// scanned, cancelled, or failed — none of which prove the system is clean).
+    /// </summary>
+    public static string FormatJunkTile(bool isAnalyzing, bool hasResults, bool completedAnalysis, string size) =>
+        isAnalyzing ? "Scanning…"
+        : hasResults ? size
+        : completedAnalysis ? "Nothing to clean"
         : "Not scanned yet";
 
     partial void OnCleanerAnalyzedOnceChanged(bool value) => OnPropertyChanged(nameof(JunkTileDisplay));
@@ -176,10 +188,12 @@ public partial class MainViewModel : ObservableObject
         {
             if (_cleaner.IsValueCreated && Cleaner.IsAnalyzing)
                 CleanerAnalyzedOnce = true;
+            OnPropertyChanged(nameof(JunkTileDisplay));
             return;
         }
 
-        if (e.PropertyName == nameof(CleanerViewModel.HasResults) ||
+        if (e.PropertyName == nameof(CleanerViewModel.HasCompletedAnalysis) ||
+            e.PropertyName == nameof(CleanerViewModel.HasResults) ||
             e.PropertyName == nameof(CleanerViewModel.FormattedTotalSize) ||
             e.PropertyName == nameof(CleanerViewModel.TotalJunkSize))
             OnPropertyChanged(nameof(JunkTileDisplay));
@@ -576,13 +590,16 @@ public partial class MainViewModel : ObservableObject
             if (!Cleaner.HasResults)
             {
                 UpdateHealthScore();
-                StatusBarText = "Nothing to clean — your system is already tidy.";
+                StatusBarText = Cleaner.HasCompletedAnalysis
+                    ? "Nothing to clean — your system is already tidy."
+                    : Cleaner.StatusMessage;
                 return;
             }
         }
 
-        StatusBarText = "Running cleanup...";
-        await Cleaner.CleanSelectedCommand.ExecuteAsync(null);
+        // Quick Clean never shows the list, so it only touches low-risk items and always asks first.
+        StatusBarText = "Waiting for confirmation...";
+        await Cleaner.CleanLowRiskAsync();
         StatusBarText = Cleaner.StatusMessage;
     }
 
