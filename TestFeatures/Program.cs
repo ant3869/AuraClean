@@ -68,6 +68,7 @@ class Program
         _fail += UninstallerBatchTests.Run();
         _fail += LeftoverOwnershipTests.Run();
         _fail += LeftoverRestoreRecoveryTests.Run();
+        _fail += QualityPassTests.Run();
 
         Console.WriteLine("\n════════════════════════════════════════");
         Console.ForegroundColor = _fail == 0 ? ConsoleColor.Green : ConsoleColor.Red;

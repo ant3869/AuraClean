@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Cancel buttons for System Cleaner Analyze and Browser Privacy Clean** — both of the app's
+  long-running scans could previously only be stopped by closing the app; they now cancel the
+  same way every other scan (Large File Finder, Duplicate Finder, Disk Analyzer, etc.) already did.
+
+### Fixed
+
+- **Memory Optimizer's dry run no longer invents a "freed" number** — Dry Run previously computed
+  a hardcoded 30%-of-working-set estimate and presented it as a real result, while also claiming
+  every running process (including protected system processes) was "trimmed" and that the standby
+  list was purged, even though dry run never performs any of that. It now reports what actually
+  happened: zero bytes freed, no standby purge, and an honest count of processes eligible to be
+  trimmed — the real number is only knowable by running the actual boost.
+- **Sidebar "System" section rebalanced to 5 items** — it had grown to 6 (Quarantine moved into
+  Tools), restoring the ≤5-items-per-section bar a prior design pass established.
+
 - **Evidence-based, recoverable leftover removal** — the Uninstaller's deep scan leftovers are
   matched against the program's own install evidence (install folder, executable paths, name
   overlap with *other* installed programs) before removal, and re-authorized again at execution
