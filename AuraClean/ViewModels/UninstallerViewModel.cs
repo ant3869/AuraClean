@@ -63,6 +63,7 @@ public partial class UninstallerViewModel : ObservableObject
     private InstalledProgram? _leftoverScanTarget;
     private Task? _loadTask;
     private bool _suppressSelectAllCascade;
+    private CancellationTokenSource? _cts;
 
     private readonly DispatcherTimer _searchDebounceTimer;
 
@@ -427,10 +428,12 @@ public partial class UninstallerViewModel : ObservableObject
         PostUninstallJunk = [];
         HasPostUninstallResults = false;
 
+        _cts = new CancellationTokenSource();
+
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
-            var junk = await UninstallerService.PostUninstallScanAsync(program, progress);
+            var junk = await UninstallerService.PostUninstallScanAsync(program, progress, _cts.Token);
             LeftoverOwnershipEvaluator.Annotate(junk, program, Programs);
 
             PostUninstallJunk = new ObservableCollection<JunkItem>(junk);
@@ -438,6 +441,10 @@ public partial class UninstallerViewModel : ObservableObject
             StatusMessage = junk.Count > 0
                 ? $"Found {junk.Count} possible leftover(s) for {program.DisplayName}. Review before cleaning."
                 : $"No leftovers found for {program.DisplayName}.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Leftover scan cancelled.";
         }
         catch (Exception ex)
         {
@@ -448,8 +455,13 @@ public partial class UninstallerViewModel : ObservableObject
         {
             IsBusy = false;
             IsScanning = false;
+            _cts?.Dispose();
+            _cts = null;
         }
     }
+
+    [RelayCommand]
+    private void CancelLeftoverScan() => _cts?.Cancel();
 
     [RelayCommand]
     private async Task CleanLeftoversAsync()

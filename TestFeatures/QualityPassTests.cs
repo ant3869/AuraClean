@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AuraClean.Models;
 using AuraClean.Services;
 using AuraClean.ViewModels;
 
@@ -30,6 +31,9 @@ public static class QualityPassTests
         SectionAsync("Browser scan cancellation interrupts directory-size walks", TestBrowserScanCancellationDuringDirectoryWalk).GetAwaiter().GetResult();
         Section("Memory result labels freeze at completion time, not the live Dry Run toggle", TestMemoryResultLabelsFreezeAtCompletion);
         Section("Restore point policy check reads the documented signal", TestRestorePointPolicyCheck);
+        SectionAsync("File Shredder honors cancellation (now wired to a Cancel button)", TestFileShredderCancellation).GetAwaiter().GetResult();
+        SectionAsync("Uninstaller leftover scan honors cancellation (now wired to a Cancel button)", TestUninstallerLeftoverScanCancellation).GetAwaiter().GetResult();
+        SectionAsync("ForceDeleteService dry run is honest and protected paths stay refused", TestForceDeleteServiceSafety).GetAwaiter().GetResult();
 
         return (_pass, _fail);
     }
@@ -205,5 +209,108 @@ public static class QualityPassTests
             $"Toggling Dry Run after completion must not relabel the already-displayed real result (got '{vm.FreedLabel}')");
         Check(vm.TrimmedLabel == "Processes trimmed",
             $"Toggling Dry Run after completion must not relabel the already-displayed trimmed count (got '{vm.TrimmedLabel}')");
+    }
+
+    private static async Task TestFileShredderCancellation()
+    {
+        // Regression for a Phase 2/3 UX gap: FileShredderViewModel.ShredAllAsync never created a
+        // CancellationTokenSource and the view had no Cancel button, so a multi-pass destructive
+        // overwrite could not be aborted once started — unlike every other long operation in the
+        // app. The service itself already accepted a token; this proves it honors a pre-cancelled
+        // one, the same mechanism the ViewModel's new Cancel button now triggers.
+        var testDir = Path.Combine(Path.GetTempPath(), "AuraClean_ShredCancel_Test");
+        try
+        {
+            Directory.CreateDirectory(testDir);
+            var path = Path.Combine(testDir, "secret.bin");
+            File.WriteAllBytes(path, new byte[64 * 1024]);
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            try
+            {
+                await FileShredderService.ShredFilesAsync(
+                    [path], FileShredderService.ShredAlgorithm.Enhanced7Pass, progress: null, ct: cts.Token);
+                Check(false, "A pre-cancelled token should throw before shredding anything");
+            }
+            catch (OperationCanceledException)
+            {
+                Check(true, "ShredFilesAsync honors a pre-cancelled token (FileShredderViewModel now wires this to a Cancel button)");
+            }
+
+            Check(File.Exists(path), "The file is untouched when shredding is cancelled before it starts");
+        }
+        finally
+        {
+            try { if (Directory.Exists(testDir)) Directory.Delete(testDir, true); } catch { }
+        }
+    }
+
+    private static async Task TestUninstallerLeftoverScanCancellation()
+    {
+        // Regression for a Phase 2/3 UX gap: UninstallerViewModel had zero cancellation anywhere,
+        // including its longest operation (the post-uninstall leftover scan across the registry
+        // and file system), despite already having an IsScanning flag scoped correctly for it. The
+        // service accepted a token already; this proves it honors a pre-cancelled one, the same
+        // mechanism the ViewModel's new Cancel button now triggers via DeepScanAsync.
+        var fakeProgram = new InstalledProgram
+        {
+            DisplayName = "AuraClean_NonExistent_Test_Program_XYZ",
+            Publisher = "AuraClean Test Suite"
+        };
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        try
+        {
+            await UninstallerService.PostUninstallScanAsync(fakeProgram, progress: null, ct: cts.Token);
+            Check(false, "A pre-cancelled token should throw before scanning anything");
+        }
+        catch (OperationCanceledException)
+        {
+            Check(true, "PostUninstallScanAsync honors a pre-cancelled token (UninstallerViewModel now wires this to a Cancel button)");
+        }
+    }
+
+    private static async Task TestForceDeleteServiceSafety()
+    {
+        // Regression for the Phase 2/3 feature gap named explicitly in the brief: ForceDeleteService
+        // was only reachable internally via the Uninstaller's broken-uninstaller fallback, with no
+        // UI path for the far more common case of a locked file in Large File Finder. Large File
+        // Finder's new "Force Delete" button calls this same service method directly, so this
+        // proves (a) its dry run is honest — it inspects without deleting or killing anything — and
+        // (b) the protected-path safety gate that guards a normal delete still guards this one.
+        var testDir = Path.Combine(Path.GetTempPath(), "AuraClean_ForceDelete_Test");
+        try
+        {
+            Directory.CreateDirectory(testDir);
+            var testFile = Path.Combine(testDir, "unlocked.txt");
+            File.WriteAllText(testFile, "test content");
+
+            var dryRunResult = await ForceDeleteService.ForceDeleteAsync(
+                testFile, terminateLockers: true, scheduleBootDelete: true, dryRun: true);
+
+            Check(dryRunResult.Success, "Dry run reports success (it only inspects, never fails)");
+            Check(dryRunResult.ActionTaken == ForceDeleteService.ForceDeleteAction.DryRunOnly,
+                $"Dry run takes no real action (got {dryRunResult.ActionTaken})");
+            Check(File.Exists(testFile), "Dry run never actually deletes the file");
+            Check(dryRunResult.KilledProcesses.Count == 0, "Dry run never terminates processes");
+
+            var systemFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "kernel32.dll");
+            var blockedResult = await ForceDeleteService.ForceDeleteAsync(
+                systemFile, terminateLockers: true, scheduleBootDelete: true, dryRun: false);
+
+            Check(!blockedResult.Success, "Force delete refuses a protected system file, exactly like a normal delete");
+            Check(blockedResult.ActionTaken == ForceDeleteService.ForceDeleteAction.Failed,
+                $"The refusal is reported as Failed, not silently ignored (got {blockedResult.ActionTaken})");
+            Check(File.Exists(systemFile), "The protected system file is untouched");
+        }
+        finally
+        {
+            try { if (Directory.Exists(testDir)) Directory.Delete(testDir, true); } catch { }
+        }
     }
 }
