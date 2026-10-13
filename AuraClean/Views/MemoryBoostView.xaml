@@ -99,7 +99,7 @@
                                 Padding="16" Margin="0,0,0,8">
                             <Grid>
                                 <StackPanel>
-                                    <TextBlock Text="Memory Freed" FontSize="12"
+                                    <TextBlock Text="{Binding FreedLabel}" FontSize="12"
                                                Foreground="{DynamicResource AuraTextSecondary}" />
                                     <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedFreed}" FontSize="24" FontWeight="SemiBold"
                                                Foreground="{StaticResource AuraSuccess}" />
@@ -108,7 +108,7 @@
                         </Border>
 
                         <Grid Margin="0,4">
-                            <TextBlock Text="Processes trimmed" Foreground="{DynamicResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding TrimmedLabel}" Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LastTrimmedCount}" HorizontalAlignment="Right"
                                        Foreground="{DynamicResource AuraTextPrimary}" FontWeight="SemiBold" />
                         </Grid>

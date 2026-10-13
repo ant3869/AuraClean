@@ -31,6 +31,16 @@ public partial class MemoryViewModel : ObservableObject
     public string FormattedAvailable => FormatHelper.FormatBytes(AvailableRamBytes);
     public string FormattedFreed => FormatHelper.FormatBytes(LastFreedBytes);
 
+    /// <summary>Dry run never actually trims anything, so the result card must say so, not claim a byte figure.</summary>
+    public string FreedLabel => IsDryRun ? "Memory Freed (preview — no changes made)" : "Memory Freed";
+    public string TrimmedLabel => IsDryRun ? "Processes eligible" : "Processes trimmed";
+
+    partial void OnIsDryRunChanged(bool value)
+    {
+        OnPropertyChanged(nameof(FreedLabel));
+        OnPropertyChanged(nameof(TrimmedLabel));
+    }
+
     public MemoryViewModel()
     {
         _ = RefreshStatsAsync().ContinueWith(t =>
@@ -89,7 +99,8 @@ public partial class MemoryViewModel : ObservableObject
             await RefreshStatsAsync();
 
             StatusMessage = IsDryRun
-                ? $"[Preview] Estimated {FormatHelper.FormatBytes(result.MemoryFreedBytes)} reclaimable from {result.ProcessesTrimmed} processes."
+                ? $"[Preview] No changes made. {result.ProcessesTrimmed} process(es) are eligible to be trimmed — " +
+                  "the actual amount freed depends on live system state and is only known after running a real boost."
                 : $"Freed {FormatHelper.FormatBytes(result.MemoryFreedBytes)}! Trimmed {result.ProcessesTrimmed} processes" +
                   (result.StandbyListPurged ? ", cleared cached memory." : ".");
 
