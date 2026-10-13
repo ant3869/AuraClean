@@ -55,9 +55,11 @@ public static class CleanupHistoryService
     }
 
     /// <summary>
-    /// Records a new cleanup operation to the history log.
+    /// Records a new cleanup operation to the history log. Private: every real caller goes
+    /// through <see cref="Record"/> above, which applies the "log operations" setting and the
+    /// empty-operation skip — calling this directly would bypass both.
     /// </summary>
-    public static void LogOperation(CleanupRecord record)
+    private static void LogOperation(CleanupRecord record)
     {
         try
         {

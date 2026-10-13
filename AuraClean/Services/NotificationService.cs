@@ -91,10 +91,4 @@ public static class NotificationService
     /// </summary>
     public static void ShowWarning(string title, string message)
         => Show(title, message, System.Windows.Forms.ToolTipIcon.Warning);
-
-    /// <summary>
-    /// Shows an error notification.
-    /// </summary>
-    public static void ShowError(string title, string message)
-        => Show(title, message, System.Windows.Forms.ToolTipIcon.Error);
 }
