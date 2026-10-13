@@ -178,6 +178,13 @@
                             Content="{Binding DeleteButtonLabel}"
                             ToolTip="{Binding DeleteButtonHint}"
                             Padding="12,6" Margin="4,0,0,0" />
+                    <Button Style="{StaticResource AuraDangerButton}"
+                            Command="{Binding ForceDeleteFailedCommand}"
+                            Visibility="{Binding HasFailedDeletes, Converter={StaticResource BoolToVis}}"
+                            Content="{Binding FailedDeleteCount, StringFormat='Force Delete {0} Locked'}"
+                            ToolTip="Tries to close the program holding these files open, or schedules them for deletion on next restart. Advanced mode only."
+                            AutomationProperties.Name="Force delete locked files"
+                            Padding="12,6" Margin="4,0,0,0" />
                 </StackPanel>
             </Grid>
 

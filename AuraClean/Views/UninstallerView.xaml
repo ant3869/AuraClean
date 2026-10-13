@@ -35,6 +35,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBox Grid.Column="0"
@@ -68,6 +69,15 @@
                     Padding="16,8"
                     Command="{Binding DeepScanCommand}"
                     Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}" />
+
+            <Button Grid.Column="4"
+                    Content="Cancel"
+                    Style="{StaticResource AuraGhostButton}"
+                    Padding="16,8"
+                    Margin="8,0,0,0"
+                    Command="{Binding CancelLeftoverScanCommand}"
+                    Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"
+                    AutomationProperties.Name="Cancel leftover scan" />
 
             <!-- Selection count badge -->
             <Border Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center"

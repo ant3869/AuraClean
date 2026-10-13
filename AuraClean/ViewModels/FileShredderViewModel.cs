@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Threading;
 
 namespace AuraClean.ViewModels;
 
@@ -51,6 +52,8 @@ public partial class FileShredderViewModel : ObservableObject
         new(FileShredderService.ShredAlgorithm.DoD3Pass, "DoD 5220.22-M", "3 passes — defense standard", 3),
         new(FileShredderService.ShredAlgorithm.Enhanced7Pass, "Enhanced", "7 passes — maximum security", 7),
     ];
+
+    private CancellationTokenSource? _cts;
 
     public FileShredderViewModel()
     {
@@ -233,6 +236,8 @@ public partial class FileShredderViewModel : ObservableObject
         int passes = FileShredderService.GetPassCount(SelectedAlgorithm);
         StatusMessage = $"Shredding {filesToShred.Count} files with {passes}-pass overwrite...";
 
+        _cts = new CancellationTokenSource();
+
         try
         {
             var paths = filesToShred.Select(f => f.FullPath).ToList();
@@ -244,7 +249,7 @@ public partial class FileShredderViewModel : ObservableObject
             });
 
             var result = await FileShredderService.ShredFilesAsync(
-                paths, SelectedAlgorithm, progress);
+                paths, SelectedAlgorithm, progress, _cts.Token);
 
             LastShredded = result.FilesShredded;
             LastFailed = result.FilesFailed;
@@ -281,8 +286,13 @@ public partial class FileShredderViewModel : ObservableObject
         {
             IsBusy = false;
             ProgressText = string.Empty;
+            _cts?.Dispose();
+            _cts = null;
         }
     }
+
+    [RelayCommand]
+    private void CancelShred() => _cts?.Cancel();
 
     /// <summary>
     /// Accepts files dropped via drag-and-drop.

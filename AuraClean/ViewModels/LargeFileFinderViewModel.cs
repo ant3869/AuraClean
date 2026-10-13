@@ -36,6 +36,11 @@ public partial class LargeFileFinderViewModel : ObservableObject
     [ObservableProperty] private long _totalSizeFound;
     [ObservableProperty] private int _accessErrors;
 
+    // Files that a normal delete couldn't remove (in use / access denied), offered for Force Delete.
+    [ObservableProperty] private bool _hasFailedDeletes;
+    [ObservableProperty] private int _failedDeleteCount;
+    private List<LargeFileFinderService.LargeFileEntry> _lastFailedDeletes = [];
+
     // Drives
     [ObservableProperty] private ObservableCollection<DriveOption> _drives = [];
     [ObservableProperty] private DriveOption? _selectedDrive;
@@ -181,6 +186,9 @@ public partial class LargeFileFinderViewModel : ObservableObject
         FilteredFiles.Clear();
         ProgressFilesScanned = 0;
         ProgressFilesFound = 0;
+        _lastFailedDeletes = [];
+        FailedDeleteCount = 0;
+        HasFailedDeletes = false;
 
         long minBytes = (long)Math.Max(1, MinimumSizeMB) * 1024 * 1024;
         StatusMessage = $"Scanning {ScanPath} for files ≥ {MinimumSizeMB} MB...";
@@ -314,6 +322,7 @@ public partial class LargeFileFinderViewModel : ObservableObject
         int deleted = 0;
         long freedBytes = 0;
         var failedFiles = new List<string>();
+        var failedEntries = new List<LargeFileFinderService.LargeFileEntry>();
 
         try
         {
@@ -332,6 +341,7 @@ public partial class LargeFileFinderViewModel : ObservableObject
                 else
                 {
                     failedFiles.Add(file.FileName);
+                    failedEntries.Add(file);
                     DiagnosticLogger.Warn("LargeFileFinderVM", $"Failed to delete {file.FullPath}: {message}");
                 }
             }
@@ -351,11 +361,121 @@ public partial class LargeFileFinderViewModel : ObservableObject
             HasResults = true;
             ApplyFilter();
             SelectedFile = null;
+            _lastFailedDeletes = failedEntries;
+            FailedDeleteCount = failedEntries.Count;
+            HasFailedDeletes = failedEntries.Count > 0;
             StatusMessage = (useRecycleBin
                     ? $"Moved {deleted} file(s) ({FormatHelper.FormatBytes(freedBytes)}) to the Recycle Bin."
                     : $"Deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}.") +
                 (failedFiles.Count > 0 ? $" {failedFiles.Count} failed (in use or access denied)." : "") +
                 (blocked.Count > 0 ? $" {blocked.Count} system file(s) skipped." : "");
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Force-deletes files a normal delete left behind because they were locked or access was
+    /// denied. Advanced mode only: this can terminate the program holding the file open, or — if
+    /// that fails too — schedule the file for deletion on the next restart. ForceDeleteService
+    /// itself re-checks every path against the same protected-path rules as a normal delete and
+    /// refuses to touch Windows/system files or anything on the never-kill process list.
+    /// </summary>
+    [RelayCommand]
+    private async Task ForceDeleteFailedAsync()
+    {
+        if (IsBusy || !HasFailedDeletes) return;
+
+        if (!IsAdvancedMode)
+        {
+            StatusMessage = "Turn on Advanced mode to force-delete locked files.";
+            return;
+        }
+
+        var targets = _lastFailedDeletes.ToList();
+        var warning =
+            $"Force Delete will try to identify and close the program(s) holding {targets.Count} file(s) open " +
+            "so they can be removed. Closing a program this way loses any unsaved work in it. " +
+            "A file that still can't be removed is scheduled for deletion on the next restart instead.\n\n" +
+            "This cannot be undone. Continue?";
+
+        if (!SafetyPromptService.ConfirmSecurityDecision(warning, "Force Delete locked files"))
+        {
+            StatusMessage = "Force delete cancelled.";
+            return;
+        }
+
+        bool dryRun = SafetyPromptService.IsDryRunEnabled();
+
+        IsBusy = true;
+        StatusMessage = dryRun
+            ? $"[Preview] Checking what force-deleting {targets.Count} file(s) would require..."
+            : $"Force-deleting {targets.Count} file(s)...";
+
+        int deleted = 0, scheduledForReboot = 0, stillFailed = 0;
+        long freedBytes = 0;
+        var terminatedProcesses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var remainingFailed = new List<LargeFileFinderService.LargeFileEntry>();
+
+        try
+        {
+            foreach (var entry in targets)
+            {
+                var progress = new Progress<string>(msg => StatusMessage = msg);
+                var result = await ForceDeleteService.ForceDeleteAsync(
+                    entry.FullPath, terminateLockers: true, scheduleBootDelete: true, dryRun: dryRun, progress: progress);
+
+                foreach (var proc in result.KilledProcesses)
+                    terminatedProcesses.Add(proc);
+
+                switch (result.ActionTaken)
+                {
+                    case ForceDeleteService.ForceDeleteAction.DeletedDirectly:
+                    case ForceDeleteService.ForceDeleteAction.TerminatedAndDeleted:
+                        freedBytes += entry.SizeBytes;
+                        Files.Remove(entry);
+                        deleted++;
+                        break;
+                    case ForceDeleteService.ForceDeleteAction.ScheduledForBootDeletion:
+                        // Not actually gone yet — leave it in the list so the UI doesn't claim
+                        // space was freed before the restart that will actually free it.
+                        scheduledForReboot++;
+                        remainingFailed.Add(entry);
+                        break;
+                    case ForceDeleteService.ForceDeleteAction.DryRunOnly:
+                        remainingFailed.Add(entry);
+                        break;
+                    default:
+                        stillFailed++;
+                        remainingFailed.Add(entry);
+                        DiagnosticLogger.Warn("LargeFileFinderVM", $"Force delete failed for {entry.FullPath}: {result.Message}");
+                        break;
+                }
+            }
+
+            if (deleted > 0)
+                CleanupHistoryService.Record(CleanupOperationType.LargeFileRemoval, deleted, freedBytes,
+                    $"Large files in {ScanPath} (force deleted)");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("LargeFileFinderVM", "ForceDeleteFailedAsync failed", ex);
+        }
+        finally
+        {
+            TotalSizeFound = Math.Max(0, TotalSizeFound - freedBytes);
+            OnPropertyChanged(nameof(FormattedTotalSize));
+            ResultCount = Files.Count;
+            ApplyFilter();
+            _lastFailedDeletes = remainingFailed;
+            FailedDeleteCount = remainingFailed.Count;
+            HasFailedDeletes = remainingFailed.Count > 0;
+
+            StatusMessage = dryRun
+                ? $"[Preview] No files removed. {targets.Count} file(s) checked for locks."
+                : $"Force-deleted {deleted} file(s), freed {FormatHelper.FormatBytes(freedBytes)}." +
+                  (terminatedProcesses.Count > 0 ? $" Closed: {string.Join(", ", terminatedProcesses)}." : "") +
+                  (scheduledForReboot > 0 ? $" {scheduledForReboot} scheduled for deletion on next restart." : "") +
+                  (stillFailed > 0 ? $" {stillFailed} still couldn't be removed." : "");
             IsBusy = false;
         }
     }
