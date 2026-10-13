@@ -74,7 +74,7 @@ public partial class QuarantineViewModel : ObservableObject
             Entries = new ObservableCollection<QuarantineEntryItem>(items);
             HookEntrySelectionEvents();
 
-            var stats = QuarantineService.GetStats();
+            var stats = QuarantineService.GetStats(entries);
             TotalItems = stats.TotalItems;
             TotalSizeDisplay = FormatHelper.FormatBytes(stats.TotalSizeBytes);
             ExpiredCount = entries.Count(e => e.IsExpired);
