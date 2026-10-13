@@ -33,9 +33,11 @@ public partial class MemoryBoostView : UserControl
             sender is MemoryViewModel vm && vm.HasBoostResult)
         {
             MemoryResultCard.Show(
-                FormatHelper.FormatBytes(vm.LastFreedBytes),
-                $"Trimmed {vm.LastTrimmedCount} processes",
-                ResultCard.Severity.Success);
+                vm.ResultWasDryRun ? "Preview — no changes made" : FormatHelper.FormatBytes(vm.LastFreedBytes),
+                vm.ResultWasDryRun
+                    ? $"{vm.LastTrimmedCount} process(es) eligible to be trimmed"
+                    : $"Trimmed {vm.LastTrimmedCount} processes",
+                vm.ResultWasDryRun ? ResultCard.Severity.Warning : ResultCard.Severity.Success);
         }
     }
 

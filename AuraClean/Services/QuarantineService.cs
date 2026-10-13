@@ -296,9 +296,15 @@ public static class QuarantineService
     /// <summary>
     /// Gets quarantine statistics.
     /// </summary>
-    public static QuarantineStats GetStats()
+    public static QuarantineStats GetStats() => GetStats(GetAllEntries());
+
+    /// <summary>
+    /// Computes stats from an already-loaded entry list, so a caller that just called
+    /// <see cref="GetAllEntries"/> doesn't re-read and re-deserialize manifest.json a
+    /// second time for the same snapshot.
+    /// </summary>
+    public static QuarantineStats GetStats(List<QuarantineEntry> entries)
     {
-        var entries = GetAllEntries();
         return new QuarantineStats
         {
             TotalItems = entries.Count,

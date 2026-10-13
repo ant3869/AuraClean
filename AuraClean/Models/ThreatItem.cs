@@ -61,7 +61,14 @@ public partial class ThreatItem : ObservableObject
     [ObservableProperty] private string _processName = string.Empty;
     [ObservableProperty] private int _processId;
     [ObservableProperty] private bool _isWhitelisted;
-    [ObservableProperty] private bool _isQuarantined;
+
+    /// <summary>
+    /// True once this threat has been disposed of — by quarantine OR by permanent delete.
+    /// Named IsHandled (not IsQuarantined) because ThreatScannerService sets it on either
+    /// outcome; code that needs to distinguish "quarantined" from "deleted" must check the
+    /// action actually taken, not infer it from this flag.
+    /// </summary>
+    [ObservableProperty] private bool _isHandled;
     [ObservableProperty] private DateTime _detectedAt = DateTime.Now;
 
     /// <summary>

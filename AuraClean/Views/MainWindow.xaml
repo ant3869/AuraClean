@@ -521,6 +521,23 @@
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
                             </RadioButton>
+                            <RadioButton x:Name="NavQuarantine"
+                                         Style="{StaticResource AuraNavButton}"
+                                         Command="{Binding NavigateToCommand}"
+                                         CommandParameter="Quarantine"
+                                         AutomationProperties.Name="Quarantine">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="ShieldOff" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AuraWarn}" />
+                                    <TextBlock Grid.Column="1" Text="Quarantine" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </RadioButton>
                         </StackPanel>
 
                         <!-- ─── SYSTEM section (collapsible) ─── -->
@@ -559,23 +576,6 @@
                                     <materialDesign:PackIcon Kind="InformationOutline" Width="18" Height="18" VerticalAlignment="Center"
                                                              Foreground="{DynamicResource AuraWarn}" />
                                     <TextBlock Grid.Column="1" Text="System Info" Margin="8,0,0,0"
-                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                </Grid>
-                            </RadioButton>
-                            <RadioButton x:Name="NavQuarantine"
-                                         Style="{StaticResource AuraNavButton}"
-                                         Command="{Binding NavigateToCommand}"
-                                         CommandParameter="Quarantine"
-                                         AutomationProperties.Name="Quarantine">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="ShieldOff" Width="18" Height="18" VerticalAlignment="Center"
-                                                             Foreground="{DynamicResource AuraWarn}" />
-                                    <TextBlock Grid.Column="1" Text="Quarantine" Margin="8,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Grid>
                             </RadioButton>

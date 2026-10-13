@@ -25,7 +25,7 @@
                 </Border>
                 <TextBlock Text="Memory Optimizer" Style="{StaticResource AuraPageTitle}" VerticalAlignment="Center" />
             </StackPanel>
-            <TextBlock Text="Free up memory held by background processes to speed up your system" Style="{StaticResource AuraPageSubtitle}" />
+            <TextBlock Text="Trim memory held by idle background processes and clear the standby cache" Style="{StaticResource AuraPageSubtitle}" />
         </StackPanel>
 
         <!-- Content -->
@@ -99,7 +99,7 @@
                                 Padding="16" Margin="0,0,0,8">
                             <Grid>
                                 <StackPanel>
-                                    <TextBlock Text="Memory Freed" FontSize="12"
+                                    <TextBlock Text="{Binding FreedLabel}" FontSize="12"
                                                Foreground="{DynamicResource AuraTextSecondary}" />
                                     <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding FormattedFreed}" FontSize="24" FontWeight="SemiBold"
                                                Foreground="{StaticResource AuraSuccess}" />
@@ -108,7 +108,7 @@
                         </Border>
 
                         <Grid Margin="0,4">
-                            <TextBlock Text="Processes trimmed" Foreground="{DynamicResource AuraTextSecondary}" />
+                            <TextBlock Text="{Binding TrimmedLabel}" Foreground="{DynamicResource AuraTextSecondary}" />
                             <TextBlock FontFamily="{StaticResource AuraFontFamilyMono}" Typography.NumeralAlignment="Tabular" Text="{Binding LastTrimmedCount}" HorizontalAlignment="Right"
                                        Foreground="{DynamicResource AuraTextPrimary}" FontWeight="SemiBold" />
                         </Grid>
@@ -148,6 +148,11 @@
                     <controls:TrackedText Text="Boost" FontSize="11" FontWeight="Medium"
                                           Foreground="{DynamicResource AuraAccentSoft}"
                                           HorizontalAlignment="Center" Margin="0,10,0,0" />
+
+                    <TextBlock Text="Windows may reuse some of this memory again shortly for caching — that's normal, not a sign the boost didn't work."
+                               FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
+                               MaxWidth="220" Margin="0,8,0,0"
+                               Foreground="{DynamicResource AuraTextMuted}" />
 
                     <!-- Refresh -->
                     <Button Content="Refresh Stats"

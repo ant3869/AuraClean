@@ -17,6 +17,7 @@ public partial class BrowserCleanerViewModel : ObservableObject
     private readonly object _browserResultsLock = new();
 
     [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private bool _isScanning;
     [ObservableProperty] private string _statusMessage = "Ready to scan browsers and cached data.";
     [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private bool _isDryRun;
@@ -47,18 +48,23 @@ public partial class BrowserCleanerViewModel : ObservableObject
     public string FormattedTotalSize => FormatHelper.FormatBytes(TotalSizeBytes);
     public string FormattedTotalSavings => FormatHelper.FormatBytes(TotalSavingsBytes);
 
+    private CancellationTokenSource? _cts;
+
     [RelayCommand]
     private async Task ScanBrowsersAsync()
     {
         if (IsBusy) return;
 
         IsBusy = true;
+        IsScanning = true;
         StatusMessage = "Detecting installed browsers...";
         BrowserResults.Clear();
         HasResults = false;
         TotalSizeBytes = 0;
         TotalSavingsBytes = 0;
         TotalItemCount = 0;
+
+        _cts = new CancellationTokenSource();
 
         try
         {
@@ -75,8 +81,9 @@ public partial class BrowserCleanerViewModel : ObservableObject
 
             foreach (var browser in browsers)
             {
+                _cts.Token.ThrowIfCancellationRequested();
                 var progress = new Progress<string>(msg => StatusMessage = msg);
-                var result = await BrowserCleanerService.ScanBrowserAsync(browser, progress: progress);
+                var result = await BrowserCleanerService.ScanBrowserAsync(browser, progress: progress, ct: _cts.Token);
 
                 BrowserResults.Add(new BrowserResultEntry
                 {
@@ -106,6 +113,10 @@ public partial class BrowserCleanerViewModel : ObservableObject
 
             StatusMessage = $"Found {browsers.Count} browser(s): {FormatHelper.FormatBytes(totalSavings)} reclaimable.";
         }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Browser scan cancelled.";
+        }
         catch (Exception ex)
         {
             StatusMessage = "Something went wrong during the browser scan. Please try again.";
@@ -114,8 +125,14 @@ public partial class BrowserCleanerViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            IsScanning = false;
+            _cts?.Dispose();
+            _cts = null;
         }
     }
+
+    [RelayCommand]
+    private void CancelScan() => _cts?.Cancel();
 
     [RelayCommand]
     private async Task CleanSelectedAsync()

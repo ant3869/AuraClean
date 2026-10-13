@@ -9,9 +9,6 @@ public static class SafetyPromptService
 {
     public static bool IsDryRunEnabled() => SettingsService.Load().DryRunMode;
 
-    public static bool ShouldCreateRestorePoint() =>
-        SettingsService.Load().CreateRestorePointBeforeClean;
-
     public static bool ConfirmDestructiveAction(string message, string title = "Confirm destructive action")
     {
         var settings = SettingsService.Load();

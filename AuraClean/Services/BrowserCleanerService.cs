@@ -226,7 +226,7 @@ public static class BrowserCleanerService
                     var fullPath = Path.Combine(cacheRoot, subPath);
                     if (Directory.Exists(fullPath) && cacheItems.All(c => !c.Path.Equals(fullPath, StringComparison.OrdinalIgnoreCase)))
                     {
-                        long size = GetDirectorySize(fullPath);
+                        long size = GetDirectorySize(fullPath, ct);
                         if (size > 0)
                         {
                             cacheItems.Add(new JunkItem
@@ -275,7 +275,7 @@ public static class BrowserCleanerService
                     if (!Directory.Exists(fullPath))
                         continue;
 
-                    long size = GetDirectorySize(fullPath);
+                    long size = GetDirectorySize(fullPath, ct);
                     if (size <= 0)
                         continue;
 
@@ -316,7 +316,7 @@ public static class BrowserCleanerService
                         {
                             long size = File.Exists(match)
                                 ? new FileInfo(match).Length
-                                : (Directory.Exists(match) ? GetDirectorySize(match) : 0);
+                                : (Directory.Exists(match) ? GetDirectorySize(match, ct) : 0);
 
                             if (size > 0)
                             {
@@ -580,13 +580,14 @@ public static class BrowserCleanerService
         });
     }
 
-    private static long GetDirectorySize(string path)
+    private static long GetDirectorySize(string path, CancellationToken ct = default)
     {
         long size = 0;
         try
         {
             foreach (var file in new DirectoryInfo(path).EnumerateFiles("*", PathSafety.RecursiveNoReparse))
             {
+                ct.ThrowIfCancellationRequested();
                 try { size += file.Length; }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {

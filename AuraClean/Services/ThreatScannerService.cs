@@ -1705,7 +1705,7 @@ public static class ThreatScannerService
         int handled = 0, failed = 0, manual = 0;
         var messages = new List<string>();
 
-        foreach (var threat in threats.Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined).ToList())
+        foreach (var threat in threats.Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsHandled).ToList())
         {
             ct.ThrowIfCancellationRequested();
             progress?.Report($"{(permanentDelete ? "Removing" : "Quarantining")}: {threat.Name}");
@@ -1737,7 +1737,7 @@ public static class ThreatScannerService
 
                 if (ok)
                 {
-                    threat.IsQuarantined = true;
+                    threat.IsHandled = true;
                     handled++;
                 }
                 else

@@ -40,6 +40,7 @@
               helpers:AnimationHelper.StaggerIndex="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -53,8 +54,15 @@
                     Margin="0,0,12,0">
             </Button>
 
+            <Button Grid.Column="1"
+                    Content="Cancel"
+                    Style="{StaticResource AuraGhostButton}"
+                    Command="{Binding CancelAnalysisCommand}"
+                    Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}"
+                    Margin="0,0,12,0" />
+
             <!-- Summary text -->
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Column="2"
                        Text="{Binding StatusMessage}"
                        ToolTip="{Binding StatusMessage}"
                        VerticalAlignment="Center"
@@ -63,20 +71,20 @@
                        Foreground="{DynamicResource AuraTextSecondary}"
                        FontSize="13" />
 
-            <Button Grid.Column="2"
+            <Button Grid.Column="3"
                     Content="Select All"
                     Style="{StaticResource AuraGhostButton}"
                     Foreground="{StaticResource AuraAccentTeal}"
                     Command="{Binding SelectAllCommand}"
                     Margin="0,0,4,0" />
 
-            <Button Grid.Column="3"
+            <Button Grid.Column="4"
                     Content="Deselect All"
                     Style="{StaticResource AuraGhostButton}"
                     Command="{Binding DeselectAllCommand}"
                     Margin="0,0,8,0" />
 
-            <Button Grid.Column="4"
+            <Button Grid.Column="5"
                     Style="{StaticResource AuraOutlinedButton}"
                     Command="{Binding CleanSelectedCommand}"
                     Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">

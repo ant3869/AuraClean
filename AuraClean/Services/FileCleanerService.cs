@@ -127,13 +127,15 @@ public static class FileCleanerService
         var windowsOld = Path.Combine(Path.GetPathRoot(WindowsDir) ?? @"C:\", "Windows.old");
         if (Directory.Exists(windowsOld))
         {
-            var (oldSize, _) = await Task.Run(() => MeasureDirectory(windowsOld, null, MaxFilesPerAggregatedDirectory * 5, ct), ct);
+            var (oldSize, _, oldTruncated) = await Task.Run(() => MeasureDirectory(windowsOld, null, MaxFilesPerAggregatedDirectory * 5, ct), ct);
             if (oldSize > 0)
             {
                 results.Add(new JunkItem
                 {
                     Path = windowsOld,
-                    Description = "Windows.old (previous installation)",
+                    Description = oldTruncated
+                        ? "Windows.old (previous installation, size approximate — very large folder)"
+                        : "Windows.old (previous installation)",
                     Type = JunkType.WindowsOld,
                     SizeBytes = oldSize,
                     LastModified = SafeGetLastWriteTime(windowsOld),
@@ -680,7 +682,7 @@ public static class FileCleanerService
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var (size, fileCount) = MeasureDirectory(dir, olderThanUtc, MaxFilesPerAggregatedDirectory, ct);
+                    var (size, fileCount, truncated) = MeasureDirectory(dir, olderThanUtc, MaxFilesPerAggregatedDirectory, ct);
                     var dirName = Path.GetFileName(dir);
 
                     if (fileCount > 0)
@@ -688,7 +690,9 @@ public static class FileCleanerService
                         results.Add(new JunkItem
                         {
                             Path = dir,
-                            Description = $"{label}: {dirName} ({fileCount:N0} files)",
+                            Description = truncated
+                                ? $"{label}: {dirName} ({fileCount:N0}+ files, size approximate — very large folder)"
+                                : $"{label}: {dirName} ({fileCount:N0} files)",
                             Type = type,
                             SizeBytes = size,
                             LastModified = SafeGetLastWriteTime(dir)
@@ -721,12 +725,15 @@ public static class FileCleanerService
     }
 
     /// <summary>
-    /// Sums eligible files (never following reparse points). Returns (bytes, fileCount).
+    /// Sums eligible files (never following reparse points).
+    /// Returns (bytes, fileCount, truncated — true when the file count hit <paramref name="maxFiles"/>
+    /// and the walk stopped early, meaning the reported size/count are a lower bound, not exact).
     /// </summary>
-    private static (long Size, int FileCount) MeasureDirectory(string dir, DateTime? olderThanUtc, int maxFiles, CancellationToken ct)
+    private static (long Size, int FileCount, bool Truncated) MeasureDirectory(string dir, DateTime? olderThanUtc, int maxFiles, CancellationToken ct)
     {
         long size = 0;
         int count = 0;
+        bool truncated = false;
         try
         {
             foreach (var file in new DirectoryInfo(dir).EnumerateFiles("*", PathSafety.RecursiveNoReparse))
@@ -739,7 +746,10 @@ public static class FileCleanerService
 
                     size += file.Length;
                     if (++count >= maxFiles)
+                    {
+                        truncated = true;
                         break;
+                    }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -754,7 +764,7 @@ public static class FileCleanerService
             DiagnosticLogger.Warn("FileCleanerService", $"Failed to measure {dir}", ex);
         }
 
-        return (size, count);
+        return (size, count, truncated);
     }
 
     private static bool IsEmptyTree(string dir)

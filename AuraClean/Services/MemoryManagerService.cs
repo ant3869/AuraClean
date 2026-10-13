@@ -201,21 +201,24 @@ public static class MemoryManagerService
             }
             else
             {
-                // Dry-run: estimate ~30% of non-protected working set could be freed
-                long reclaimable = 0;
+                // Dry run performs no real action. Report how many processes are
+                // eligible to be trimmed without fabricating a specific byte estimate —
+                // actual OS memory reclamation depends on live system state and varies
+                // run to run, so it can only be honestly measured by running the real boost.
+                int eligible = 0;
                 foreach (var proc in processes)
                 {
                     try
                     {
                         if (!IsProtectedProcess(proc))
-                            reclaimable += (long)(proc.WorkingSet64 * 0.3);
+                            eligible++;
                     }
-                    catch (Exception ex) { DiagnosticLogger.Warn("MemoryManager", "Failed to estimate reclaimable memory", ex); }
+                    catch (Exception ex) { DiagnosticLogger.Warn("MemoryManager", "Failed to check process eligibility", ex); }
                 }
 
-                totalWorkingSetAfter = totalWorkingSetBefore - reclaimable;
-                trimmed = processes.Length;
-                standbyPurged = purgeStandbyList;
+                totalWorkingSetAfter = totalWorkingSetBefore;
+                trimmed = eligible;
+                standbyPurged = false;
             }
 
             }

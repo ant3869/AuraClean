@@ -194,7 +194,7 @@ public partial class ThreatScannerViewModel : ObservableObject
 
         var selectedThreats = Categories
             .SelectMany(c => c.Items)
-            .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined)
+            .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsHandled)
             .ToList();
 
         if (selectedThreats.Count == 0)
@@ -232,7 +232,7 @@ public partial class ThreatScannerViewModel : ObservableObject
             {
                 WeakReferenceMessenger.Default.Send(QuarantineChangedMessage.Instance);
                 CleanupHistoryService.Record(CleanupOperationType.ThreatQuarantine, result.Handled,
-                    selectedThreats.Where(t => t.IsQuarantined).Sum(t => t.SizeBytes),
+                    selectedThreats.Where(t => t.IsHandled).Sum(t => t.SizeBytes),
                     $"Quarantined {result.Handled} threat(s)");
             }
 
@@ -271,7 +271,7 @@ public partial class ThreatScannerViewModel : ObservableObject
 
         var selectedThreats = Categories
             .SelectMany(c => c.Items)
-            .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsQuarantined)
+            .Where(t => t.IsSelected && !t.IsWhitelisted && !t.IsHandled)
             .ToList();
 
         if (selectedThreats.Count == 0)
@@ -303,7 +303,7 @@ public partial class ThreatScannerViewModel : ObservableObject
             ActionStatusMessage = DescribeOutcome("Removed", result);
 
             CleanupHistoryService.Record(CleanupOperationType.ThreatDelete, result.Handled,
-                selectedThreats.Where(t => t.IsQuarantined).Sum(t => t.SizeBytes),
+                selectedThreats.Where(t => t.IsHandled).Sum(t => t.SizeBytes),
                 $"Permanently removed {result.Handled} threat(s)");
 
             foreach (var message in result.Messages.Take(20))
@@ -339,7 +339,7 @@ public partial class ThreatScannerViewModel : ObservableObject
     {
         foreach (var cat in Categories.ToList())
         {
-            foreach (var item in cat.Items.Where(t => t.IsQuarantined).ToList())
+            foreach (var item in cat.Items.Where(t => t.IsHandled).ToList())
                 cat.Items.Remove(item);
 
             if (cat.Items.Count == 0)
