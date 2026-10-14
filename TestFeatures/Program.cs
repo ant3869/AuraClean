@@ -71,6 +71,7 @@ class Program
             ("LeftoverOwnership", LeftoverOwnershipTests.Run()),
             ("LeftoverRestoreRecovery", LeftoverRestoreRecoveryTests.Run()),
             ("QualityPass", QualityPassTests.Run()),
+            ("SelectionIntegrity", CleanerSelectionIntegrityTests.Run()),
         };
         foreach (var (name, (suitePass, suiteFail)) in suites)
         {
