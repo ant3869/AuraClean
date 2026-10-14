@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Windows;
 using System.Windows.Automation.Peers;
@@ -38,6 +39,8 @@ public static class CleanerSelectionIntegrityTests
         Section("Default policy: review-only categories are not pre-selected", TestDefaultPolicy);
         Section("Category sync never selects an unselected review-only item", TestCategorySyncDoesNotSelect);
         Section("Select All is the explicit path that selects WinSxS, and counts stay accurate", TestSelectAllIsExplicitAndAccurate);
+        Section("Selection counts and sizes always equal the real selection (with an exclusion in force)",
+            () => WithSettings(new AppSettings { CleanerExcludedPaths = [@"C:\Temp\f0.tmp"] }, TestCountsReflectSelection));
         Section("A low-risk-only run never targets a selected WinSxS item", TestLowRiskFilter);
         Section("Real CleanerView: layout, scrolling and virtualization keep WinSxS unselected", TestViewKeepsWinSxSUnselected);
 
@@ -48,7 +51,7 @@ public static class CleanerSelectionIntegrityTests
     private static void Section(string name, Action test)
     {
         Console.WriteLine($"═══ SELECTION: {name} ═══");
-        try { test(); }
+        try { WithSettings(new AppSettings(), test); }
         catch (Exception ex) { Check(false, $"Unexpected exception: {ex.GetType().Name}: {ex.Message}"); }
         Console.WriteLine();
     }
@@ -61,10 +64,31 @@ public static class CleanerSelectionIntegrityTests
         if (condition) _pass++; else _fail++;
     }
 
-    /// <summary>Mirrors CleanerViewModel.AnalyzeAsync: default policy, then group into categories.</summary>
+    /// <summary>
+    /// Runs <paramref name="test"/> with SettingsService serving <paramref name="settings"/> from
+    /// memory, so exclusions (JunkCategory/CleanerExcludeStore) never come from the machine's real
+    /// AuraClean configuration. Test-only: swaps the private cache, nothing is read from or written
+    /// to disk, and the previous cache is restored afterwards. Production code is untouched.
+    /// </summary>
+    private static void WithSettings(AppSettings settings, Action test)
+    {
+        var type = typeof(SettingsService);
+        var cache = type.GetField("_cached", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("SettingsService._cached not found; update the test seam.");
+        var gate = type.GetField("_lock", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        object previous;
+        lock (gate) { previous = cache.GetValue(null); cache.SetValue(null, settings); }
+        try { test(); }
+        finally { lock (gate) { cache.SetValue(null, previous); } }
+    }
+
+    /// <summary>Mirrors CleanerViewModel.AnalyzeAsync: default policy, exclusions, then group.</summary>
     private static ObservableCollection<JunkCategory> BuildCategories(List<JunkItem> items, bool advanced)
     {
         CleanupModePolicy.ApplyDefaultSelection(items, new AppSettings(), advanced);
+        foreach (var item in items)
+            if (CleanerExcludeStore.IsExcluded(item.Path))
+                item.IsSelected = false;
         var grouped = items.GroupBy(i => i.Category).OrderBy(g => g.Key).Select(g =>
         {
             var cat = new JunkCategory { Name = g.Key };
@@ -137,6 +161,39 @@ public static class CleanerSelectionIntegrityTests
 
         vm.DeselectAllCommand.Execute(null);
         Check(items.All(i => !i.IsSelected), "Deselect All clears everything");
+    }
+
+    private static void TestCountsReflectSelection()
+    {
+        var items = Scenario();
+        var cats = BuildCategories(items, advanced: true);
+        var vm = new CleanerViewModel { Categories = cats, HasResults = true, IsAdvancedMode = true };
+        var excluded = items.First(i => i.Path == @"C:\Temp\f0.tmp");
+
+        void AssertLabel(string state)
+        {
+            var selected = items.Where(i => i.IsSelected).ToList();
+            var expected = $"CLEAN {selected.Count} ITEM{(selected.Count == 1 ? "" : "S")} · " +
+                           AuraClean.Helpers.FormatHelper.FormatBytes(selected.Sum(i => i.SizeBytes));
+            Check(vm.SmartCleanLabel == expected, $"{state}: label '{vm.SmartCleanLabel}' equals real selection '{expected}'");
+        }
+
+        Check(!excluded.IsSelected, "An excluded path is deselected by the analysis step (production exclusion handling intact)");
+        AssertLabel("After analysis (41 low-risk rows, 1 excluded)");
+
+        vm.SelectAllCommand.Execute(null);
+        Check(!excluded.IsSelected, "Select All still skips the excluded path");
+        AssertLabel("After Select All");
+
+        var one = items.First(i => i.Type == JunkType.CrashDump);
+        one.IsSelected = false;
+        AssertLabel("After deselecting one row");
+
+        vm.DeselectAllCommand.Execute(null);
+        Check(vm.SmartCleanLabel == "Select items to clean", "With nothing selected the label asks for a selection");
+
+        one.IsSelected = true;
+        AssertLabel("Single selected row uses the singular form");
     }
 
     private static void TestLowRiskFilter()
