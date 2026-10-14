@@ -37,9 +37,32 @@ public partial class JunkCategory : ObservableObject
         if (_syncingSelection)
             return;
 
-        // Excluded paths stay deselected even under "select all".
+        SetBulkSelection(value);
+    }
+
+    /// <summary>True when at least one row can be picked by a bulk action (not high-risk, not excluded).</summary>
+    public bool HasBulkSelectableItems => Items.Any(IsBulkSelectable);
+
+    private static bool IsBulkSelectable(JunkItem item) =>
+        Services.CleanupModePolicy.IsBulkSelectable(item.Type) &&
+        !Services.CleanerExcludeStore.IsExcluded(item.Path);
+
+    /// <summary>
+    /// The single entry point for category-level and global Select All / Deselect All.
+    /// Selecting skips high-risk rows (WinSxS, Windows.old — deliberate per-row selection only) and
+    /// excluded paths; deselecting clears every row. Works even when the header state would not change.
+    /// </summary>
+    public void SetBulkSelection(bool selected)
+    {
         foreach (var item in Items)
-            item.IsSelected = value && !Services.CleanerExcludeStore.IsExcluded(item.Path);
+        {
+            if (!selected || Services.CleanerExcludeStore.IsExcluded(item.Path))
+                item.IsSelected = false;
+            else if (Services.CleanupModePolicy.IsBulkSelectable(item.Type))
+                item.IsSelected = true;
+            // High-risk rows are left exactly as the user set them: bulk actions never select
+            // them, and Select All does not silently undo a deliberate per-row choice.
+        }
         SyncSelectionState();
     }
 
@@ -49,10 +72,11 @@ public partial class JunkCategory : ObservableObject
         _syncingSelection = true;
         try
         {
-            // The header reflects the selectable (non-excluded) rows so an exclusion list
-            // doesn't force every group header into the unchecked state.
-            var selectable = Items.Where(i => !Services.CleanerExcludeStore.IsExcluded(i.Path)).ToList();
+            // The header reflects the bulk-selectable rows (not excluded, not high-risk) so neither an
+            // exclusion list nor a review-only row forces the group header into the unchecked state.
+            var selectable = Items.Where(IsBulkSelectable).ToList();
             IsAllSelected = selectable.Count > 0 && selectable.All(i => i.IsSelected);
+            OnPropertyChanged(nameof(HasBulkSelectableItems));
         }
         finally { _syncingSelection = false; }
     }
@@ -190,6 +214,13 @@ public partial class CleanerViewModel : ObservableObject
     public string FormattedTotalSize => FormatHelper.FormatBytes(TotalJunkSize);
 
     private CancellationTokenSource? _cts;
+
+    /// <summary>
+    /// Confirmation seam (message, title, alwaysAsk). Production uses the safety prompt; tests inject
+    /// a stub so no dialog is shown and no cleanup can run.
+    /// </summary>
+    public Func<string, string, bool, bool> ConfirmAction { get; set; } =
+        (message, title, alwaysAsk) => SafetyPromptService.ConfirmDestructiveAction(message, title, alwaysAsk);
 
     private bool CanAnalyze() => !IsBusy;
     private bool CanClean() => !IsBusy && HasResults;
@@ -348,11 +379,18 @@ public partial class CleanerViewModel : ObservableObject
             }
 
             var totalBytes = selectedItems.Sum(i => i.SizeBytes);
-            var confirmMessage = IsAdvancedMode && !lowRiskOnly
+
+            // High-risk rows (WinSxS, Windows.old) re-evaluated from the live selection at execution
+            // time, so a stale or programmatic selection cannot skip the mandatory confirmation.
+            var highRiskWarning = CleanupModePolicy.BuildHighRiskWarning(selectedItems);
+            var confirmMessage = highRiskWarning != null
+                ? highRiskWarning + $"\n\nTotal selected: {FormatHelper.Pluralize(selectedItems.Count, "item")} ({FormatHelper.FormatBytes(totalBytes)})."
+                : IsAdvancedMode && !lowRiskOnly
                 ? $"Clean {FormatHelper.Pluralize(selectedItems.Count, "selected item")} ({FormatHelper.FormatBytes(totalBytes)})? This permanently removes files."
                 : $"Clean {FormatHelper.Pluralize(selectedItems.Count, "low-risk item")} ({FormatHelper.FormatBytes(totalBytes)})? This permanently removes files.";
 
-            if (!SafetyPromptService.ConfirmDestructiveAction(confirmMessage, alwaysAsk: alwaysConfirm))
+            var confirmTitle = highRiskWarning != null ? "Confirm advanced system cleanup" : "Confirm destructive action";
+            if (!ConfirmAction(confirmMessage, confirmTitle, alwaysConfirm || highRiskWarning != null))
             {
                 StatusMessage = "Cleanup cancelled.";
                 return;
@@ -446,7 +484,7 @@ public partial class CleanerViewModel : ObservableObject
     private void SelectAll()
     {
         foreach (var category in Categories)
-            category.IsAllSelected = true;
+            category.SetBulkSelection(true);
         OnPropertyChanged(nameof(SmartCleanLabel));
     }
 
@@ -454,7 +492,7 @@ public partial class CleanerViewModel : ObservableObject
     private void DeselectAll()
     {
         foreach (var category in Categories)
-            category.IsAllSelected = false;
+            category.SetBulkSelection(false);
         OnPropertyChanged(nameof(SmartCleanLabel));
     }
 }

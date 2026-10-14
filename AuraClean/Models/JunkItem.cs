@@ -37,7 +37,15 @@ public partial class JunkItem : ObservableObject
     [ObservableProperty] private string _description = string.Empty;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Category))]
+    [NotifyPropertyChangedFor(nameof(IsHighRisk))]
+    [NotifyPropertyChangedFor(nameof(RiskNote))]
     private JunkType _type;
+
+    /// <summary>Advanced system maintenance (WinSxS, Windows.old): never bulk-selected, always confirmed.</summary>
+    public bool IsHighRisk => Services.CleanupModePolicy.IsHighRiskType(Type);
+
+    /// <summary>Plain-language explanation of what cleaning this item does; null for routine items.</summary>
+    public string? RiskNote => Services.CleanupModePolicy.DescribeHighRisk(Type);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedSize))]

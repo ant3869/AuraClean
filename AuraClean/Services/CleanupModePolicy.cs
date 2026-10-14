@@ -21,6 +21,49 @@ public static class CleanupModePolicy
     };
 
     /// <summary>
+    /// Advanced system maintenance whose effects are hard or impossible to undo (removes the
+    /// previous Windows installation / superseded servicing components). Never selected by bulk
+    /// actions or default selection; only by deliberate per-item selection, and always confirmed.
+    /// </summary>
+    public static bool IsHighRiskType(JunkType type) => type is JunkType.WinSxS or JunkType.WindowsOld;
+
+    /// <summary>Whether Select All / category-level selection may select items of this type.</summary>
+    public static bool IsBulkSelectable(JunkType type) => !IsHighRiskType(type);
+
+    /// <summary>What cleaning this category does and what can no longer be undone; null if routine.</summary>
+    public static string? DescribeHighRisk(JunkType type) => type switch
+    {
+        JunkType.WinSxS =>
+            "Runs Windows' own Component Store cleanup (DISM /StartComponentCleanup). It removes superseded " +
+            "versions of Windows components, can take several minutes, and cannot be safely interrupted once " +
+            "started. Updates installed before the cleanup can no longer be rolled back to those older component versions.",
+        JunkType.WindowsOld =>
+            "Permanently deletes the previous Windows installation (Windows.old). You will no longer be able to " +
+            "go back to the previous version of Windows, and the files cannot be recovered.",
+        _ => null
+    };
+
+    /// <summary>
+    /// Confirmation text for a cleanup that includes high-risk categories (one paragraph per
+    /// category, with size). Null when the items contain nothing high-risk.
+    /// </summary>
+    public static string? BuildHighRiskWarning(IEnumerable<JunkItem> items)
+    {
+        var groups = items.Where(i => IsHighRiskType(i.Type))
+            .GroupBy(i => i.Type)
+            .OrderBy(g => g.Key)
+            .ToList();
+        if (groups.Count == 0)
+            return null;
+
+        var lines = groups.Select(g =>
+            $"• {g.First().Category} ({Helpers.FormatHelper.FormatBytes(g.Sum(i => i.SizeBytes))}): {DescribeHighRisk(g.Key)}");
+        return "This cleanup includes advanced system maintenance:\n\n" +
+               string.Join("\n\n", lines) +
+               "\n\nThis is not part of routine cleanup and cannot be undone. Continue?";
+    }
+
+    /// <summary>
     /// Returns whether an item of the given type should be pre-selected for cleaning.
     /// Review-only categories are never pre-selected; the user's per-category cleaner
     /// preferences are honored in both modes.
