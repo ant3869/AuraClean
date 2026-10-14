@@ -63,12 +63,21 @@ class Program
         _pass += logicPass;
         _fail += logicFail;
 
-        _fail += SafetyHardeningTests.Run();
-        _fail += FeatureBatchDTests.Run();
-        _fail += UninstallerBatchTests.Run();
-        _fail += LeftoverOwnershipTests.Run();
-        _fail += LeftoverRestoreRecoveryTests.Run();
-        _fail += QualityPassTests.Run();
+        var suites = new (string Name, (int Pass, int Fail) Result)[]
+        {
+            ("SafetyHardening", SafetyHardeningTests.Run()),
+            ("FeatureBatchD", FeatureBatchDTests.Run()),
+            ("UninstallerBatch", UninstallerBatchTests.Run()),
+            ("LeftoverOwnership", LeftoverOwnershipTests.Run()),
+            ("LeftoverRestoreRecovery", LeftoverRestoreRecoveryTests.Run()),
+            ("QualityPass", QualityPassTests.Run()),
+        };
+        foreach (var (name, (suitePass, suiteFail)) in suites)
+        {
+            Console.WriteLine($"  [suite total] {name}: {suitePass} passed, {suiteFail} failed");
+            _pass += suitePass;
+            _fail += suiteFail;
+        }
 
         Console.WriteLine("\n════════════════════════════════════════");
         Console.ForegroundColor = _fail == 0 ? ConsoleColor.Green : ConsoleColor.Red;

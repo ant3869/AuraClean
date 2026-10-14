@@ -24,7 +24,7 @@ public static class LeftoverOwnershipTests
     private static int _fail;
     private static string _root = string.Empty;
 
-    public static int Run()
+    public static (int Pass, int Fail) Run()
     {
         _pass = 0;
         _fail = 0;
@@ -61,7 +61,7 @@ public static class LeftoverOwnershipTests
         }
 
         Console.WriteLine($"  Batch L: {_pass} passed, {_fail} failed");
-        return _fail;
+        return (_pass, _fail);
     }
 
     // ───────────────────────── Ownership verdicts ─────────────────────────

@@ -22,7 +22,7 @@ public static class LeftoverRestoreRecoveryTests
     private static int _fail;
     private static string _root = string.Empty;
 
-    public static int Run()
+    public static (int Pass, int Fail) Run()
     {
         _pass = 0;
         _fail = 0;
@@ -45,7 +45,7 @@ public static class LeftoverRestoreRecoveryTests
         }
 
         Console.WriteLine($"  Batch R: {_pass} passed, {_fail} failed");
-        return _fail;
+        return (_pass, _fail);
     }
 
     private static void TestIdempotentStartupRecovery()

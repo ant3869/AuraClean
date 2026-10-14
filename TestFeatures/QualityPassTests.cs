@@ -18,7 +18,7 @@ public static class QualityPassTests
     private static int _pass;
     private static int _fail;
 
-    public static int Run() => RunAll().Fail;
+    public static (int Pass, int Fail) Run() => RunAll();
 
     public static (int Pass, int Fail) RunAll()
     {
