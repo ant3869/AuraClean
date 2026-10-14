@@ -35,7 +35,42 @@ public static class QualityPassTests
         SectionAsync("Uninstaller leftover scan honors cancellation (now wired to a Cancel button)", TestUninstallerLeftoverScanCancellation).GetAwaiter().GetResult();
         SectionAsync("ForceDeleteService dry run is honest and protected paths stay refused", TestForceDeleteServiceSafety).GetAwaiter().GetResult();
 
+        Section("Dashboard junk tile never claims 'Nothing to clean' without a completed scan", TestJunkTileStates);
+        Section("Quick Clean confirmation cannot be disabled by the dialog setting", TestQuickCleanPromptGate);
+        Section("Counts use correct singular/plural wording", TestPluralization);
+
         return (_pass, _fail);
+    }
+
+    private static void TestJunkTileStates()
+    {
+        Check(MainViewModel.FormatJunkTile(true, false, false, "") == "Scanning…", "While analyzing the tile says Scanning…, not 'Nothing to clean'");
+        Check(MainViewModel.FormatJunkTile(false, false, false, "") == "Not scanned yet", "Never scanned / cancelled / failed analysis is 'Not scanned yet'");
+        Check(MainViewModel.FormatJunkTile(false, false, true, "") == "Nothing to clean", "A completed analysis with zero results is 'Nothing to clean'");
+        Check(MainViewModel.FormatJunkTile(false, true, true, "9.3 GB") == "9.3 GB", "Results show the reclaimable size");
+
+        var vm = new CleanerViewModel();
+        Check(!vm.HasCompletedAnalysis, "A fresh cleaner has not completed an analysis");
+    }
+
+    private static void TestQuickCleanPromptGate()
+    {
+        Check(SafetyPromptService.RequiresPrompt(showConfirmationDialogsSetting: false, alwaysAsk: true), "alwaysAsk prompts even when dialogs are disabled in settings");
+        Check(!SafetyPromptService.RequiresPrompt(false, false), "Normal flows still honor the disabled-dialogs setting");
+        Check(SafetyPromptService.RequiresPrompt(true, false), "Normal flows prompt when dialogs are enabled");
+    }
+
+    private static void TestPluralization()
+    {
+        Check(AuraClean.Helpers.FormatHelper.Pluralize(1, "item") == "1 item", "1 item is singular");
+        Check(AuraClean.Helpers.FormatHelper.Pluralize(0, "item") == "0 items", "0 items is plural");
+        Check(AuraClean.Helpers.FormatHelper.Pluralize(1234, "item") == 1234L.ToString("N0") + " items", "Large counts use the current culture's grouping and are plural");
+
+        var cat = new JunkCategory { Name = "Test" };
+        cat.Items.Add(new JunkItem { Path = @"C:\x", SizeBytes = 1 });
+        Check(cat.ItemCountLabel == "1 item", "Category header reads '1 item', not '1 items'");
+        cat.Items.Add(new JunkItem { Path = @"C:\y", SizeBytes = 1 });
+        Check(cat.ItemCountLabel == "2 items", "Category header pluralizes at 2");
     }
 
     private static void Section(string name, Action test)

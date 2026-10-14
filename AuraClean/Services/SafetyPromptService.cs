@@ -9,10 +9,19 @@ public static class SafetyPromptService
 {
     public static bool IsDryRunEnabled() => SettingsService.Load().DryRunMode;
 
-    public static bool ConfirmDestructiveAction(string message, string title = "Confirm destructive action")
+    /// <summary>
+    /// Whether a prompt must be shown. <paramref name="alwaysAsk"/> is for one-click flows (e.g. Quick
+    /// Clean) where the user never reviewed the items, so the "show confirmation dialogs" setting
+    /// must not be able to turn the only safety gate off.
+    /// </summary>
+    public static bool RequiresPrompt(bool showConfirmationDialogsSetting, bool alwaysAsk) =>
+        alwaysAsk || showConfirmationDialogsSetting;
+
+    public static bool ConfirmDestructiveAction(string message, string title = "Confirm destructive action",
+        bool alwaysAsk = false)
     {
         var settings = SettingsService.Load();
-        if (!settings.ShowConfirmationDialogs)
+        if (!RequiresPrompt(settings.ShowConfirmationDialogs, alwaysAsk))
             return true;
 
         if (Application.Current?.Dispatcher.CheckAccess() == false)

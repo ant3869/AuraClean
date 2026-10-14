@@ -37,6 +37,9 @@ public static class FormatHelper
     /// <summary>
     /// Formats a count with K/M suffix for large numbers (e.g., "1.2K", "3.4M").
     /// </summary>
+    public static string Pluralize(long count, string singular, string? plural = null) =>
+        $"{count:N0} {(count == 1 ? singular : plural ?? singular + "s")}";
+
     public static string FormatCount(long count) => count switch
     {
         < 1000 => count.ToString("N0"),
