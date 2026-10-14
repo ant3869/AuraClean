@@ -64,7 +64,7 @@ public static class QualityPassTests
     {
         Check(AuraClean.Helpers.FormatHelper.Pluralize(1, "item") == "1 item", "1 item is singular");
         Check(AuraClean.Helpers.FormatHelper.Pluralize(0, "item") == "0 items", "0 items is plural");
-        Check(AuraClean.Helpers.FormatHelper.Pluralize(1234, "item") == "1,234 items", "Large counts are grouped and plural");
+        Check(AuraClean.Helpers.FormatHelper.Pluralize(1234, "item") == 1234L.ToString("N0") + " items", "Large counts use the current culture's grouping and are plural");
 
         var cat = new JunkCategory { Name = "Test" };
         cat.Items.Add(new JunkItem { Path = @"C:\x", SizeBytes = 1 });
