@@ -16,7 +16,7 @@ public static class FeatureBatchDTests
     private static int _pass;
     private static int _fail;
 
-    public static int Run()
+    public static (int Pass, int Fail) Run()
     {
         _pass = 0;
         _fail = 0;
@@ -27,7 +27,7 @@ public static class FeatureBatchDTests
         Section("History CSV export", TestHistoryCsv);
 
         Console.WriteLine($"  Batch D: {_pass} passed, {_fail} failed");
-        return _fail;
+        return (_pass, _fail);
     }
 
     private static void Section(string name, Action test)

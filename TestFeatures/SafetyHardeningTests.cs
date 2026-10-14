@@ -18,7 +18,7 @@ public static class SafetyHardeningTests
     /// Runs all Batch A tests. Returns the failure count (0 = green); the lead wires
     /// this into Program.cs. See <see cref="RunAll"/> for the (pass, fail) breakdown.
     /// </summary>
-    public static int Run() => RunAll().Fail;
+    public static (int Pass, int Fail) Run() => RunAll();
 
     public static (int Pass, int Fail) RunAll()
     {

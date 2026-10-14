@@ -17,7 +17,7 @@ public static class UninstallerBatchTests
     private static int _pass;
     private static int _fail;
 
-    public static int Run()
+    public static (int Pass, int Fail) Run()
     {
         _pass = 0;
         _fail = 0;
@@ -29,7 +29,7 @@ public static class UninstallerBatchTests
         Section("Startup/value matching", TestValueMatching);
 
         Console.WriteLine($"  Batch U: {_pass} passed, {_fail} failed");
-        return _fail;
+        return (_pass, _fail);
     }
 
     private static void Section(string name, Action test)
