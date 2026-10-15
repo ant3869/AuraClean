@@ -218,6 +218,7 @@ public static class CleanerSelectionIntegrityTests
         var expected = $"CLEAN {before + 1} ITEMS · " + AuraClean.Helpers.FormatHelper.FormatBytes(beforeBytes + WinSxSBytes);
         Check(vm.SmartCleanLabel == expected, $"Deliberately selecting WinSxS adds exactly its row to count and size ('{vm.SmartCleanLabel}')");
         Check(winsxs.IsHighRisk && !string.IsNullOrWhiteSpace(winsxs.RiskNote) && winsxs.RiskNote.Contains("DISM"), "The row carries a plain-language risk note for the UI");
+        AssertWinSxSWording(winsxs.RiskNote, "inline row note");
         var temp = items.First(i => i.Type == JunkType.TempFile);
         Check(!temp.IsHighRisk && temp.RiskNote == null, "Routine rows have no risk note");
     }
@@ -236,6 +237,22 @@ public static class CleanerSelectionIntegrityTests
             new JunkItem { Type = JunkType.WindowsOld, SizeBytes = 1000 }
         });
         Check(warning != null && warning.Contains("Component Store") && warning.Contains("Windows.old") && warning.Contains("cannot be undone"), "The warning names each category and says it cannot be undone");
+    }
+
+    /// <summary>
+    /// The WinSxS text must describe the command AuraClean actually runs (DISM /StartComponentCleanup
+    /// WITHOUT /ResetBase): previous component versions are deleted immediately (no 30-day grace),
+    /// but installed updates can still be uninstalled.
+    /// </summary>
+    private static void AssertWinSxSWording(string text, string where)
+    {
+        Check(text != null && text.Contains("/StartComponentCleanup"), $"WinSxS wording ({where}) names the command that is actually run");
+        Check(text != null && text.Contains("immediately deletes previous versions of updated components") && text.Contains("30-day grace period"),
+            $"WinSxS wording ({where}) describes immediate removal of previous component versions");
+        Check(text != null && text.Contains("does not use /ResetBase") && text.Contains("installed updates can still be uninstalled"),
+            $"WinSxS wording ({where}) says installed updates can still be uninstalled (no /ResetBase)");
+        Check(text != null && !text.Contains("can no longer be rolled back to those older component versions") && !text.Contains("Updates installed before the cleanup"),
+            $"WinSxS wording ({where}) no longer overclaims loss of all earlier update rollback");
     }
 
     private sealed class ConfirmProbe
@@ -284,6 +301,7 @@ public static class CleanerSelectionIntegrityTests
             Check(probe.AlwaysAsk, "...and requests an unconditional prompt (the 'show dialogs' setting cannot waive it)");
             Check(probe.Message.Contains("Component Store (WinSxS)") && probe.Message.Contains("Windows.old"), "The prompt identifies both high-risk categories");
             Check(probe.Message.Contains("DISM") && probe.Message.Contains("previous version of Windows") && probe.Message.Contains("cannot be undone"), "The prompt explains the consequences, including loss of rollback");
+            AssertWinSxSWording(probe.Message, "mandatory confirmation");
             Check(probe.Title == "Confirm advanced system cleanup", "The prompt is titled as advanced system cleanup");
             Check(vm.StatusMessage == "Cleanup cancelled.", "Declining cancels the cleanup");
             Check(vm.Categories.Sum(c => c.Items.Count) == rowsBefore && winsxs.IsSelected && windowsOld.IsSelected, "Declining changes nothing: rows and selection are untouched");

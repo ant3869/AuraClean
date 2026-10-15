@@ -34,9 +34,11 @@ public static class CleanupModePolicy
     public static string? DescribeHighRisk(JunkType type) => type switch
     {
         JunkType.WinSxS =>
-            "Runs Windows' own Component Store cleanup (DISM /StartComponentCleanup). It removes superseded " +
-            "versions of Windows components, can take several minutes, and cannot be safely interrupted once " +
-            "started. Updates installed before the cleanup can no longer be rolled back to those older component versions.",
+            "Runs Windows' own Component Store cleanup (DISM /StartComponentCleanup). It immediately deletes " +
+            "previous versions of updated components, skipping the 30-day grace period Windows normally waits, " +
+            "so those components can no longer be rolled back to their earlier versions. It does not use " +
+            "/ResetBase, so installed updates can still be uninstalled. It can take several minutes and " +
+            "cannot be safely interrupted once started.",
         JunkType.WindowsOld =>
             "Permanently deletes the previous Windows installation (Windows.old). You will no longer be able to " +
             "go back to the previous version of Windows, and the files cannot be recovered.",
