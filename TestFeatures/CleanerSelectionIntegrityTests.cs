@@ -38,10 +38,14 @@ public static class CleanerSelectionIntegrityTests
 
         Section("Default policy: review-only categories are not pre-selected", TestDefaultPolicy);
         Section("Category sync never selects an unselected review-only item", TestCategorySyncDoesNotSelect);
-        Section("Select All is the explicit path that selects WinSxS, and counts stay accurate", TestSelectAllIsExplicitAndAccurate);
+        Section("High-risk policy table (WinSxS, Windows.old)", TestPolicyTable);
+        Section("Select All skips high-risk rows but respects deliberate choices", TestSelectAllSkipsHighRisk);
+        Section("Category-level bulk selection skips high-risk rows", TestCategoryLevelBulk);
+        Section("Deliberate high-risk selection keeps count/size/label accurate", TestDeliberateSelectionKeepsTotalsAccurate);
         Section("Selection counts and sizes always equal the real selection (with an exclusion in force)",
             () => WithSettings(new AppSettings { CleanerExcludedPaths = [@"C:\Temp\f0.tmp"] }, TestCountsReflectSelection));
-        Section("A low-risk-only run never targets a selected WinSxS item", TestLowRiskFilter);
+        Section("High-risk cleanup always requires an unwaivable confirmation", TestHighRiskCleanupRequiresConfirmation);
+        Section("Quick Clean stays strictly low-risk", TestQuickCleanStaysLowRisk);
         Section("Real CleanerView: layout, scrolling and virtualization keep WinSxS unselected", TestViewKeepsWinSxSUnselected);
 
         Console.WriteLine($"  Selection integrity: {_pass} passed, {_fail} failed");
@@ -104,8 +108,8 @@ public static class CleanerSelectionIntegrityTests
     {
         var items = new List<JunkItem>
         {
-            new() { Type = JunkType.WinSxS, Path = @"C:\WINDOWS\WinSxS", Description = "Component Store", SizeBytes = WinSxSBytes },
-            new() { Type = JunkType.WindowsOld, Path = @"C:\Windows.old", Description = "Windows.old", SizeBytes = WindowsOldBytes },
+            new() { Type = JunkType.WinSxS, Path = @"C:\AuraSynthetic\WinSxS", Description = "Component Store", SizeBytes = WinSxSBytes },
+            new() { Type = JunkType.WindowsOld, Path = @"C:\AuraSynthetic\Windows.old", Description = "Windows.old", SizeBytes = WindowsOldBytes },
             new() { Type = JunkType.CrashDump, Path = @"C:\dump.dmp", Description = "Crash dump", SizeBytes = 12_000_000 },
         };
         for (int i = 0; i < tempCount; i++)
@@ -140,27 +144,209 @@ public static class CleanerSelectionIntegrityTests
         Check(!winCat.IsAllSelected, "The group header stays unchecked");
     }
 
-    private static void TestSelectAllIsExplicitAndAccurate()
+    private static void TestSelectAllSkipsHighRisk()
     {
         var items = Scenario();
         var cats = BuildCategories(items, advanced: true);
-        var vm = new CleanerViewModel { Categories = cats, HasResults = true, TotalJunkCount = items.Count };
+        var vm = new CleanerViewModel { Categories = cats, HasResults = true, TotalJunkCount = items.Count, IsAdvancedMode = true };
+        var winsxs = items.First(i => i.Type == JunkType.WinSxS);
+        var windowsOld = items.First(i => i.Type == JunkType.WindowsOld);
 
         int before = items.Count(i => i.IsSelected);
-        long beforeBytes = items.Where(i => i.IsSelected).Sum(i => i.SizeBytes);
         Check(vm.SmartCleanLabel.Contains($"{before} ITEM"), $"Label count matches the real selection before Select All ({vm.SmartCleanLabel})");
 
         vm.SelectAllCommand.Execute(null);
+        Check(!winsxs.IsSelected && !windowsOld.IsSelected, "Select All does NOT select WinSxS or Windows.old, even in Advanced mode");
+        Check(items.Count(i => i.IsSelected) == before, "Select All changes nothing for already-selected routine rows (count unchanged)");
+        Check(vm.SmartCleanLabel.Contains($"{before} ITEM") && !vm.SmartCleanLabel.Contains("GB"), $"Label and size exclude high-risk rows ({vm.SmartCleanLabel})");
 
-        int after = items.Count(i => i.IsSelected);
-        long afterBytes = items.Where(i => i.IsSelected).Sum(i => i.SizeBytes);
-        Check(items.First(i => i.Type == JunkType.WinSxS).IsSelected, "Explicit Select All does select WinSxS (designed behavior)");
-        Check(after == before + 2 && afterBytes - beforeBytes == WinSxSBytes + WindowsOldBytes,
-            "Select All adds exactly the unselected review-only rows (WinSxS + Windows.old) to count and size");
-        Check(vm.SmartCleanLabel.Contains($"{after} ITEM"), $"Label follows the real selection after Select All ({vm.SmartCleanLabel})");
+        // Routine rows deselected by hand are re-selected by Select All; high-risk rows still are not.
+        foreach (var t in items.Where(i => i.Type == JunkType.TempFile).Take(5)) t.IsSelected = false;
+        vm.SelectAllCommand.Execute(null);
+        Check(items.Count(i => i.IsSelected) == before, "Select All restores routine rows but still skips high-risk rows");
 
+        // A deliberate per-row choice survives a later Select All...
+        winsxs.IsSelected = true;
+        vm.SelectAllCommand.Execute(null);
+        Check(winsxs.IsSelected, "A deliberately selected WinSxS row is not silently undone by Select All");
+        Check(!windowsOld.IsSelected, "...and Select All still does not select Windows.old");
+
+        // ...and Deselect All clears everything, including the deliberate choice (mixed-state regression).
         vm.DeselectAllCommand.Execute(null);
-        Check(items.All(i => !i.IsSelected), "Deselect All clears everything");
+        Check(items.All(i => !i.IsSelected), "Deselect All clears every row, including a deliberate high-risk selection");
+    }
+
+    private static void TestCategoryLevelBulk()
+    {
+        var items = Scenario();
+        var cats = BuildCategories(items, advanced: true);
+        var winCat = cats.First(c => c.Name.Contains("WinSxS"));
+        var oldCat = cats.First(c => c.Name.Contains("Windows.old"));
+        var tempCat = cats.First(c => c.Name == "Temporary Files");
+
+        winCat.IsAllSelected = true;
+        oldCat.IsAllSelected = true;
+        Check(items.Where(i => i.IsHighRisk).All(i => !i.IsSelected), "Ticking a high-risk group header selects nothing");
+        Check(!winCat.IsAllSelected && !oldCat.IsAllSelected, "The header snaps back to unchecked (nothing bulk-selectable)");
+        Check(!winCat.HasBulkSelectableItems && !oldCat.HasBulkSelectableItems, "High-risk-only groups report no bulk-selectable rows (header is disabled in the UI)");
+        Check(tempCat.HasBulkSelectableItems, "Routine groups remain bulk-selectable");
+
+        foreach (var t in tempCat.Items) t.IsSelected = false;
+        tempCat.IsAllSelected = true;
+        Check(tempCat.Items.All(i => i.IsSelected), "A routine group header still selects all its rows");
+
+        var mixed = new JunkCategory { Name = "Mixed" };
+        var routine = new JunkItem { Type = JunkType.TempFile, Path = @"C:\AuraSynthetic\m.tmp", SizeBytes = 1, IsSelected = false };
+        var risky = new JunkItem { Type = JunkType.WinSxS, Path = @"C:\AuraSynthetic\WinSxS2", SizeBytes = 1, IsSelected = false };
+        mixed.Items.Add(routine);
+        mixed.Items.Add(risky);
+        mixed.IsAllSelected = true;
+        Check(routine.IsSelected && !risky.IsSelected, "In a mixed group the header selects the routine row only");
+        Check(mixed.IsAllSelected, "The mixed group's header reads checked once every bulk-selectable row is selected");
+    }
+
+    private static void TestDeliberateSelectionKeepsTotalsAccurate()
+    {
+        var items = Scenario();
+        var cats = BuildCategories(items, advanced: true);
+        var vm = new CleanerViewModel { Categories = cats, HasResults = true, IsAdvancedMode = true };
+        var winsxs = items.First(i => i.Type == JunkType.WinSxS);
+        int before = items.Count(i => i.IsSelected);
+        long beforeBytes = items.Where(i => i.IsSelected).Sum(i => i.SizeBytes);
+
+        winsxs.IsSelected = true;
+        var expected = $"CLEAN {before + 1} ITEMS · " + AuraClean.Helpers.FormatHelper.FormatBytes(beforeBytes + WinSxSBytes);
+        Check(vm.SmartCleanLabel == expected, $"Deliberately selecting WinSxS adds exactly its row to count and size ('{vm.SmartCleanLabel}')");
+        Check(winsxs.IsHighRisk && !string.IsNullOrWhiteSpace(winsxs.RiskNote) && winsxs.RiskNote.Contains("DISM"), "The row carries a plain-language risk note for the UI");
+        AssertWinSxSWording(winsxs.RiskNote, "inline row note");
+        var temp = items.First(i => i.Type == JunkType.TempFile);
+        Check(!temp.IsHighRisk && temp.RiskNote == null, "Routine rows have no risk note");
+    }
+
+    private static void TestPolicyTable()
+    {
+        var highRisk = Enum.GetValues<JunkType>().Where(CleanupModePolicy.IsHighRiskType).ToList();
+        Check(highRisk.Count == 2 && highRisk.Contains(JunkType.WinSxS) && highRisk.Contains(JunkType.WindowsOld), "Exactly WinSxS and Windows.old are high-risk");
+        Check(Enum.GetValues<JunkType>().All(t => CleanupModePolicy.IsBulkSelectable(t) != CleanupModePolicy.IsHighRiskType(t)), "Bulk-selectable is the exact complement of high-risk");
+        Check(Enum.GetValues<JunkType>().All(t => (CleanupModePolicy.DescribeHighRisk(t) != null) == CleanupModePolicy.IsHighRiskType(t)), "Only high-risk types have a risk description");
+        Check(Enum.GetValues<JunkType>().Where(CleanupModePolicy.IsHighRiskType).All(t => !CleanupModePolicy.IsNormalModeJunkType(t)), "High-risk types are never Normal-mode junk types");
+        Check(CleanupModePolicy.BuildHighRiskWarning(new[] { new JunkItem { Type = JunkType.TempFile } }) == null, "No warning is built for routine items");
+        var warning = CleanupModePolicy.BuildHighRiskWarning(new[]
+        {
+            new JunkItem { Type = JunkType.WinSxS, SizeBytes = 1000 },
+            new JunkItem { Type = JunkType.WindowsOld, SizeBytes = 1000 }
+        });
+        Check(warning != null && warning.Contains("Component Store") && warning.Contains("Windows.old") && warning.Contains("cannot be undone"), "The warning names each category and says it cannot be undone");
+    }
+
+    /// <summary>
+    /// The WinSxS text must describe the command AuraClean actually runs (DISM /StartComponentCleanup
+    /// WITHOUT /ResetBase): previous component versions are deleted immediately (no 30-day grace),
+    /// but installed updates can still be uninstalled.
+    /// </summary>
+    private static void AssertWinSxSWording(string text, string where)
+    {
+        Check(text != null && text.Contains("/StartComponentCleanup"), $"WinSxS wording ({where}) names the command that is actually run");
+        Check(text != null && text.Contains("immediately deletes previous versions of updated components") && text.Contains("30-day grace period"),
+            $"WinSxS wording ({where}) describes immediate removal of previous component versions");
+        Check(text != null && text.Contains("does not use /ResetBase") && text.Contains("installed updates can still be uninstalled"),
+            $"WinSxS wording ({where}) says installed updates can still be uninstalled (no /ResetBase)");
+        Check(text != null && !text.Contains("can no longer be rolled back to those older component versions") && !text.Contains("Updates installed before the cleanup"),
+            $"WinSxS wording ({where}) no longer overclaims loss of all earlier update rollback");
+    }
+
+    private sealed class ConfirmProbe
+    {
+        public int Calls;
+        public string Message = "";
+        public string Title = "";
+        public bool AlwaysAsk;
+
+        /// <summary>Always declines, so a regression can never run a real cleanup from these tests.</summary>
+        public bool Confirm(string message, string title, bool alwaysAsk)
+        {
+            Calls++;
+            Message = message;
+            Title = title;
+            AlwaysAsk = alwaysAsk;
+            return false;
+        }
+    }
+
+    private static (CleanerViewModel Vm, List<JunkItem> Items, ConfirmProbe Probe) ConfirmFixture(bool advanced = true)
+    {
+        var items = Scenario();
+        var cats = BuildCategories(items, advanced: true);
+        var probe = new ConfirmProbe();
+        var vm = new CleanerViewModel { Categories = cats, HasResults = true, IsAdvancedMode = advanced, ConfirmAction = probe.Confirm };
+        return (vm, items, probe);
+    }
+
+    private static void TestHighRiskCleanupRequiresConfirmation()
+    {
+        // Confirmation dialogs are DISABLED in settings: high-risk cleanup must still always ask.
+        var quiet = new AppSettings { ShowConfirmationDialogs = false };
+        WithSettings(quiet, () =>
+        {
+            var (vm, items, probe) = ConfirmFixture();
+            var winsxs = items.First(i => i.Type == JunkType.WinSxS);
+            var windowsOld = items.First(i => i.Type == JunkType.WindowsOld);
+            winsxs.IsSelected = true;
+            windowsOld.IsSelected = true;
+            int rowsBefore = vm.Categories.Sum(c => c.Items.Count);
+
+            vm.CleanSelectedCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+
+            Check(probe.Calls == 1, "Cleaning with high-risk rows selected asks for confirmation exactly once");
+            Check(probe.AlwaysAsk, "...and requests an unconditional prompt (the 'show dialogs' setting cannot waive it)");
+            Check(probe.Message.Contains("Component Store (WinSxS)") && probe.Message.Contains("Windows.old"), "The prompt identifies both high-risk categories");
+            Check(probe.Message.Contains("DISM") && probe.Message.Contains("previous version of Windows") && probe.Message.Contains("cannot be undone"), "The prompt explains the consequences, including loss of rollback");
+            AssertWinSxSWording(probe.Message, "mandatory confirmation");
+            Check(probe.Title == "Confirm advanced system cleanup", "The prompt is titled as advanced system cleanup");
+            Check(vm.StatusMessage == "Cleanup cancelled.", "Declining cancels the cleanup");
+            Check(vm.Categories.Sum(c => c.Items.Count) == rowsBefore && winsxs.IsSelected && windowsOld.IsSelected, "Declining changes nothing: rows and selection are untouched");
+
+            // Stale state: the warning is rebuilt from the live selection on every run.
+            winsxs.IsSelected = false;
+            windowsOld.IsSelected = false;
+            vm.CleanSelectedCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            Check(probe.Calls == 2 && !probe.Message.Contains("advanced system maintenance"), "After deselecting them, the next run carries no high-risk warning (no stale state)");
+        });
+
+        WithSettings(quiet, () =>
+        {
+            var (vm, items, probe) = ConfirmFixture(advanced: false);
+            items.First(i => i.Type == JunkType.WinSxS).IsSelected = true;
+            vm.CleanSelectedCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            Check(probe.Calls == 1 && !probe.Message.Contains("Component Store"), "In Normal mode a selected WinSxS row is never part of the cleanup or its prompt");
+        });
+
+        WithSettings(new AppSettings { CleanerExcludedPaths = [@"C:\AuraSynthetic\Windows.old"] }, () =>
+        {
+            var (vm, items, probe) = ConfirmFixture();
+            items.First(i => i.Type == JunkType.WinSxS).IsSelected = true;
+            items.First(i => i.Type == JunkType.WindowsOld).IsSelected = true;
+            vm.CleanSelectedCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            Check(probe.Message.Contains("Component Store") && !probe.Message.Contains("previous version of Windows"),
+                "An excluded high-risk path is dropped from the cleanup and its warning");
+        });
+    }
+
+    private static void TestQuickCleanStaysLowRisk()
+    {
+        WithSettings(new AppSettings { ShowConfirmationDialogs = false }, () =>
+        {
+            var (vm, items, probe) = ConfirmFixture();
+            items.First(i => i.Type == JunkType.WinSxS).IsSelected = true;
+            items.First(i => i.Type == JunkType.WindowsOld).IsSelected = true;
+
+            vm.CleanLowRiskAsync().GetAwaiter().GetResult();
+
+            Check(probe.Calls == 1 && probe.AlwaysAsk, "Quick Clean always asks, even with dialogs disabled");
+            Check(!probe.Message.Contains("Component Store") && !probe.Message.Contains("Windows.old") && !probe.Message.Contains("advanced system"),
+                "Quick Clean never includes WinSxS or Windows.old, even if they were selected");
+            Check(probe.Title == "Confirm destructive action", "Quick Clean uses the routine prompt, not the advanced-system prompt");
+        });
     }
 
     private static void TestCountsReflectSelection()
@@ -194,21 +380,6 @@ public static class CleanerSelectionIntegrityTests
 
         one.IsSelected = true;
         AssertLabel("Single selected row uses the singular form");
-    }
-
-    private static void TestLowRiskFilter()
-    {
-        var items = Scenario();
-        var cats = BuildCategories(items, advanced: true);
-        var vm = new CleanerViewModel { Categories = cats, HasResults = true };
-        vm.SelectAllCommand.Execute(null);
-
-        var targeted = cats.SelectMany(c => c.Items)
-            .Where(i => i.IsSelected)
-            .Where(i => CleanupModePolicy.IsNormalModeJunkType(i.Type))
-            .ToList();
-        Check(targeted.Count > 0 && targeted.All(i => i.Type is not (JunkType.WinSxS or JunkType.WindowsOld)),
-            "Even with everything selected, the low-risk filter excludes WinSxS and Windows.old");
     }
 
     // ── Real view in an off-screen window (needs an interactive desktop; skipped otherwise) ──

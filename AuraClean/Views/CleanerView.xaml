@@ -164,6 +164,8 @@
 
                                         <CheckBox Grid.Column="0"
                                                   IsChecked="{Binding IsAllSelected}"
+                                                  IsEnabled="{Binding HasBulkSelectableItems}"
+                                                  ToolTip="Advanced system cleanup is never selected in bulk. Tick the item itself to choose it."
                                                   AutomationProperties.Name="{Binding Name, StringFormat='Select all in {0}'}"
                                                   Margin="0,0,12,0"
                                                   VerticalAlignment="Center" />
@@ -238,6 +240,23 @@
                                                                    FontSize="11"
                                                                    Visibility="{Binding DataContext.IsAdvancedMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                                    TextTrimming="CharacterEllipsis" />
+                                                        <!-- High-risk explanation: what the cleanup does and what cannot be undone -->
+                                                        <TextBlock Text="{Binding RiskNote}"
+                                                                   Foreground="{DynamicResource AuraWarn}"
+                                                                   FontSize="11"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="0,3,0,0">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsHighRisk}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
                                                         <!-- Exclusion reason badge (D1) -->
                                                         <Border Style="{StaticResource AuraPillNeutral}"
                                                                 HorizontalAlignment="Left"
