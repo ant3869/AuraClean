@@ -225,6 +225,14 @@ public static class CleanerSelectionIntegrityTests
 
     private static void TestPolicyTable()
     {
+        // The warning promises installed updates stay uninstallable, which is only true without /ResetBase.
+        Check(!FileCleanerService.WinSxSCleanupArguments.Contains("/ResetBase", StringComparison.OrdinalIgnoreCase),
+            "The DISM arguments AuraClean runs for WinSxS cleanup do NOT contain /ResetBase");
+        Check(FileCleanerService.WinSxSCleanupArguments.Contains("/StartComponentCleanup"),
+            "The WinSxS cleanup runs /StartComponentCleanup, as the warning describes");
+        Check(CleanupModePolicy.DescribeHighRisk(JunkType.WinSxS)!.Contains("does not use /ResetBase"),
+            "The user-facing WinSxS warning states that /ResetBase is not used (kept consistent with the command)");
+
         var highRisk = Enum.GetValues<JunkType>().Where(CleanupModePolicy.IsHighRiskType).ToList();
         Check(highRisk.Count == 2 && highRisk.Contains(JunkType.WinSxS) && highRisk.Contains(JunkType.WindowsOld), "Exactly WinSxS and Windows.old are high-risk");
         Check(Enum.GetValues<JunkType>().All(t => CleanupModePolicy.IsBulkSelectable(t) != CleanupModePolicy.IsHighRiskType(t)), "Bulk-selectable is the exact complement of high-risk");
@@ -482,7 +490,7 @@ public static class CleanerSelectionIntegrityTests
             CollectPeerNames(UIElementAutomationPeer.CreatePeerForElement(view), names, 0);
             Check(names.Count > 20, $"CleanerView exposes a populated automation peer tree ({names.Count} named peers)");
             Check(names.Contains("Select all in Component Store (WinSxS)"), "The WinSxS group checkbox has its own accessible name");
-            Check(names.Contains("Select Cleanup Item"), "Item checkboxes expose an accessible name");
+            Check(names.Any(n => n.StartsWith("Select Temp ")), "Item checkboxes expose a per-row accessible name ('Select <description>'), not one identical name for every row");
             Check(vm.SmartCleanLabel == labelBefore, $"The Clean button label did not change ('{labelBefore}' -> '{vm.SmartCleanLabel}')");
         }
         finally

@@ -10,6 +10,10 @@ namespace AuraClean.Models;
 /// </summary>
 public partial class InstalledProgram : ObservableObject
 {
+    /// <summary>Screen readers announce a list row by its ToString() when no AutomationProperties.Name is set.</summary>
+    public override string ToString() =>
+        string.IsNullOrWhiteSpace(DisplayVersion) ? DisplayName : $"{DisplayName}, version {DisplayVersion}";
+
     [ObservableProperty] private string _displayName = string.Empty;
     [ObservableProperty] private string _displayVersion = string.Empty;
     [ObservableProperty] private string _publisher = string.Empty;

@@ -113,7 +113,7 @@
                                     </Grid.ColumnDefinitions>
 
                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
-                                              AutomationProperties.Name="Select File"
+                                              AutomationProperties.Name="{Binding FileName, StringFormat='Select {0}'}"
                                               VerticalAlignment="Center" Margin="0,0,8,0" />
 
                                     <materialDesign:PackIcon Grid.Column="1" Kind="FileDocument" Width="20" Height="20"

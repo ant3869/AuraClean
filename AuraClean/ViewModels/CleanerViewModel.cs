@@ -32,6 +32,9 @@ public partial class JunkCategory : ObservableObject
     public string FormattedTotalSize => FormatHelper.FormatBytes(TotalSize);
     public string ItemCountLabel => FormatHelper.Pluralize(ItemCount, "item");
 
+    /// <summary>Screen readers announce a group by its ToString() when no AutomationProperties.Name is set.</summary>
+    public override string ToString() => $"{Name}, {ItemCountLabel}, {FormattedTotalSize}";
+
     partial void OnIsAllSelectedChanged(bool value)
     {
         if (_syncingSelection)
@@ -216,6 +219,15 @@ public partial class CleanerViewModel : ObservableObject
     private CancellationTokenSource? _cts;
 
     /// <summary>
+    /// The system-junk scan (progress, token, includeReviewOnlyCategories). Production uses
+    /// <see cref="FileCleanerService.AnalyzeSystemJunkAsync"/>; tests inject a stub so the UI-thread
+    /// behavior of <see cref="AnalyzeAsync"/> can be verified without touching the file system.
+    /// </summary>
+    public Func<IProgress<string>, CancellationToken, bool, Task<List<JunkItem>>> JunkScanner { get; set; } =
+        (progress, ct, includeReviewOnly) =>
+            FileCleanerService.AnalyzeSystemJunkAsync(progress, ct, includeReviewOnlyCategories: includeReviewOnly);
+
+    /// <summary>
     /// Confirmation seam (message, title, alwaysAsk). Production uses the safety prompt; tests inject
     /// a stub so no dialog is shown and no cleanup can run.
     /// </summary>
@@ -250,11 +262,16 @@ public partial class CleanerViewModel : ObservableObject
             var advanced = IsAdvancedMode;
 
             ProgressValue = 10;
-            var systemJunkTask = FileCleanerService.AnalyzeSystemJunkAsync(
-                progress, _cts.Token, includeReviewOnlyCategories: advanced);
+
+            // Both scans do synchronous file-system probing (drive enumeration, Directory.Exists, ...)
+            // before their first await. Started directly they ran on the UI thread, freezing the whole
+            // window ("Not Responding", blank) for the length of that probing — including the automatic
+            // scan at dashboard startup. Task.Run keeps that work off the UI thread.
+            var ct = _cts.Token;
+            var systemJunkTask = Task.Run(() => JunkScanner(progress, ct, advanced), ct);
 
             var abandonedTask = advanced && settings.RunHeuristicScan
-                ? HeuristicScannerService.ScanForAbandonedFilesAsync(settings.AbandonedFileDaysThreshold, progress, _cts.Token)
+                ? Task.Run(() => HeuristicScannerService.ScanForAbandonedFilesAsync(settings.AbandonedFileDaysThreshold, progress, ct), ct)
                 : Task.FromResult(new List<JunkItem>());
 
             var systemJunk = await systemJunkTask;

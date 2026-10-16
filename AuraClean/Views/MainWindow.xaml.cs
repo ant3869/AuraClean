@@ -89,6 +89,20 @@ public partial class MainWindow : Window
                 ["Settings"] = NavSettings,
             };
 
+            // Navigation is bound to each radio's Command (Click). Assistive technology (Narrator, voice
+            // control) selects a radio through UI Automation, which checks it WITHOUT raising Click — the
+            // sidebar then highlighted an item while the page stayed put. Following the check closes that gap;
+            // programmatic checks from ShowView find CurrentViewName already equal and do nothing.
+            foreach (var (viewKey, navRadio) in _navMap)
+            {
+                var key = viewKey;
+                navRadio.Checked += (_, _) =>
+                {
+                    if (_viewModel.CurrentViewName != key)
+                        _viewModel.NavigateToCommand.Execute(key);
+                };
+            }
+
             ShowView("Dashboard");
 
             if (_viewModel.Onboarding.ShouldShowOnboarding())
