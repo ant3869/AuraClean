@@ -38,8 +38,66 @@ public static class QualityPassTests
         Section("Dashboard junk tile never claims 'Nothing to clean' without a completed scan", TestJunkTileStates);
         Section("Quick Clean confirmation cannot be disabled by the dialog setting", TestQuickCleanPromptGate);
         Section("Counts use correct singular/plural wording", TestPluralization);
+        Section("Screen readers get readable names for list rows (no CLR type names or record dumps)", TestScreenReaderRowNames);
+        SectionAsync("Cleaner analysis never runs its scan on the calling (UI) thread", TestAnalyzeDoesNotBlockCallerThread).GetAwaiter().GetResult();
 
         return (_pass, _fail);
+    }
+
+    private static void TestScreenReaderRowNames()
+    {
+        // Real-GUI finding: list rows without an AutomationProperties.Name are announced via the data
+        // object's ToString(), so screen readers heard "AuraClean.Models.InstalledProgram" or a record dump
+        // ("InfoEntry { Category = ..., Value = ... }") for every row.
+        var fmt = AuraClean.Helpers.FormatHelper.FormatBytes(12_000_000);
+        string[] names =
+        [
+            new JunkItem { Description = "Crash dump", SizeBytes = 12_000_000 }.ToString(),
+            new JunkItem { Path = @"C:\x.tmp" }.ToString(),
+            new JunkCategory { Name = "Crash Dumps" }.ToString(),
+            new InstalledProgram { DisplayName = "7-Zip", DisplayVersion = "26.03" }.ToString(),
+            new InstalledProgram { DisplayName = "9Remote" }.ToString(),
+            new FileShredderViewModel.AlgorithmOption(FileShredderService.ShredAlgorithm.Enhanced7Pass, "Enhanced", "7 passes", 7).ToString(),
+            new SystemInfoService.InfoEntry("Operating System", "Name", "Windows 11").ToString(),
+            new SchedulableCategory(JunkType.TempFile, "Temporary Files").ToString(),
+            new FileShredderViewModel.ShredFileItem { FileName = "report.docx" }.ToString(),
+        ];
+
+        Check(names[0] == $"Crash dump, {fmt}", $"Cleaner row is announced as its description and size ('{names[0]}')");
+        Check(names[1] == @"C:\x.tmp", "A cleaner row without a description falls back to its path");
+        Check(names[2] == "Crash Dumps, 0 items, 0 B", $"Cleaner group is announced with name, count and size ('{names[2]}')");
+        Check(names[3] == "7-Zip, version 26.03" && names[4] == "9Remote", "Uninstaller rows are announced by program name (and version when known)");
+        Check(names[5] == "Enhanced, 7 passes", "A shred algorithm option is announced by name and description");
+        Check(names[6] == "Name: Windows 11", "A System Info row is announced as 'label: value'");
+        Check(names[7] == "Temporary Files", "A scheduled-cleanup category is announced by its display name");
+        Check(names[8] == "report.docx", "A shredder file row is announced by its file name");
+        Check(System.Linq.Enumerable.All(names, n => !n.StartsWith("AuraClean.") && !n.Contains(" = ") && !n.Contains("{ ")), "No announced name is a CLR type name or a record dump");
+    }
+
+    private static async Task TestAnalyzeDoesNotBlockCallerThread()
+    {
+        // Real-GUI finding: the automatic dashboard scan started FileCleanerService.AnalyzeSystemJunkAsync
+        // directly on the UI thread, and its synchronous file-system probing (drive enumeration,
+        // Directory.Exists) froze the window ("Not Responding", blank) for 15-20 s at startup.
+        // A stub scanner that blocks synchronously stands in for slow probing.
+        int callerThread = Environment.CurrentManagedThreadId;
+        int scannerThread = -1;
+        var vm = new CleanerViewModel { IsAdvancedMode = false };
+        vm.JunkScanner = (progress, ct, includeReviewOnly) =>
+        {
+            scannerThread = Environment.CurrentManagedThreadId;
+            Thread.Sleep(1000);
+            return Task.FromResult(new System.Collections.Generic.List<JunkItem>());
+        };
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var running = vm.AnalyzeCommand.ExecuteAsync(null);
+        long returnedAfterMs = sw.ElapsedMilliseconds;
+
+        Check(returnedAfterMs < 500, $"Starting an analysis returns control to the caller immediately ({returnedAfterMs} ms, scanner blocks for 1000 ms)");
+        await running;
+        Check(scannerThread != -1 && scannerThread != callerThread, "The scan itself runs on a worker thread, not the calling thread");
+        Check(vm.HasCompletedAnalysis && !vm.IsBusy, "The analysis still completes normally afterwards");
     }
 
     private static void TestJunkTileStates()

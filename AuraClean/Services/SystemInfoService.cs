@@ -17,7 +17,11 @@ public static class SystemInfoService
     /// <summary>
     /// A single piece of system information displayed in the info grid.
     /// </summary>
-    public record InfoEntry(string Category, string Label, string Value, string Icon = "Information");
+    public record InfoEntry(string Category, string Label, string Value, string Icon = "Information")
+    {
+        /// <summary>Screen readers announce a row by its ToString() (a record would dump all fields).</summary>
+        public override string ToString() => $"{Label}: {Value}";
+    }
 
     /// <summary>
     /// Creates a ManagementObjectSearcher with a timeout to prevent WMI hangs.

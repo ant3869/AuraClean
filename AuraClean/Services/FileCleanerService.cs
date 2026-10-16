@@ -973,13 +973,20 @@ public static class FileCleanerService
     /// Runs DISM /StartComponentCleanup. The servicing stack must not be interrupted, so
     /// cancellation stops waiting but lets DISM finish in the background.
     /// </summary>
+    /// <summary>
+    /// The exact DISM arguments for Component Store cleanup. Deliberately WITHOUT /ResetBase: the
+    /// user-facing warning (CleanupModePolicy.DescribeHighRisk) promises installed updates stay
+    /// uninstallable, and a test pins that this string never gains the flag.
+    /// </summary>
+    public const string WinSxSCleanupArguments = "/Online /Cleanup-Image /StartComponentCleanup /English";
+
     private static async Task<bool> CleanWinSxSAsync(CancellationToken ct)
     {
         try
         {
             var result = await ProcessRunner.RunAsync(
                 ProcessRunner.SystemTool("Dism.exe"),
-                "/Online /Cleanup-Image /StartComponentCleanup /English",
+                WinSxSCleanupArguments,
                 ct, killOnCancel: false);
 
             if (result.Succeeded)

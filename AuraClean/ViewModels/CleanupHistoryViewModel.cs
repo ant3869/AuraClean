@@ -241,4 +241,7 @@ public sealed class TrendBar(DailyTrendPoint point, double barHeight)
 {
     public DailyTrendPoint Point { get; } = point;
     public double BarHeight { get; } = barHeight;
+
+    /// <summary>Screen readers announce a bar by its ToString(): the day and what was freed.</summary>
+    public override string ToString() => Point.Tooltip;
 }

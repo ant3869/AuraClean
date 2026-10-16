@@ -362,6 +362,9 @@ public partial class FileShredderViewModel : ObservableObject
     {
         public string FullPath { get; init; } = string.Empty;
         public string FileName { get; init; } = string.Empty;
+
+        /// <summary>Screen readers announce a list row by its ToString() when no AutomationProperties.Name is set.</summary>
+        public override string ToString() => FileName;
         public long SizeBytes { get; init; }
         public string FormattedSize { get; init; } = string.Empty;
 
@@ -380,5 +383,9 @@ public partial class FileShredderViewModel : ObservableObject
         FileShredderService.ShredAlgorithm Algorithm,
         string Name,
         string Description,
-        int Passes);
+        int Passes)
+    {
+        /// <summary>Screen readers announce the option by its ToString() (a record would dump all fields).</summary>
+        public override string ToString() => $"{Name}, {Description}";
+    }
 }

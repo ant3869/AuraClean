@@ -12,6 +12,9 @@ namespace AuraClean.ViewModels;
 /// <summary>One checkable scheduled-cleanup category (D2).</summary>
 public partial class SchedulableCategory : ObservableObject
 {
+    /// <summary>Screen readers announce a list row by its ToString() when no AutomationProperties.Name is set.</summary>
+    public override string ToString() => DisplayName;
+
     public JunkType Type { get; }
     public string DisplayName { get; }
 
