@@ -272,6 +272,19 @@ public partial class FileShredderViewModel : ObservableObject
             StatusMessage = result.FilesFailed == 0
                 ? $"Successfully shredded {result.FilesShredded} files ({FormatHelper.FormatBytes(result.TotalBytesOverwritten)} overwritten)."
                 : $"Shredded {result.FilesShredded} files, {result.FilesFailed} failed. {FormatHelper.FormatBytes(result.TotalBytesOverwritten)} overwritten.";
+            if (result.DamagedFiles is { Count: > 0 } damagedFiles)
+                StatusMessage += " " + DescribeDamaged(damagedFiles);
+        }
+        catch (FileShredderService.ShredCancelledException cancelled)
+        {
+            // Files already shredded no longer exist; drop them so the list matches the disk.
+            var remaining = Files.Where(f => File.Exists(f.FullPath)).ToList();
+            Files = new ObservableCollection<ShredFileItem>(remaining);
+            HookSelectionEvents();
+            UpdateSelectionCount();
+            StatusMessage = DescribeCancellation(cancelled);
+            if (cancelled.PartiallyOverwrittenFile != null)
+                DiagnosticLogger.Warn("FileShredderVM", $"Shredding cancelled mid-overwrite; partially overwritten: {cancelled.PartiallyOverwrittenFile}");
         }
         catch (OperationCanceledException)
         {
@@ -293,6 +306,52 @@ public partial class FileShredderViewModel : ObservableObject
 
     [RelayCommand]
     private void CancelShred() => _cts?.Cancel();
+
+    /// <summary>
+    /// Honest description of files that were overwritten but not confirmed deleted. Never says (or implies) that
+    /// such a file is intact, unchanged or recoverable.
+    /// </summary>
+    public static string DescribeDamaged(IReadOnlyList<FileShredderService.DamagedFile> damaged)
+    {
+        const int shown = 3;
+        var parts = damaged.Take(shown).Select(d =>
+        {
+            var name = Path.GetFileName(d.Path);
+            return d.Kind switch
+            {
+                FileShredderService.DamageKind.CancelledDuringOverwrite =>
+                    $"\"{name}\" was being overwritten: its contents are partly destroyed and it was NOT deleted — it is no longer intact.",
+                FileShredderService.DamageKind.OverwriteFailed =>
+                    $"\"{name}\" hit an error while being overwritten: its contents may be partly destroyed and it was NOT deleted — it is no longer intact.",
+                _ => d.RemainsAs != null
+                    ? $"\"{name}\" was overwritten but could not be deleted: its contents are destroyed and it still exists as \"{Path.GetFileName(d.RemainsAs)}\" in the same folder."
+                    : $"\"{name}\" was overwritten but could not be deleted: its contents are destroyed and the file is still on disk.",
+            };
+        });
+        var text = string.Join(" ", parts);
+        if (damaged.Count > shown)
+            text += $" {damaged.Count - shown} more file(s) were overwritten without being deleted.";
+        return text + " Shred again to finish.";
+    }
+
+    /// <summary>
+    /// Cancellation message built from what actually happened: files fully shredded, files damaged (overwrite began,
+    /// delete not confirmed — including failures earlier in the run), and only then, if nothing was damaged, that
+    /// nothing was changed. Files not yet reached are untouched; damaged files are never described as unchanged.
+    /// </summary>
+    public static string DescribeCancellation(FileShredderService.ShredCancelledException cancelled)
+    {
+        var done = cancelled.ShreddedPaths.Count;
+        var damaged = cancelled.DamagedFiles;
+
+        if (damaged.Count == 0)
+            return done == 0
+                ? "Shredding cancelled before any file was changed. Nothing was overwritten."
+                : $"Shredding cancelled. {FormatHelper.Pluralize(done, "file")} fully shredded. The remaining files were not changed.";
+
+        var finished = done == 0 ? "No files were fully shredded." : $"{FormatHelper.Pluralize(done, "file")} fully shredded.";
+        return $"Shredding cancelled. {finished} {DescribeDamaged(damaged)} Files not yet reached were not changed.";
+    }
 
     /// <summary>
     /// Accepts files dropped via drag-and-drop.

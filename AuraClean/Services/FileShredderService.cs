@@ -35,7 +35,80 @@ public static class FileShredderService
         int FilesShredded,
         int FilesFailed,
         long TotalBytesOverwritten,
-        List<string> Errors);
+        List<string> Errors,
+        IReadOnlyList<DamagedFile>? DamagedFiles = null);
+
+    /// <summary>Why a file ended up damaged (overwrite began) without being confirmed deleted.</summary>
+    public enum DamageKind
+    {
+        /// <summary>Cancelled while the overwrite was running; the file is partly overwritten and still present.</summary>
+        CancelledDuringOverwrite,
+        /// <summary>An I/O error interrupted the overwrite; the file may be partly overwritten and is still present.</summary>
+        OverwriteFailed,
+        /// <summary>Fully overwritten, but the rename or delete failed: contents destroyed, file still on disk.</summary>
+        NotDeleted,
+    }
+
+    /// <summary>
+    /// A file whose overwrite began but whose deletion was not confirmed. <see cref="RemainsAs"/> is the random name
+    /// it was renamed to when the rename succeeded and the delete then failed (null: still at <see cref="Path"/>).
+    /// </summary>
+    public sealed record DamagedFile(string Path, string? RemainsAs, DamageKind Kind);
+
+    /// <summary>
+    /// Thrown when shredding is cancelled. Still an <see cref="OperationCanceledException"/> (existing callers
+    /// keep working) but reports what actually happened, so the UI can be honest about it.
+    /// </summary>
+    public sealed class ShredCancelledException : OperationCanceledException
+    {
+        public ShredCancelledException(
+            IReadOnlyList<string> shreddedPaths, long bytesOverwritten, IReadOnlyList<DamagedFile> damagedFiles, CancellationToken ct)
+            : base("Shredding was cancelled.", ct)
+        {
+            ShreddedPaths = shreddedPaths;
+            BytesOverwritten = bytesOverwritten;
+            DamagedFiles = damagedFiles;
+        }
+
+        /// <summary>Files that were fully overwritten and deleted before the cancel.</summary>
+        public IReadOnlyList<string> ShreddedPaths { get; }
+
+        public long BytesOverwritten { get; }
+
+        /// <summary>
+        /// Every file whose overwrite began without a confirmed delete — failures earlier in the run as well as the
+        /// file being overwritten when the cancel arrived. Empty only when no file was modified and left behind.
+        /// </summary>
+        public IReadOnlyList<DamagedFile> DamagedFiles { get; }
+
+        /// <summary>The file whose overwrite was running when the cancel arrived, or null.</summary>
+        public string? PartiallyOverwrittenFile =>
+            DamagedFiles.FirstOrDefault(d => d.Kind == DamageKind.CancelledDuringOverwrite)?.Path;
+    }
+
+    /// <summary>Tracks whether the first write to the current file has started.</summary>
+    internal sealed class OverwriteProgress { public volatile bool Started; }
+
+    /// <summary>
+    /// The three file operations the shred loop performs. Internal seam so tests can inject overwrite, rename and
+    /// delete failures deterministically; production always uses <see cref="DefaultOperations"/>.
+    /// </summary>
+    internal interface IShredFileOperations
+    {
+        Task OverwriteAsync(string path, long fileSize, ShredAlgorithm algorithm, CancellationToken ct, OverwriteProgress progress);
+        void Move(string source, string destination);
+        void Delete(string path);
+    }
+
+    private sealed class DefaultOperations : IShredFileOperations
+    {
+        public Task OverwriteAsync(string path, long fileSize, ShredAlgorithm algorithm, CancellationToken ct, OverwriteProgress progress)
+            => OverwriteFileAsync(path, fileSize, algorithm, ct, progress);
+        public void Move(string source, string destination) => File.Move(source, destination);
+        public void Delete(string path) => File.Delete(path);
+    }
+
+    internal static IShredFileOperations Operations { get; set; } = new DefaultOperations();
 
     /// <summary>
     /// Securely shreds the given files using the specified algorithm.
@@ -50,14 +123,21 @@ public static class FileShredderService
         int failed = 0;
         long totalBytes = 0;
         var errors = new List<string>();
+        var shreddedPaths = new List<string>();
+        var damaged = new List<DamagedFile>();
 
         for (int i = 0; i < filePaths.Count; i++)
         {
-            ct.ThrowIfCancellationRequested();
+            // Cancelled between files: nothing is half-done now, but earlier failures may have left damaged files.
+            if (ct.IsCancellationRequested)
+                throw new ShredCancelledException(shreddedPaths, totalBytes, damaged, ct);
             var path = filePaths[i];
             var fileName = Path.GetFileName(path);
             progress?.Report((i + 1, filePaths.Count, fileName));
 
+            var overwrite = new OverwriteProgress();
+            // Where the already-overwritten file is now, until its deletion is confirmed.
+            string? residual = null;
             try
             {
                 if (!File.Exists(path))
@@ -88,7 +168,8 @@ public static class FileShredderService
                 if (fileInfo.IsReadOnly)
                     fileInfo.IsReadOnly = false;
 
-                await OverwriteFileAsync(path, fileSize, algorithm, ct);
+                await Operations.OverwriteAsync(path, fileSize, algorithm, ct, overwrite);
+                residual = path;
                 totalBytes += fileSize;
 
                 // Rename to a random name before deleting to obscure the original file name.
@@ -97,38 +178,53 @@ public static class FileShredderService
                     Path.GetRandomFileName());
                 try
                 {
-                    File.Move(path, randomName);
-                    File.Delete(randomName);
+                    Operations.Move(path, randomName);
+                    residual = randomName;
+                    Operations.Delete(randomName);
                 }
                 catch (Exception renameEx) when (renameEx is IOException or UnauthorizedAccessException)
                 {
-                    File.Delete(File.Exists(randomName) ? randomName : path);
+                    Operations.Delete(File.Exists(randomName) ? randomName : path);
                 }
 
+                residual = null;
                 shredded++;
+                shreddedPaths.Add(path);
                 DiagnosticLogger.Info("FileShredder", $"Shredded: {path} ({FormatHelper.FormatBytes(fileSize)})");
             }
             catch (OperationCanceledException)
             {
-                // Cancellation is not a per-file failure; surface it even for the last file.
-                throw;
+                // Cancellation is not a per-file failure; surface it even for the last file. If the overwrite had
+                // begun, the file is partly destroyed but still present: say so instead of implying nothing changed.
+                if (overwrite.Started)
+                    damaged.Add(new DamagedFile(path, RemainsAs: null, DamageKind.CancelledDuringOverwrite));
+                throw new ShredCancelledException(shreddedPaths, totalBytes, damaged, ct);
             }
             catch (Exception ex)
             {
                 failed++;
                 errors.Add($"{path}: {ex.Message}");
                 DiagnosticLogger.Warn("FileShredder", $"Failed to shred: {path}", ex);
+
+                // The overwrite began but the file is not confirmed deleted: remember it (and where it is now) so a
+                // later cancel, or the final summary, cannot claim the file is intact or unchanged.
+                if (overwrite.Started)
+                {
+                    damaged.Add(residual == null
+                        ? new DamagedFile(path, RemainsAs: null, DamageKind.OverwriteFailed)
+                        : new DamagedFile(path, residual == path ? null : residual, DamageKind.NotDeleted));
+                }
             }
         }
 
-        return new ShredResult(shredded, failed, totalBytes, errors);
+        return new ShredResult(shredded, failed, totalBytes, errors, damaged);
     }
 
     /// <summary>
     /// Overwrites file content according to the selected algorithm.
     /// </summary>
     private static async Task OverwriteFileAsync(
-        string path, long fileSize, ShredAlgorithm algorithm, CancellationToken ct)
+        string path, long fileSize, ShredAlgorithm algorithm, CancellationToken ct, OverwriteProgress progress)
     {
         var passes = GetOverwritePasses(algorithm);
         const int bufferSize = 1024 * 1024; // 1 MB write buffer
@@ -159,6 +255,8 @@ public static class FileShredderService
                 if (type == PassType.Random)
                     RandomNumberGenerator.Fill(buffer.AsSpan(0, chunkSize));
 
+                // Mark BEFORE the first write: a cancel arriving mid-write may already have changed bytes.
+                progress.Started = true;
                 await fs.WriteAsync(buffer.AsMemory(0, chunkSize), ct);
                 remaining -= chunkSize;
             }

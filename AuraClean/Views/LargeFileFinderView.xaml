@@ -66,16 +66,32 @@
                     <TextBlock Text="Min. Size (MB)" FontSize="11"
                                Foreground="{DynamicResource AuraTextMuted}" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding SizePresets}"
-                              SelectedItem="{Binding MinimumSizeMB}"
+                              Text="{Binding MinimumSizeText, UpdateSourceTrigger=PropertyChanged}"
                               Background="{DynamicResource AuraSurfaceLight}"
                               Foreground="{DynamicResource AuraTextPrimary}"
                               FontSize="13" Width="100"
                               IsEditable="True"
+                              AutomationProperties.Name="Minimum file size in megabytes"
                               IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                    <!-- Friendly validation message (replaces WPF's raw conversion error). -->
+                    <TextBlock Text="{Binding MinSizeError}"
+                               Foreground="{DynamicResource AuraDanger}"
+                               FontSize="11" TextWrapping="Wrap" MaxWidth="170" Margin="0,4,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
 
                 <!-- Scan Button -->
-                <StackPanel Grid.Column="2" Margin="20,0,0,0" VerticalAlignment="Bottom">
+                <StackPanel Grid.Column="2" Margin="20,19,0,0" VerticalAlignment="Top">
                     <Button Style="{StaticResource AuraPrimaryButton}"
                             Command="{Binding ScanCommand}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
@@ -89,7 +105,7 @@
                 </StackPanel>
 
                 <!-- Cancel -->
-                <StackPanel Grid.Column="3" Margin="8,0,0,0" VerticalAlignment="Bottom">
+                <StackPanel Grid.Column="3" Margin="8,19,0,0" VerticalAlignment="Top">
                     <Button Style="{StaticResource AuraGhostButton}"
                             Command="{Binding CancelScanCommand}"
                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
