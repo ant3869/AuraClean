@@ -36,6 +36,7 @@ public static class UxCorrectionsTests
         Section("Test runs keep their logs out of the user's real log folder", TestLogIsolation);
         SectionAsync("Shredder: cancel before any change is reported as untouched", TestCancelBeforeModification).GetAwaiter().GetResult();
         SectionAsync("Shredder: cancel mid-overwrite flags the partially overwritten file", TestCancelMidOverwrite).GetAwaiter().GetResult();
+        SectionAsync("Shredder: overwrite/rename/delete failures followed by cancel are never reported as unchanged", TestFaultsThenCancel).GetAwaiter().GetResult();
         Section("Shredder: cancellation message is honest about partial damage", TestCancellationMessages);
         Section("Large File Finder: minimum size is validated with friendly messages", TestMinimumSizeValidation);
         Section("Large File Finder: a browsed folder is shown and invalid input never starts a scan", TestFolderDisplayAndScanGate);
@@ -127,7 +128,7 @@ public static class UxCorrectionsTests
             Check(caught != null, "Cancellation surfaces as ShredCancelledException");
             Check(caught is OperationCanceledException, "...which is still an OperationCanceledException, so existing handlers keep working");
             Check(caught != null && caught.ShreddedPaths.SequenceEqual(new[] { a }), "It reports the file that was fully shredded before the cancel");
-            Check(caught != null && caught.PartiallyOverwrittenFile == null, "A cancel before the next file's first write reports no partially overwritten file");
+            Check(caught != null && caught.PartiallyOverwrittenFile == null && caught.DamagedFiles.Count == 0, "A cancel before the next file's first write reports no partially overwritten or damaged file");
             Check(!File.Exists(a), "The completed file is gone");
             Check(File.Exists(b) && File.ReadAllBytes(b).All(x => x == 0xAB), "The file that had not started is byte-for-byte untouched");
         }
@@ -172,11 +173,158 @@ public static class UxCorrectionsTests
         finally { try { Directory.Delete(dir, true); } catch { } }
     }
 
+    // ── fault injection: overwrite / rename / delete failures, then cancellation ───────────────────
+    private sealed class FaultyOps : FileShredderService.IShredFileOperations
+    {
+        private readonly FileShredderService.IShredFileOperations _real = FileShredderService.Operations;
+        private readonly Dictionary<string, string> _renamedFrom = new();
+
+        public Func<string, bool> OverwriteFailsBeforeAnyWrite = _ => false;
+        public Func<string, bool> OverwriteFailsAfterFirstWrite = _ => false;
+        public Func<string, bool> CancelledDuringOverwrite = _ => false;
+        public Func<string, bool> RenameFails = _ => false;
+        public Func<string, bool> DeleteFails = _ => false; // keyed by the ORIGINAL path, even after a rename
+
+        public async Task OverwriteAsync(string path, long size, FileShredderService.ShredAlgorithm alg, CancellationToken ct, FileShredderService.OverwriteProgress progress)
+        {
+            if (OverwriteFailsBeforeAnyWrite(path)) throw new IOException("injected: cannot open for writing");
+            if (OverwriteFailsAfterFirstWrite(path))
+            {
+                await _real.OverwriteAsync(path, size, alg, CancellationToken.None, progress); // really overwrites first
+                progress.Started = true;
+                throw new IOException("injected: disk error during overwrite");
+            }
+            if (CancelledDuringOverwrite(path))
+            {
+                progress.Started = true;
+                throw new OperationCanceledException(ct);
+            }
+            await _real.OverwriteAsync(path, size, alg, ct, progress);
+        }
+
+        public void Move(string source, string destination)
+        {
+            if (RenameFails(source)) throw new IOException("injected: rename failed");
+            _real.Move(source, destination);
+            _renamedFrom[destination] = source;
+        }
+
+        public void Delete(string path)
+        {
+            var original = _renamedFrom.TryGetValue(path, out var o) ? o : path;
+            if (DeleteFails(original)) throw new UnauthorizedAccessException("injected: delete failed");
+            _real.Delete(path);
+        }
+    }
+
+    private static string[] MakeFiles(string dir, int count)
+    {
+        var files = new string[count];
+        for (int i = 0; i < count; i++)
+        {
+            files[i] = Path.Combine(dir, $"f{i + 1}.bin");
+            File.WriteAllBytes(files[i], Enumerable.Repeat((byte)0xAB, 4096).ToArray());
+        }
+        return files;
+    }
+
+    /// <summary>Shreds <paramref name="files"/> with injected faults, cancelling when file number <paramref name="cancelAt"/> starts.</summary>
+    private static async Task<(FileShredderService.ShredCancelledException Cancelled, FileShredderService.ShredResult Result)> RunWithFaults(
+        FaultyOps ops, string[] files, int cancelAt)
+    {
+        var previous = FileShredderService.Operations;
+        FileShredderService.Operations = ops;
+        try
+        {
+            using var cts = new CancellationTokenSource();
+            var progress = new SyncProgress(n => { if (n == cancelAt) cts.Cancel(); });
+            try
+            {
+                var result = await FileShredderService.ShredFilesAsync(files, FileShredderService.ShredAlgorithm.QuickZero, progress, cts.Token);
+                return (null, result);
+            }
+            catch (FileShredderService.ShredCancelledException ex) { return (ex, null); }
+        }
+        finally { FileShredderService.Operations = previous; }
+    }
+
+    private static async Task TestFaultsThenCancel()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            // 1. Overwrite fails after it began (file 1), then cancel on file 2.
+            var f = MakeFiles(dir, 3);
+            var (c1, _) = await RunWithFaults(new FaultyOps { OverwriteFailsAfterFirstWrite = p => p == f[0] }, f, cancelAt: 2);
+            var m1 = FileShredderViewModel.DescribeCancellation(c1);
+            Check(c1 is OperationCanceledException, "A cancel after a failed overwrite is still an OperationCanceledException");
+            Check(c1.DamagedFiles.Count == 1 && c1.DamagedFiles[0].Path == f[0] && c1.DamagedFiles[0].Kind == FileShredderService.DamageKind.OverwriteFailed,
+                "An overwrite that failed after starting is remembered as damaged when a later cancel arrives");
+            Check(File.Exists(f[0]) && new FileInfo(f[0]).Length != 4096, "...and that file really was modified (truncated by the overwrite) and is still on disk");
+            Check(m1.Contains("f1.bin") && m1.Contains("no longer intact") && !m1.Contains("Nothing was overwritten") && !m1.Contains("remaining files were not changed"),
+                $"The message names it and does not claim nothing changed ('{m1}')");
+
+            // 2. Rename fails and the fallback delete fails too: file stays at its path, contents destroyed.
+            f = MakeFiles(dir, 3);
+            var (c2, _) = await RunWithFaults(new FaultyOps { RenameFails = p => p == f[0], DeleteFails = p => p == f[0] }, f, cancelAt: 2);
+            Check(c2.DamagedFiles.Count == 1 && c2.DamagedFiles[0].Path == f[0] && c2.DamagedFiles[0].Kind == FileShredderService.DamageKind.NotDeleted && c2.DamagedFiles[0].RemainsAs == null,
+                "A rename failure followed by a delete failure is remembered as overwritten-but-not-deleted at the original path");
+            var m2 = FileShredderViewModel.DescribeCancellation(c2);
+            Check(m2.Contains("f1.bin") && m2.Contains("could not be deleted") && m2.Contains("still on disk") && !m2.Contains("Nothing was overwritten"),
+                $"The message says it is destroyed but still on disk ('{m2}')");
+
+            // 3. Rename succeeds, then delete fails: the file now lives under a random name, and that name is tracked.
+            f = MakeFiles(dir, 3);
+            var (c3, _) = await RunWithFaults(new FaultyOps { DeleteFails = p => p == f[0] }, f, cancelAt: 2);
+            var d3 = c3.DamagedFiles.SingleOrDefault();
+            Check(d3 != null && d3.Kind == FileShredderService.DamageKind.NotDeleted && d3.RemainsAs != null && d3.RemainsAs != f[0],
+                "A rename that succeeded before the delete failed keeps track of the renamed path");
+            Check(d3 != null && !File.Exists(f[0]) && File.Exists(d3.RemainsAs), "...which is where the file actually is (the original path is gone)");
+            var m3 = FileShredderViewModel.DescribeCancellation(c3);
+            Check(m3.Contains(Path.GetFileName(d3.RemainsAs)) && m3.Contains("still exists as"), $"The message tells the user the new name ('{m3}')");
+            Check(File.ReadAllBytes(d3.RemainsAs).All(x => x != 0xAB), "The renamed file's original contents are gone");
+
+            // 4. A failure BEFORE any write is not damage: a later cancel may truthfully say nothing was changed.
+            f = MakeFiles(dir, 3);
+            var (c4, _) = await RunWithFaults(new FaultyOps { OverwriteFailsBeforeAnyWrite = p => p == f[0] }, f, cancelAt: 2);
+            Check(c4.DamagedFiles.Count == 0 && File.ReadAllBytes(f[0]).All(x => x == 0xAB), "A failure before any write leaves the file untouched and is not reported as damage");
+            Check(FileShredderViewModel.DescribeCancellation(c4).Contains("Nothing was overwritten"), "...so the cancel message may say nothing was overwritten");
+
+            // 5. Earlier damaged file + cancel mid-overwrite of the next: both are reported.
+            f = MakeFiles(dir, 3);
+            var (c5, _) = await RunWithFaults(new FaultyOps { DeleteFails = p => p == f[0], CancelledDuringOverwrite = p => p == f[1] }, f, cancelAt: 2);
+            Check(c5.DamagedFiles.Count == 2 && c5.DamagedFiles[0].Path == f[0] && c5.DamagedFiles[1].Path == f[1] &&
+                  c5.DamagedFiles[1].Kind == FileShredderService.DamageKind.CancelledDuringOverwrite, "An earlier damaged file and the file cancelled mid-overwrite are both reported");
+            Check(c5.PartiallyOverwrittenFile == f[1], "PartiallyOverwrittenFile still identifies the file being overwritten at the cancel");
+            var m5 = FileShredderViewModel.DescribeCancellation(c5);
+            Check(m5.Contains("f1.bin") && m5.Contains("f2.bin") && !m5.Contains("Nothing was overwritten"), $"The message names both files ('{m5}')");
+            Check(File.Exists(f[2]) && File.ReadAllBytes(f[2]).All(x => x == 0xAB), "The file that was never reached is untouched");
+
+            // 6. Without any cancel, the normal result carries the same information.
+            f = MakeFiles(dir, 2);
+            var (c6, r6) = await RunWithFaults(new FaultyOps { DeleteFails = p => p == f[0] }, f, cancelAt: int.MaxValue);
+            Check(c6 == null && r6 != null && r6.FilesFailed == 1 && r6.FilesShredded == 1, "Without a cancel, one file fails and the other is shredded as before");
+            Check(r6.DamagedFiles is { Count: 1 } && r6.DamagedFiles[0].Path == f[0], "The normal result lists the overwritten-but-not-deleted file");
+            Check(FileShredderViewModel.DescribeDamaged(r6.DamagedFiles).Contains("destroyed"), "...and the summary says its contents are destroyed");
+
+            // 7. Normal shredding through the real operations is unchanged.
+            f = MakeFiles(dir, 2);
+            var plain = await FileShredderService.ShredFilesAsync(f, FileShredderService.ShredAlgorithm.QuickZero);
+            Check(plain.FilesShredded == 2 && plain.FilesFailed == 0 && plain.DamagedFiles!.Count == 0 && !File.Exists(f[0]) && !File.Exists(f[1]),
+                "Normal shredding still deletes the files and reports no damaged files");
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    private static FileShredderService.ShredCancelledException Cancelled(string[] shredded, params FileShredderService.DamagedFile[] damaged)
+        => new(shredded, 10, damaged, CancellationToken.None);
+
     private static void TestCancellationMessages()
     {
-        var untouched = new FileShredderService.ShredCancelledException(new string[0], 0, null, CancellationToken.None);
-        var some = new FileShredderService.ShredCancelledException(new[] { @"C:\x\one.bin", @"C:\x\two.bin" }, 10, null, CancellationToken.None);
-        var partial = new FileShredderService.ShredCancelledException(new[] { @"C:\x\one.bin" }, 10, @"C:\x\big.bin", CancellationToken.None);
+        var untouched = Cancelled(new string[0]);
+        var some = Cancelled(new[] { "one.bin", "two.bin" });
+        var partial = Cancelled(new[] { "one.bin" },
+            new FileShredderService.DamagedFile("big.bin", null, FileShredderService.DamageKind.CancelledDuringOverwrite));
 
         var m0 = FileShredderViewModel.DescribeCancellation(untouched);
         var m1 = FileShredderViewModel.DescribeCancellation(some);
@@ -189,6 +337,12 @@ public static class UxCorrectionsTests
         Check(!m2.Contains("recover", StringComparison.OrdinalIgnoreCase) && !m2.Contains("safe", StringComparison.OrdinalIgnoreCase),
             "The partial-damage message never implies the data is recoverable or safe");
         Check(!m0.Contains("partly") && !m1.Contains("partly"), "Clean cancellations don't claim any partial damage");
+
+        var many = Cancelled(new string[0],
+            Enumerable.Range(1, 5).Select(i => new FileShredderService.DamagedFile($"f{i}.bin", null, FileShredderService.DamageKind.NotDeleted)).ToArray());
+        var mm = FileShredderViewModel.DescribeCancellation(many);
+        Check(mm.Contains("f1.bin") && mm.Contains("f3.bin") && !mm.Contains("f4.bin") && mm.Contains("2 more file(s)"), $"Many damaged files are summarised, not silently dropped ('{mm}')");
+        Check(!mm.Contains("Nothing was overwritten") && !mm.Contains("remaining files were not changed"), "A run with damaged files never claims nothing changed");
     }
 
     // ── Large File Finder ─────────────────────────────────────────────────────────────────────────
