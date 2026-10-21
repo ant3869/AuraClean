@@ -26,6 +26,9 @@ internal static class WpfTestHost
                 return null;
             if (_startupFailure != null)
                 return _startupFailure;
+            // CI runners have no real desktop session; the release workflow sets this and the UI fixtures are run locally.
+            if (Environment.GetEnvironmentVariable("AURACLEAN_NO_UI_TESTS") == "1")
+                return _startupFailure = "UI fixtures disabled by AURACLEAN_NO_UI_TESTS=1";
             if (!Environment.UserInteractive)
                 return _startupFailure = "no interactive desktop available";
 

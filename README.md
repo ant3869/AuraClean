@@ -55,17 +55,24 @@
 
 ## Getting Started
 
-### Quick Install
+### Install (release candidate)
+
+Download the MSI installer from the release page (artifacts are named `AuraClean-<version>-win-x64.msi`), verify it against `SHA256SUMS.txt`, and run it:
 
 ```powershell
-git clone https://github.com/ant3869/AuraClean.git
-cd AuraClean
-powershell -ExecutionPolicy Bypass -File install.ps1
+msiexec /i AuraClean-1.6.0-rc.1-win-x64.msi          # interactive; add /qn for a silent install
 ```
 
-The install script handles everything — checks for .NET SDK (installs it if missing), builds a self-contained EXE, places it in `%LocalAppData%\AuraClean`, creates a desktop shortcut, and launches the app.
+- Installs to `%ProgramFiles%\AuraClean` (protected), adds a Start Menu shortcut (optional desktop shortcut) and registers AuraClean in **Installed apps**.
+- Your settings, logs, backups and recovery data stay in `%LocalAppData%\AuraClean` and are **never** removed by install, upgrade or uninstall.
+- A single self-contained **portable EXE** (`...-portable.exe`) is also published for trying AuraClean without installing.
+- Release candidates are **not yet code-signed**: expect an "Unknown publisher" UAC prompt and a SmartScreen warning.
+
+Full details (upgrade, uninstall, migrating from `install.ps1`, checksums, signing status): [docs/INSTALL.md](docs/INSTALL.md). Maintainers: [docs/RELEASE.md](docs/RELEASE.md).
 
 > AuraClean requires **Administrator privileges** for system-level operations.
+
+> `install.ps1` is now a **developer-only** script (builds from source into `%LocalAppData%\AuraClean`). Use the MSI for normal installation.
 
 ### Build from Source
 

@@ -1,0 +1,31 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!--
+    Builds the AuraClean MSI (WiX Toolset v5 via NuGet — nothing to install machine-wide).
+    Usage (see build/Build-Release.ps1):
+      dotnet build installer/AuraClean.Installer.wixproj -c Release -p:PublishDir=<folder containing the published AuraClean.exe>
+    ProductVersion comes from Directory.Build.props (VersionPrefix); the pre-release label (rc.N) is carried in the
+    artifact file name and the app's informational version, because Windows Installer versions are numeric.
+  -->
+  <PropertyGroup>
+    <VersionLabel>$(VersionPrefix)</VersionLabel>
+    <VersionLabel Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</VersionLabel>
+    <OutputName>AuraClean-$(VersionLabel)-win-x64</OutputName>
+    <!--
+      Suppressed ICE rules (all intentional, the package is per-machine / ALLUSERS=1):
+        ICE38/ICE43/ICE57 assume Start Menu and Desktop shortcuts live in a per-user profile (roaming-profile rules);
+        here they are all-users shortcuts whose component key paths are in the install folder / HKLM.
+        ICE61 warns that the upgrade range includes the current version; that is deliberate (AllowSameVersionUpgrades) so
+        a later release candidate with the same numeric version can replace an earlier one.
+    -->
+    <SuppressIces>ICE38;ICE43;ICE57;ICE61</SuppressIces>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <OutputType>Package</OutputType>
+    <DefineConstants>$(DefineConstants);ProductVersion=$(VersionPrefix);PublishDir=$(PublishDir);IconPath=$(MSBuildThisFileDirectory)..\AuraClean\Assets\icon.ico</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+</Project>

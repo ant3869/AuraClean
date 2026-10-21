@@ -1,0 +1,26 @@
+<Project>
+
+  <!--
+    Single source of truth for the release version. Everything else derives from here:
+      - the application assembly (FileVersion/AssemblyVersion/InformationalVersion),
+      - the MSI (ProductVersion = VersionPrefix),
+      - artifact file names (build/Build-Release.ps1).
+    Only AuraClean/app.manifest (a static XML file) repeats the number; the release tests verify it matches.
+    For a final release set VersionSuffix to empty. Release candidates: rc.1, rc.2, ...
+  -->
+  <PropertyGroup>
+    <VersionPrefix>1.6.0</VersionPrefix>
+    <VersionSuffix>rc.1</VersionSuffix>
+    <Authors>AuraClean</Authors>
+    <Company>AuraClean</Company>
+    <Product>AuraClean</Product>
+    <Copyright>Copyright © AuraClean contributors</Copyright>
+    <RepositoryUrl>https://github.com/ant3869/AuraClean</RepositoryUrl>
+
+    <!-- Reproducible, host-independent output: no commit hash appended to the version, deterministic compile. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+  </PropertyGroup>
+
+</Project>

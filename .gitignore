@@ -45,3 +45,14 @@ AuraClean/_build.log
 appcheck.txt
 build_check.txt
 test_result.txt
+
+# Release packaging: build outputs and signing material must never be committed
+artifacts/
+installer/bin/
+installer/obj/
+*.pfx
+*.p12
+*.pvk
+*.snk
+# The release scripts live in /build (the generic "build/" rule above is for build output)
+!/build/

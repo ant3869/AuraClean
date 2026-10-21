@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.6.0-rc.1] - 2026-10-21 (release candidate)
+
+### Added
+
+- **Windows installer (MSI)** — per-machine WiX v5 package: installs to `%ProgramFiles%\AuraClean` (protected), registers in Installed apps,
+  Start Menu shortcut plus optional desktop shortcut, in-place upgrades, repair and uninstall. It never touches `%LocalAppData%\AuraClean`
+  (settings, logs, backup journals, quarantine), never kills a running AuraClean and installs no services.
+- **Portable EXE** artifact (self-contained, single file) and `SHA256SUMS.txt`; reproducible release build in `build/Build-Release.ps1`,
+  artifact verification in `build/Test-Release.ps1`, and a GitHub Actions workflow that builds and uploads (but does not publish) the artifacts.
+- **Single version source** (`Directory.Build.props`); the app now shows its pre-release label (e.g. `v1.6.0-rc.1`).
+- `scripts/Remove-LegacyInstall.ps1` — optional, explicit removal of a legacy `install.ps1` copy (executable and shortcut only; data is never touched).
+- Documentation: `docs/INSTALL.md`, `docs/RELEASE.md`, `docs/SIGNING.md`, draft release notes.
+
+### Changed
+
+- `install.ps1` is developer-only: it refuses to run next to an MSI install (unless `-Force`) and no longer terminates a running AuraClean.
+
+### Security
+
+- The executable is no longer installed into a user-writable folder; with the MSI, an elevated AuraClean cannot be replaced by a standard user.
+
+### Previously unreleased changes included in this candidate
+
+
 ### Added
 
 - **Cancel buttons for System Cleaner Analyze and Browser Privacy Clean** — both of the app's
