@@ -106,4 +106,11 @@ public partial class JunkItem : ObservableObject
     }
 
     public string FormattedSize => SizeBytes <= 0 ? string.Empty : Helpers.FormatHelper.FormatBytes(SizeBytes);
+
+    /// <summary>Screen readers announce a list row by its ToString() when no AutomationProperties.Name is set.</summary>
+    public override string ToString()
+    {
+        var label = string.IsNullOrWhiteSpace(Description) ? Path : Description;
+        return SizeBytes > 0 ? $"{label}, {FormattedSize}" : label;
+    }
 }

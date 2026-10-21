@@ -226,6 +226,10 @@ public partial class DiskOptimizerViewModel : ObservableObject
 
 public partial class DriveOptimizeEntry : ObservableObject
 {
+    /// <summary>Screen readers announce a list row by its ToString() when no AutomationProperties.Name is set.</summary>
+    public override string ToString() =>
+        string.IsNullOrWhiteSpace(VolumeLabel) ? $"Drive {DriveLetter}" : $"Drive {DriveLetter}, {VolumeLabel}";
+
     [ObservableProperty] private string _driveLetter = string.Empty;
     [ObservableProperty] private string _volumeLabel = string.Empty;
     [ObservableProperty] private DiskOptimizerService.DriveMediaType _mediaType;

@@ -193,6 +193,8 @@
                       ItemsSource="{Binding FilteredFiles}"
                       SelectedItem="{Binding SelectedFile}"
                       AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
                       CanUserSortColumns="True"
                       SelectionMode="Extended"
                       Background="Transparent"
