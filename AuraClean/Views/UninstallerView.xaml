@@ -116,6 +116,13 @@
                           VirtualizingStackPanel.IsVirtualizing="True"
                           VirtualizingStackPanel.VirtualizationMode="Recycling"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListView.Resources>
+                        <!-- Headers are left-aligned like the cell text beneath them (they were centered). -->
+                        <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource {x:Type GridViewColumnHeader}}">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="6,0,0,0" />
+                        </Style>
+                    </ListView.Resources>
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Width="40">
@@ -141,7 +148,8 @@
                                                 Style="{StaticResource MaterialDesignToolButton}"
                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                 FontSize="12" FontWeight="SemiBold"
-                                                Padding="4,2" />
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                MinWidth="0" Padding="0,2" />
                                     </DataTemplate>
                                 </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
@@ -160,7 +168,8 @@
                                                 Style="{StaticResource MaterialDesignToolButton}"
                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                 FontSize="12" FontWeight="SemiBold"
-                                                Padding="4,2" />
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                MinWidth="0" Padding="0,2" />
                                     </DataTemplate>
                                 </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
@@ -179,7 +188,8 @@
                                                 Style="{StaticResource MaterialDesignToolButton}"
                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                 FontSize="12" FontWeight="SemiBold"
-                                                Padding="4,2" />
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                MinWidth="0" Padding="0,2" />
                                     </DataTemplate>
                                 </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
@@ -197,7 +207,8 @@
                                                 Style="{StaticResource MaterialDesignToolButton}"
                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                 FontSize="12" FontWeight="SemiBold"
-                                                Padding="4,2" />
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                MinWidth="0" Padding="0,2" />
                                     </DataTemplate>
                                 </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
@@ -215,7 +226,8 @@
                                                 Style="{StaticResource MaterialDesignToolButton}"
                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                 FontSize="12" FontWeight="SemiBold"
-                                                Padding="4,2" />
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                MinWidth="0" Padding="0,2" />
                                     </DataTemplate>
                                 </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>
@@ -233,7 +245,8 @@
                                                 Style="{StaticResource MaterialDesignToolButton}"
                                                 Foreground="{DynamicResource AuraTextMuted}"
                                                 FontSize="12" FontWeight="SemiBold"
-                                                Padding="4,2" />
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                MinWidth="0" Padding="0,2" />
                                     </DataTemplate>
                                 </GridViewColumn.HeaderTemplate>
                                 <GridViewColumn.CellTemplate>

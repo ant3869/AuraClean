@@ -273,6 +273,17 @@ public partial class FileShredderViewModel : ObservableObject
                 ? $"Successfully shredded {result.FilesShredded} files ({FormatHelper.FormatBytes(result.TotalBytesOverwritten)} overwritten)."
                 : $"Shredded {result.FilesShredded} files, {result.FilesFailed} failed. {FormatHelper.FormatBytes(result.TotalBytesOverwritten)} overwritten.";
         }
+        catch (FileShredderService.ShredCancelledException cancelled)
+        {
+            // Files already shredded no longer exist; drop them so the list matches the disk.
+            var remaining = Files.Where(f => File.Exists(f.FullPath)).ToList();
+            Files = new ObservableCollection<ShredFileItem>(remaining);
+            HookSelectionEvents();
+            UpdateSelectionCount();
+            StatusMessage = DescribeCancellation(cancelled);
+            if (cancelled.PartiallyOverwrittenFile != null)
+                DiagnosticLogger.Warn("FileShredderVM", $"Shredding cancelled mid-overwrite; partially overwritten: {cancelled.PartiallyOverwrittenFile}");
+        }
         catch (OperationCanceledException)
         {
             StatusMessage = "Shredding cancelled.";
@@ -293,6 +304,27 @@ public partial class FileShredderViewModel : ObservableObject
 
     [RelayCommand]
     private void CancelShred() => _cts?.Cancel();
+
+    /// <summary>
+    /// Honest cancellation message: what was fully shredded, and — if the cancel arrived while a file was being
+    /// overwritten — that this file is partly destroyed (neither intact nor recoverable as the original) and still
+    /// present, so it should be shredded again.
+    /// </summary>
+    public static string DescribeCancellation(FileShredderService.ShredCancelledException cancelled)
+    {
+        var done = cancelled.ShreddedPaths.Count;
+        var finished = done == 0
+            ? "No files were shredded."
+            : $"{FormatHelper.Pluralize(done, "file")} fully shredded.";
+
+        if (cancelled.PartiallyOverwrittenFile is { } partial)
+            return $"Shredding cancelled. {finished} \"{Path.GetFileName(partial)}\" was being overwritten: its contents are " +
+                   "partly destroyed and it was NOT deleted — it is no longer intact. Shred it again to finish.";
+
+        return done == 0
+            ? "Shredding cancelled before any file was changed. Nothing was overwritten."
+            : $"Shredding cancelled. {finished} The remaining files were not changed.";
+    }
 
     /// <summary>
     /// Accepts files dropped via drag-and-drop.

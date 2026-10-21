@@ -38,6 +38,36 @@ public static class FileShredderService
         List<string> Errors);
 
     /// <summary>
+    /// Thrown when shredding is cancelled. Still an <see cref="OperationCanceledException"/> (existing callers
+    /// keep working) but reports what actually happened, so the UI can be honest about it.
+    /// </summary>
+    public sealed class ShredCancelledException : OperationCanceledException
+    {
+        public ShredCancelledException(
+            IReadOnlyList<string> shreddedPaths, long bytesOverwritten, string? partiallyOverwrittenFile, CancellationToken ct)
+            : base("Shredding was cancelled.", ct)
+        {
+            ShreddedPaths = shreddedPaths;
+            BytesOverwritten = bytesOverwritten;
+            PartiallyOverwrittenFile = partiallyOverwrittenFile;
+        }
+
+        /// <summary>Files that were fully overwritten and deleted before the cancel.</summary>
+        public IReadOnlyList<string> ShreddedPaths { get; }
+
+        public long BytesOverwritten { get; }
+
+        /// <summary>
+        /// The file whose overwrite had begun when the cancel arrived (its contents may be partly destroyed and
+        /// it was NOT deleted), or null when the cancel hit before any file was modified.
+        /// </summary>
+        public string? PartiallyOverwrittenFile { get; }
+    }
+
+    /// <summary>Tracks whether the first write to the current file has started.</summary>
+    private sealed class OverwriteProgress { public volatile bool Started; }
+
+    /// <summary>
     /// Securely shreds the given files using the specified algorithm.
     /// </summary>
     public static async Task<ShredResult> ShredFilesAsync(
@@ -50,14 +80,18 @@ public static class FileShredderService
         int failed = 0;
         long totalBytes = 0;
         var errors = new List<string>();
+        var shreddedPaths = new List<string>();
 
         for (int i = 0; i < filePaths.Count; i++)
         {
-            ct.ThrowIfCancellationRequested();
+            // Cancelled between files: nothing is half-done.
+            if (ct.IsCancellationRequested)
+                throw new ShredCancelledException(shreddedPaths, totalBytes, partiallyOverwrittenFile: null, ct);
             var path = filePaths[i];
             var fileName = Path.GetFileName(path);
             progress?.Report((i + 1, filePaths.Count, fileName));
 
+            var overwrite = new OverwriteProgress();
             try
             {
                 if (!File.Exists(path))
@@ -88,7 +122,7 @@ public static class FileShredderService
                 if (fileInfo.IsReadOnly)
                     fileInfo.IsReadOnly = false;
 
-                await OverwriteFileAsync(path, fileSize, algorithm, ct);
+                await OverwriteFileAsync(path, fileSize, algorithm, ct, overwrite);
                 totalBytes += fileSize;
 
                 // Rename to a random name before deleting to obscure the original file name.
@@ -106,12 +140,15 @@ public static class FileShredderService
                 }
 
                 shredded++;
+                shreddedPaths.Add(path);
                 DiagnosticLogger.Info("FileShredder", $"Shredded: {path} ({FormatHelper.FormatBytes(fileSize)})");
             }
             catch (OperationCanceledException)
             {
-                // Cancellation is not a per-file failure; surface it even for the last file.
-                throw;
+                // Cancellation is not a per-file failure; surface it even for the last file. If the overwrite had
+                // begun, the file is partly destroyed but still present: say so instead of implying nothing changed.
+                throw new ShredCancelledException(shreddedPaths, totalBytes,
+                    overwrite.Started ? path : null, ct);
             }
             catch (Exception ex)
             {
@@ -128,7 +165,7 @@ public static class FileShredderService
     /// Overwrites file content according to the selected algorithm.
     /// </summary>
     private static async Task OverwriteFileAsync(
-        string path, long fileSize, ShredAlgorithm algorithm, CancellationToken ct)
+        string path, long fileSize, ShredAlgorithm algorithm, CancellationToken ct, OverwriteProgress progress)
     {
         var passes = GetOverwritePasses(algorithm);
         const int bufferSize = 1024 * 1024; // 1 MB write buffer
@@ -159,6 +196,8 @@ public static class FileShredderService
                 if (type == PassType.Random)
                     RandomNumberGenerator.Fill(buffer.AsSpan(0, chunkSize));
 
+                // Mark BEFORE the first write: a cancel arriving mid-write may already have changed bytes.
+                progress.Started = true;
                 await fs.WriteAsync(buffer.AsMemory(0, chunkSize), ct);
                 remaining -= chunkSize;
             }

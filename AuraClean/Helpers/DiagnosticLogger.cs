@@ -13,9 +13,14 @@ namespace AuraClean.Helpers;
 public static class DiagnosticLogger
 {
     /// <summary>Directory that holds daily logs, crash logs, and cleanup audits.</summary>
-    public static readonly string LogDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AuraClean", "Logs");
+    public static readonly string LogDirectory =
+        // AURACLEAN_LOG_DIR lets the test runner keep its logs (including crash.log) out of the user's real
+        // log folder. Unset in normal use, so the default location is unchanged.
+        Environment.GetEnvironmentVariable("AURACLEAN_LOG_DIR") is { Length: > 0 } overrideDir
+            ? overrideDir
+            : Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AuraClean", "Logs");
 
     /// <summary>Crash log written synchronously for unhandled exceptions.</summary>
     public static readonly string CrashLogPath = Path.Combine(LogDirectory, "crash.log");

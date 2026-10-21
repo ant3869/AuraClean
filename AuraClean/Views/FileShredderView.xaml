@@ -362,7 +362,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}" Grid.Row="2" Text="{Binding StatusMessage}"
+        <TextBlock TextWrapping="Wrap" ToolTip="{Binding StatusMessage}" Grid.Row="2" Text="{Binding StatusMessage}"
                    AutomationProperties.LiveSetting="Polite"
                    Foreground="{DynamicResource AuraTextSecondary}"
                    FontSize="13" Margin="0,16,0,0" />

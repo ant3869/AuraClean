@@ -35,6 +35,13 @@ class Program
 
     static async Task Main(string[] args)
     {
+        // Test isolation: logs (daily log, cleanup audits, crash.log) go to a throwaway folder, never the user's
+        // real %LOCALAPPDATA%\AuraClean\Logs. Must run before anything can touch DiagnosticLogger; the worker
+        // process re-launched below inherits the same folder.
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AURACLEAN_LOG_DIR")))
+            Environment.SetEnvironmentVariable("AURACLEAN_LOG_DIR",
+                Path.Combine(Path.GetTempPath(), "AuraCleanTestLogs_" + Environment.ProcessId));
+
         // Cross-process locking test support: a worker re-launches this same executable with
         // this flag to perform one real OS-process backup move against a shared journal root,
         // so the test can verify the named mutex serializes writes across actual processes
@@ -80,6 +87,7 @@ class Program
             ("QualityPass", QualityPassTests.Run()),
             ("SelectionIntegrity", CleanerSelectionIntegrityTests.Run()),
             ("SidebarNavigation", SidebarNavigationTests.Run()),
+            ("UxCorrections", UxCorrectionsTests.Run()),
         };
         foreach (var (name, (suitePass, suiteFail)) in suites)
         {

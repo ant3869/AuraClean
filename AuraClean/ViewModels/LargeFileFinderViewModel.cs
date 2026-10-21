@@ -66,7 +66,8 @@ public partial class LargeFileFinderViewModel : ObservableObject
     public LargeFileFinderViewModel()
     {
         var settings = SettingsService.Load();
-        MinimumSizeMB = (int)Math.Clamp(settings.DefaultLargeFileSizeMb, 1L, int.MaxValue);
+        MinimumSizeMB = (int)Math.Clamp(settings.DefaultLargeFileSizeMb, 1L, MaxMinimumSizeMB);
+        MinimumSizeText = MinimumSizeMB.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         LoadDrives();
 
@@ -157,16 +158,86 @@ public partial class LargeFileFinderViewModel : ObservableObject
         };
 
         if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
+            UseFolder(dialog.FolderName);
+    }
+
+    /// <summary>
+    /// Makes <paramref name="folder"/> the scan location AND shows it: the location box is bound to the drive list,
+    /// so a folder that is not a drive used to leave the box blank. It is added as an entry (replacing any earlier
+    /// browsed folder) and selected.
+    /// </summary>
+    public void UseFolder(string folder)
+    {
+        var existing = Drives.FirstOrDefault(d => !d.IsFolder &&
+            string.Equals(d.Path, folder, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
         {
-            ScanPath = dialog.FolderName;
-            SelectedDrive = null;
+            SelectedDrive = existing;
+            return;
         }
+
+        foreach (var old in Drives.Where(d => d.IsFolder).ToList())
+            Drives.Remove(old);
+
+        var entry = new DriveOption { Path = folder, IsFolder = true };
+        Drives.Insert(0, entry);
+        SelectedDrive = entry;
+        ScanPath = folder;
+    }
+
+    /// <summary>Largest accepted minimum size: 1 TB expressed in MB.</summary>
+    public const int MaxMinimumSizeMB = 1_048_576;
+
+    /// <summary>
+    /// Validates the minimum-size text. Returns null when valid (and the parsed megabytes), otherwise a message
+    /// meant for the user — never a framework conversion error.
+    /// </summary>
+    public static string? ValidateMinimumSize(string? text, out int megabytes)
+    {
+        megabytes = 0;
+        var trimmed = text?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return "Enter a size in MB, for example 100.";
+        if (!trimmed.All(char.IsAsciiDigit))
+            return "Use a whole number of MB, for example 100.";
+        if (!int.TryParse(trimmed, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            || value > MaxMinimumSizeMB)
+            return $"Too large. The maximum is {MaxMinimumSizeMB:N0} MB.";
+        if (value < 1)
+            return "The minimum size must be at least 1 MB.";
+
+        megabytes = value;
+        return null;
+    }
+
+    /// <summary>The text in the Min. Size box (free-typed or picked from the presets).</summary>
+    [ObservableProperty] private string _minimumSizeText = "100";
+
+    /// <summary>User-facing problem with <see cref="MinimumSizeText"/>; empty when the input is valid.</summary>
+    [ObservableProperty] private string _minSizeError = string.Empty;
+
+    partial void OnMinimumSizeTextChanged(string value)
+    {
+        var error = ValidateMinimumSize(value, out var mb);
+        MinSizeError = error ?? string.Empty;
+        if (error == null)
+            MinimumSizeMB = mb;
     }
 
     [RelayCommand]
     private async Task ScanAsync()
     {
         if (IsBusy) return;
+
+        // Validate first: invalid input must never start a scan (the scan used to silently fall back to a default).
+        var sizeError = ValidateMinimumSize(MinimumSizeText, out var validatedMb);
+        if (sizeError != null)
+        {
+            MinSizeError = sizeError;
+            StatusMessage = $"Can't scan yet — Min. Size: {sizeError}";
+            return;
+        }
+        MinimumSizeMB = validatedMb;
 
         if (string.IsNullOrWhiteSpace(ScanPath))
         {
@@ -489,6 +560,10 @@ public partial class LargeFileFinderViewModel : ObservableObject
         public string Label { get; init; } = string.Empty;
         public string FreeSpace { get; init; } = string.Empty;
         public string TotalSize { get; init; } = string.Empty;
-        public string Display => $"{Label} — {FreeSpace} free of {TotalSize}";
+
+        /// <summary>A folder picked with Browse (as opposed to a drive); shown by its full path.</summary>
+        public bool IsFolder { get; init; }
+
+        public string Display => IsFolder ? $"Folder — {Path}" : $"{Label} — {FreeSpace} free of {TotalSize}";
     }
 }
