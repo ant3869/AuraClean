@@ -1,0 +1,65 @@
+name: Release build
+
+# Builds the AuraClean release artifacts (MSI, portable EXE, SHA-256 checksums) and uploads them as workflow artifacts.
+# It does NOT create a GitHub Release: publishing is a deliberate, manual step after the manual checks in docs/RELEASE.md.
+
+on:
+  workflow_dispatch:
+  # Build-only validation of packaging changes on pull requests (nothing is published; secrets are not exposed to forks).
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'build/**'
+      - 'Directory.Build.props'
+      - '.github/workflows/release.yml'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+      # Present only when the repository defines the secrets; see docs/SIGNING.md. Unsigned builds work without them.
+      SIGN_CERT_PFX_BASE64: ${{ secrets.SIGN_CERT_PFX_BASE64 }}
+      SIGN_CERT_PASSWORD: ${{ secrets.SIGN_CERT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Optional Authenticode signing: decode the certificate to the runner's temp folder (never into the repository).
+      - name: Prepare signing certificate (only if secrets exist)
+        if: ${{ env.SIGN_CERT_PFX_BASE64 != '' }}
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'signing-cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_CERT_PFX_BASE64))
+          "SIGN_CERT_PFX_PATH=$pfx" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # The WPF test fixtures need an interactive desktop, which hosted runners do not provide; they run locally
+      # (see docs/RELEASE.md). Everything else in the suite runs here.
+      - name: Build, test, package and verify
+        shell: pwsh
+        run: ./build/Build-Release.ps1 -NoUiTests
+
+      - name: Remove the signing certificate
+        if: ${{ always() && env.SIGN_CERT_PFX_BASE64 != '' }}
+        shell: pwsh
+        run: Remove-Item (Join-Path $env:RUNNER_TEMP 'signing-cert.pfx') -Force -ErrorAction SilentlyContinue
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AuraClean-release-artifacts
+          path: artifacts/release/*
+          if-no-files-found: error
+          retention-days: 30

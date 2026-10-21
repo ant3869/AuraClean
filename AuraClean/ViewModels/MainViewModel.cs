@@ -45,7 +45,22 @@ public partial class MainViewModel : ObservableObject
         "EmptyFolders", "AppInstaller", "LeftoverRestore"
     };
 
-    public string AppVersion { get; } = $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"}";
+    /// <summary>The release version, including a pre-release label (e.g. "v1.6.0-rc.1"), from the assembly metadata.</summary>
+    public string AppVersion { get; } = FormatAppVersion(
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+        Assembly.GetExecutingAssembly().GetName().Version);
+
+    /// <summary>
+    /// "v" + the informational version (SemVer incl. pre-release label) with any "+build" metadata removed; falls back to the
+    /// numeric assembly version, then "0.0.0".
+    /// </summary>
+    public static string FormatAppVersion(string? informationalVersion, Version? assemblyVersion)
+    {
+        var info = informationalVersion?.Split('+')[0].Trim();
+        if (!string.IsNullOrEmpty(info))
+            return "v" + info;
+        return "v" + (assemblyVersion?.ToString(3) ?? "0.0.0");
+    }
 
     public string ExperienceModeLabel => IsAdvancedMode ? "Advanced" : "Normal";
 

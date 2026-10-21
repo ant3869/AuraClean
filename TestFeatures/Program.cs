@@ -88,6 +88,7 @@ class Program
             ("SelectionIntegrity", CleanerSelectionIntegrityTests.Run()),
             ("SidebarNavigation", SidebarNavigationTests.Run()),
             ("UxCorrections", UxCorrectionsTests.Run()),
+            ("ReleaseMetadata", ReleaseMetadataTests.Run()),
         };
         foreach (var (name, (suitePass, suiteFail)) in suites)
         {

@@ -1,6 +1,10 @@
 <#
 .SYNOPSIS
-    AuraClean - One-click install script.
+    AuraClean - DEVELOPER install script (not the supported way to install AuraClean).
+
+    End users: use the MSI installer (see docs/INSTALL.md). This script builds from source and copies the EXE into
+    %LocalAppData%\AuraClean, a user-writable folder that also holds your data. It refuses to run if an MSI install
+    exists in Program Files (use -Force to override) and refuses to replace a running AuraClean.
     Checks for .NET 8 SDK, builds a self-contained single-file EXE, creates a
     desktop shortcut, and optionally launches the app as Administrator.
 
@@ -13,7 +17,8 @@
 
 param(
     [switch]$SkipLaunch,
-    [switch]$NoBuild
+    [switch]$NoBuild,
+    [switch]$Force
 )
 
 Set-StrictMode -Version Latest
@@ -26,6 +31,15 @@ $ExeName    = 'AuraClean.exe'
 $ExePath    = Join-Path $PublishDir $ExeName
 $InstallDir = Join-Path $env:LOCALAPPDATA 'AuraClean'
 $InstalledExe = Join-Path $InstallDir $ExeName
+
+# --- 0. Safety guards -------------------------------------------------------
+
+$msiExe = Join-Path $env:ProgramFiles 'AuraClean\AuraClean.exe'
+if ((Test-Path $msiExe) -and -not $Force) {
+    Write-Host "AuraClean is already installed with the MSI installer ($msiExe)." -ForegroundColor Yellow
+    Write-Host 'This developer script would create a second, user-writable copy in %LocalAppData%\AuraClean. Use -Force to continue anyway.' -ForegroundColor Yellow
+    exit 1
+}
 
 function Write-Step  { param([string]$msg) Write-Host "`n[*] $msg" -ForegroundColor Cyan }
 function Write-Ok    { param([string]$msg) Write-Host "    $msg" -ForegroundColor Green }
@@ -108,9 +122,12 @@ function Publish-App {
 function Install-App {
     Write-Step "Installing to $InstallDir ..."
 
-    # Kill any running instance before overwriting
-    Get-Process -Name 'AuraClean' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
+    # Never terminate a running instance (it may be mid-cleanup): ask the user to close it instead.
+    $running = Get-Process -Name 'AuraClean' -ErrorAction SilentlyContinue
+    if ($running) {
+        Write-Fail 'AuraClean is running. Close it and run this script again (it will not be terminated for you).'
+        exit 1
+    }
 
     if (-not (Test-Path $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null

@@ -1,0 +1,153 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!--
+    AuraClean installer (per-machine MSI).
+
+    Design rules (verified by build/Test-Release.ps1 and TestFeatures/ReleaseMetadataTests.cs):
+      * Executable files go to %ProgramFiles%\AuraClean (protected; not writable by standard users). AuraClean runs
+        elevated, so its binary must not live in a user-writable folder.
+      * The installer NEVER references %LocalAppData% / %AppData% / %ProgramData%. Settings, logs, history, leftover-backup
+        journals, quarantine and recovery data stay in %LocalAppData%\AuraClean, untouched by install, upgrade, repair and
+        uninstall. (No RemoveFile/RemoveFolder entries; the only registry entries are install metadata under HKLM\Software\AuraClean.)
+      * No services and no background components of its own. The installer never CREATES scheduled tasks or shell entries; on a
+        genuine uninstall only (never on upgrade or repair) it removes the integrations the application itself may have created:
+        the AuraClean_LaunchAtLogon / AuraClean_ScheduledCleanup scheduled tasks and the AuraCleanUninstall Explorer
+        context-menu keys. See the "Uninstall-only cleanup" section below.
+      * Running instances are never killed: Restart Manager auto-close is disabled, so Windows Installer shows its normal
+        "files in use" prompt (or schedules a reboot for silent installs) instead of terminating AuraClean.
+      * A legacy install.ps1 copy in %LocalAppData%\AuraClean is detected and reported, never deleted.
+  -->
+  <Package Name="AuraClean"
+           Manufacturer="AuraClean"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="D77CC99D-4E73-41BF-BD16-48C2882CE96F"
+           Scope="perMachine"
+           Language="1033"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="AuraClean - Windows system utility: deep uninstaller, system hygiene engine and threat scanner." />
+
+    <!--
+      Strictly newer versions replace older ones; the same or an older version is blocked. ProductVersion folds the rc.N / final
+      stage into the build field (see Directory.Build.props), so rc.1 -> rc.2 -> final upgrade, while rc.2 -> rc.1 and
+      final -> rc.N are rejected. Re-running the same MSI on an installed product is a repair, not an upgrade.
+    -->
+    <MajorUpgrade DowngradeErrorMessage="A newer or identical version of AuraClean is already installed. To go back to an older build, uninstall AuraClean first (your settings and recovery data are kept)." />
+
+    <!--
+      MajorUpgrade's own "newer version" rule is exclusive of the current version, so a *rebuild* of the same version (which gets a
+      new ProductCode) would otherwise install side by side. Detect it explicitly and stop; repairing the installed product with its
+      own MSI (same ProductCode) is unaffected because the condition only applies to a fresh install (NOT Installed).
+    -->
+    <Upgrade Id="D77CC99D-4E73-41BF-BD16-48C2882CE96F">
+      <UpgradeVersion Minimum="$(var.ProductVersion)" Maximum="$(var.ProductVersion)" IncludeMinimum="yes" IncludeMaximum="yes"
+                      OnlyDetect="yes" Property="SAMEVERSIONINSTALLED" />
+    </Upgrade>
+    <Launch Condition="Installed OR NOT SAMEVERSIONINSTALLED"
+            Message="AuraClean $(var.VersionLabel) is already installed. To repair it, run: msiexec /fa &lt;path to this MSI&gt;. To replace it with a rebuilt package of the same version, uninstall it first (your settings and recovery data are kept)." />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Never auto-close a running AuraClean (it may be mid-cleanup). -->
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
+
+    <!-- 64-bit Windows 10 or later (VersionNT 1000 = 10.0, also true on Windows 11). -->
+    <Launch Condition="Installed OR (VersionNT64 &gt;= 1000)" Message="AuraClean requires 64-bit Windows 10 or Windows 11." />
+
+    <!-- Installed Apps / Programs and Features. -->
+    <Icon Id="AuraCleanIcon" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="AuraCleanIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/ant3869/AuraClean" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/ant3869/AuraClean/issues" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <!-- Installed apps shows the numeric MSI version; the readable release label goes in Comments. -->
+    <Property Id="ARPCOMMENTS" Value="AuraClean $(var.VersionLabel)" />
+
+    <!-- Legacy install.ps1 detection (reported on the final dialog; never removed by this installer). -->
+    <Property Id="LEGACYEXE">
+      <DirectorySearch Id="LegacyDir" Path="[LocalAppDataFolder]AuraClean" Depth="0">
+        <FileSearch Id="LegacyExeFile" Name="AuraClean.exe" />
+      </DirectorySearch>
+    </Property>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="AuraClean" />
+    </StandardDirectory>
+
+    <!-- ── Files ─────────────────────────────────────────────────────────────────────────── -->
+    <Feature Id="Main" Title="AuraClean" Description="The AuraClean application and Start Menu shortcut." Level="1" AllowAbsent="no" ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentRef Id="AuraCleanExeComponent" />
+      <ComponentRef Id="InstallMetadataComponent" />
+    </Feature>
+
+    <Feature Id="DesktopShortcut" Title="Desktop shortcut" Description="Adds an AuraClean shortcut to the desktop (off by default)." Level="2" AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <!-- The single-file, self-contained, win-x64 build (identical to the portable EXE artifact). -->
+      <Component Id="AuraCleanExeComponent" Guid="*">
+        <File Id="AuraCleanExe" Source="$(var.PublishDir)AuraClean.exe" KeyPath="yes">
+          <!-- Start Menu (all users). The app's manifest requests elevation, so launching shows the normal UAC prompt. -->
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="AuraClean" Description="AuraClean - Windows system utility"
+                    WorkingDirectory="INSTALLFOLDER" Icon="AuraCleanIcon" />
+        </File>
+      </Component>
+
+      <!-- Install metadata only (no user data). Removed on uninstall. -->
+      <Component Id="InstallMetadataComponent" Guid="*">
+        <RegistryValue Root="HKLM" Key="Software\AuraClean" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\AuraClean" Name="Version" Type="string" Value="$(var.VersionLabel)" />
+      </Component>
+    </DirectoryRef>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="DesktopShortcutLink" Name="AuraClean" Description="AuraClean - Windows system utility" Target="[INSTALLFOLDER]AuraClean.exe"
+                  WorkingDirectory="INSTALLFOLDER" Icon="AuraCleanIcon" />
+        <RegistryValue Root="HKLM" Key="Software\AuraClean" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <!-- ── Uninstall-only cleanup of integrations created by the application, not by this installer ───────────────────
+      The app can register (from Settings, while running elevated):
+        scheduled tasks  AuraClean_LaunchAtLogon, AuraClean_ScheduledCleanup   (LaunchAtLogonService / ScheduledCleanupService)
+        context menus    HKLM\SOFTWARE\Classes\exefile\shell\AuraCleanUninstall and ...\Msi.Package\shell\AuraCleanUninstall (ContextMenuService)
+      Left behind they would point at a deleted executable. They are removed with the built-in schtasks.exe / reg.exe (no script
+      host, no bespoke code), deferred and elevated, ONLY when the product is being removed (REMOVE="ALL") and NOT as part of a
+      major upgrade (UPGRADINGPRODUCTCODE is set while the old version is removed) and never on install, repair or modify.
+      Every command names one exact AuraClean-owned object; failures (object absent, already removed) are ignored so they can
+      never block an uninstall. %LocalAppData%\AuraClean (settings, backups, journals, quarantine) is not touched.
+      Limitation: the names are machine-wide singletons, so uninstalling also removes a registration made by a portable copy
+      of AuraClean; re-enable it from that copy's Settings.
+    -->
+    <CustomAction Id="RemoveTaskLaunchAtLogon" Directory="System64Folder" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="&quot;[System64Folder]schtasks.exe&quot; /Delete /TN AuraClean_LaunchAtLogon /F" />
+    <CustomAction Id="RemoveTaskScheduledCleanup" Directory="System64Folder" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="&quot;[System64Folder]schtasks.exe&quot; /Delete /TN AuraClean_ScheduledCleanup /F" />
+    <CustomAction Id="RemoveContextMenuExe" Directory="System64Folder" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="&quot;[System64Folder]reg.exe&quot; delete HKLM\SOFTWARE\Classes\exefile\shell\AuraCleanUninstall /f" />
+    <CustomAction Id="RemoveContextMenuMsi" Directory="System64Folder" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="&quot;[System64Folder]reg.exe&quot; delete HKLM\SOFTWARE\Classes\Msi.Package\shell\AuraCleanUninstall /f" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RemoveTaskLaunchAtLogon" Before="InstallFinalize" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RemoveTaskScheduledCleanup" Before="InstallFinalize" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RemoveContextMenuExe" Before="InstallFinalize" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RemoveContextMenuMsi" Before="InstallFinalize" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+    <!-- ── UI: Welcome → feature selection (optional desktop shortcut) → install → finish. No license page (the project ships no EULA). ── -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <UI>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" Order="10" Condition="NOT Installed" />
+      <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="10" Condition="NOT Installed" />
+    </UI>
+
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT"
+              Value="Your settings, logs, backups and recovery data live in %LocalAppData%\AuraClean and are never removed by installing, upgrading or uninstalling." />
+    <SetProperty Id="WIXUI_EXITDIALOGOPTIONALTEXT" After="AppSearch" Sequence="ui" Condition="LEGACYEXE"
+                 Value="An older copy installed by install.ps1 was found in %LocalAppData%\AuraClean and was left in place. Your data is untouched. See docs/INSTALL.md to remove the old copy." />
+  </Package>
+</Wix>
