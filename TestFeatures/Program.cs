@@ -45,6 +45,13 @@ class Program
             return;
         }
 
+        // WPF fixtures load real windows/views: pack://application:,,, URIs (e.g. the window icon) must resolve
+        // against the AuraClean assembly. The test executable registers itself first and the public setter then
+        // refuses, so (test-only) set WPF's backing field directly.
+        typeof(System.Windows.Application)
+            .GetField("_resourceAssembly", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+            ?.SetValue(null, typeof(AuraClean.App).Assembly);
+
         Console.WriteLine("╔════════════════════════════════════════╗");
         Console.WriteLine("║   AuraClean Feature Tests              ║");
         Console.WriteLine("╚════════════════════════════════════════╝\n");
@@ -72,6 +79,7 @@ class Program
             ("LeftoverRestoreRecovery", LeftoverRestoreRecoveryTests.Run()),
             ("QualityPass", QualityPassTests.Run()),
             ("SelectionIntegrity", CleanerSelectionIntegrityTests.Run()),
+            ("SidebarNavigation", SidebarNavigationTests.Run()),
         };
         foreach (var (name, (suitePass, suiteFail)) in suites)
         {

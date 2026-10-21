@@ -393,26 +393,15 @@ public static class CleanerSelectionIntegrityTests
     // ── Real view in an off-screen window (needs an interactive desktop; skipped otherwise) ──
     private static void TestViewKeepsWinSxSUnselected()
     {
-        Exception failure = null;
-        string skipReason = null;
-        var thread = new Thread(() =>
+        var skip = WpfTestHost.EnsureStarted();
+        if (skip != null)
         {
-            try { skipReason = RunViewScenario(); }
-            catch (Exception ex) { failure = ex; }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.IsBackground = true;
-        thread.Start();
-        if (!thread.Join(TimeSpan.FromSeconds(60)))
-        {
-            Check(false, $"View fixture timed out at step '{_step}'");
+            Console.WriteLine($"  SKIP: {skip}");
             return;
         }
 
-        if (failure != null)
-            throw failure;
-        if (skipReason != null)
-            Console.WriteLine($"  SKIP: {skipReason}");
+        try { WpfTestHost.Invoke(() => RunViewScenario(), TimeSpan.FromSeconds(60)); }
+        catch (TimeoutException) { Check(false, $"View fixture timed out at step '{_step}'"); }
     }
 
     /// <summary>Synchronously re-runs layout so virtualized containers are realized/recycled.</summary>
@@ -425,15 +414,6 @@ public static class CleanerSelectionIntegrityTests
 
     private static string RunViewScenario()
     {
-        if (!Environment.UserInteractive)
-            return "no interactive desktop available";
-
-        if (Application.Current == null)
-        {
-            // Load App.xaml's resource dictionaries (the generated Main normally does this).
-            var app = new AuraClean.App();
-            app.InitializeComponent();
-        }
         var items = Scenario(tempCount: 400);
         var cats = BuildCategories(items, advanced: true);
         var vm = new CleanerViewModel { Categories = cats, HasResults = true, TotalJunkCount = items.Count };
