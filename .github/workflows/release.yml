@@ -5,6 +5,13 @@ name: Release build
 
 on:
   workflow_dispatch:
+  # Build-only validation of packaging changes on pull requests (nothing is published; secrets are not exposed to forks).
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'build/**'
+      - 'Directory.Build.props'
+      - '.github/workflows/release.yml'
   push:
     tags:
       - 'v*'

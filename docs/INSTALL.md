@@ -45,21 +45,30 @@ msiexec /i AuraClean-1.6.0-rc.1-win-x64.msi /qn /l*v install.log    # with a ver
 | Installed apps entry | `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall` + `HKLM\Software\AuraClean` (install folder, version) | Yes |
 | **Your data**: settings, logs, cleanup history, leftover-backup journals and backups, quarantine, install-monitor snapshots | `%LocalAppData%\AuraClean\...` | **Never** |
 
-The installer contains no services, scheduled tasks or background components.
+The installer contains no services or background components and never creates scheduled tasks or shell menu entries itself. It does remove, **on a real uninstall only**, the Windows integrations AuraClean's own Settings can create (see *Uninstall*).
 
 ## Upgrade
 
 Run the newer MSI. It replaces the installed version in place and keeps everything in `%LocalAppData%\AuraClean`, including leftover-backup journals needed for recovery.
 
-- Release candidates that share a numeric version (`1.6.0-rc.1` → `1.6.0-rc.2` → `1.6.0`) replace each other.
-- Installing an **older** version over a newer one is refused with a message.
+- Release order is `1.6.0-rc.1` → `1.6.0-rc.2` → … → `1.6.0` → `1.6.1-rc.1` → …: each replaces the one before it. Windows Installer versions are numeric, so Installed apps shows `1.6.1` for `1.6.0-rc.1`, `1.6.2` for `rc.2` and `1.6.99` for the final `1.6.0` (the readable label is in the entry's *Comments*, in the file name and in the app).
+- Installing an **older** version over a newer one (`rc.1` over `rc.2`, or any candidate over the final release) is refused with a message. So is installing a rebuilt package of the *same* version: uninstall first, or publish the fix as the next candidate.
+- Re-running the installed version's own MSI (`msiexec /fa <msi>`) is a **repair**, not an upgrade.
+- An upgrade keeps your scheduled cleanup, launch-at-sign-in task and Explorer context menu exactly as they were.
 - **Close AuraClean first.** The installer never closes it for you (it might be in the middle of a cleanup). If it is still running, Windows shows the standard "files in use" prompt; for silent installs the replacement is completed after a reboot instead.
 
 ## Uninstall
 
 *Settings → Apps → Installed apps → AuraClean → Uninstall* (or `msiexec /x AuraClean-1.6.0-rc.1-win-x64.msi`).
 
-This removes the program, shortcuts and install metadata. **It does not delete your data** in `%LocalAppData%\AuraClean`, so leftover backups you may still want to restore survive an uninstall/reinstall. If you also want that data gone, delete the folder yourself (this is a separate, deliberate choice and cannot be undone):
+This removes the program, shortcuts and install metadata. It also removes the integrations AuraClean's Settings may have created, so nothing is left pointing at a deleted program:
+
+- the scheduled tasks `AuraClean_LaunchAtLogon` and `AuraClean_ScheduledCleanup`;
+- the Explorer context-menu entries `Deep Uninstall with AuraClean` (`HKLM\SOFTWARE\Classes\exefile\shell\AuraCleanUninstall` and `...\Msi.Package\shell\AuraCleanUninstall`).
+
+Only those four objects are touched, and only on a genuine uninstall (never on upgrade or repair). Because the names are machine-wide, uninstalling also removes a registration made by a *portable* copy; switch the option back on in that copy's Settings if you want it. Removal is best-effort: if a task or key is already gone nothing happens, and it never blocks the uninstall.
+
+**It does not delete your data** in `%LocalAppData%\AuraClean`, so leftover backups you may still want to restore survive an uninstall/reinstall. If you also want that data gone, delete the folder yourself (this is a separate, deliberate choice and cannot be undone):
 
 ```powershell
 Remove-Item "$env:LOCALAPPDATA\AuraClean" -Recurse   # only if you are sure; it contains your leftover backups
@@ -100,6 +109,6 @@ A signed build changes the publisher line, but **does not by itself guarantee** 
 
 ## Troubleshooting
 
-- *Installer says "newer version installed"* → uninstall the newer version first if you really want to go back.
+- *Installer says "a newer or identical version is already installed"* → uninstall the installed version first if you really want to go back (your data in `%LocalAppData%\AuraClean` is kept).
 - *"Files in use"* → close AuraClean (check the system tray; it minimizes there) and retry.
 - Collect a log: `msiexec /i <msi> /l*v install.log` and attach it to an issue.

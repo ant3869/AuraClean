@@ -31,8 +31,8 @@ function Check([bool]$ok, [string]$message) {
 function Section($t) { Write-Host "`n== $t ==" -ForegroundColor Cyan }
 
 # ── version from the single source ───────────────────────────────────────────────────────────────
-$props = (& dotnet msbuild (Join-Path $RepoRoot 'AuraClean/AuraClean.csproj') -nologo -getProperty:VersionPrefix -getProperty:VersionSuffix | ConvertFrom-Json).Properties
-$prefix = $props.VersionPrefix; $suffix = $props.VersionSuffix
+$props = (& dotnet msbuild (Join-Path $RepoRoot 'AuraClean/AuraClean.csproj') -nologo -getProperty:VersionPrefix -getProperty:VersionSuffix -getProperty:MsiProductVersion | ConvertFrom-Json).Properties
+$prefix = $props.VersionPrefix; $suffix = $props.VersionSuffix; $msiVersion = $props.MsiProductVersion
 $label  = if ($suffix) { "$prefix-$suffix" } else { $prefix }
 $msiPath      = Join-Path $ArtifactsDir "AuraClean-$label-win-x64.msi"
 $portablePath = Join-Path $ArtifactsDir "AuraClean-$label-win-x64-portable.exe"
@@ -81,7 +81,7 @@ $tables = @((Query 'SELECT Name FROM _Tables') | ForEach-Object { $_[0] })
 Section 'MSI identity and Installed Apps registration'
 Check ((Prop 'ProductName') -eq 'AuraClean') 'ProductName is AuraClean'
 Check ((Prop 'Manufacturer') -eq 'AuraClean') 'Manufacturer is AuraClean'
-Check ((Prop 'ProductVersion') -eq $prefix) "ProductVersion $(Prop 'ProductVersion') equals the repository version $prefix"
+Check ((Prop 'ProductVersion') -eq $msiVersion) "ProductVersion $(Prop 'ProductVersion') equals the MSI version derived from $label ($msiVersion)"
 Check ((Prop 'UpgradeCode') -eq $upgradeCode) 'UpgradeCode is the stable AuraClean code (never change it)'
 Check ((Prop 'ALLUSERS') -eq '1') 'Installs per-machine (ALLUSERS=1): protected location, UAC at install time'
 Check ((Prop 'ARPPRODUCTICON') -eq 'AuraCleanIcon' -and ($tables -contains 'Icon')) 'Installed Apps icon is registered'
@@ -92,13 +92,63 @@ $summary = $db.SummaryInformation(0)
 $template = $summary.Property(7)
 Check ($template -like 'x64;*') "Package platform is x64 ($template)"
 
-Section 'Upgrade behaviour'
-$up = @(Query 'SELECT UpgradeCode, VersionMin, VersionMax, Attributes FROM Upgrade')
-# Attributes: 512 = VersionMaxInclusive (the same numeric version is replaced too, so rc.N can replace rc.N-1).
-Check (@($up | Where-Object { $_[0] -eq $upgradeCode -and ($_[1] -eq '' -or $_[1] -eq '0.0.0') -and $_[2] -eq $prefix -and (([int]$_[3]) -band 512) }).Count -ge 1) 'An existing install up to and including this version is detected and replaced in place (in-place upgrade)'
-Check (@($up | Where-Object { $_[0] -eq $upgradeCode }).Count -ge 2) 'A newer installed version is detected (downgrade is blocked with a message)'
+Section 'Upgrade behaviour and version ordering'
+# The Upgrade table drives Windows Installer's FindRelatedProducts. Verify its exact shape, then evaluate it (same rules as
+# the installer: min/max bounds are exclusive unless the 256 / 512 attribute is set) over the whole release lifecycle.
+$up = @(Query 'SELECT UpgradeCode, VersionMin, VersionMax, Attributes, ActionProperty FROM Upgrade' | Where-Object { $_[0] -eq $upgradeCode })
+Check ($up.Count -eq 3) 'Exactly three upgrade rules exist: older -> upgrade, newer -> downgrade block, identical -> duplicate block'
+$ruleUpgrade   = @($up | Where-Object { $_[4] -eq 'WIX_UPGRADE_DETECTED' })
+$ruleDowngrade = @($up | Where-Object { $_[4] -eq 'WIX_DOWNGRADE_DETECTED' })
+$ruleSame      = @($up | Where-Object { $_[4] -eq 'SAMEVERSIONINSTALLED' })
+Check ($ruleUpgrade.Count -eq 1 -and $ruleUpgrade[0][1] -eq '' -and $ruleUpgrade[0][2] -eq $msiVersion -and ([int]$ruleUpgrade[0][3] -band 0x202) -eq 0) "Upgrade rule: every version below $msiVersion is replaced (upper bound exclusive, so same-version upgrades are off)"
+Check ($ruleDowngrade.Count -eq 1 -and $ruleDowngrade[0][1] -eq $msiVersion -and $ruleDowngrade[0][2] -eq '' -and ([int]$ruleDowngrade[0][3] -band 2) -eq 2 -and ([int]$ruleDowngrade[0][3] -band 0x100) -eq 0) "Downgrade rule: every version above $msiVersion is detected (detect-only) and blocked"
+Check ($ruleSame.Count -eq 1 -and $ruleSame[0][1] -eq $msiVersion -and $ruleSame[0][2] -eq $msiVersion -and ([int]$ruleSame[0][3] -band 0x302) -eq 0x302) 'Duplicate rule: the identical version (a rebuilt package with a new ProductCode) is detected and blocked'
+$launch = @(Query 'SELECT Condition FROM LaunchCondition' | ForEach-Object { $_[0] })
+Check ($launch -contains 'NOT WIX_DOWNGRADE_DETECTED') 'A newer installed version blocks the install with a message'
+Check ($launch -contains 'Installed OR NOT SAMEVERSIONINSTALLED') 'An identical installed version blocks a fresh install but not a repair of the installed product'
 Check (@(Query "SELECT Action FROM InstallExecuteSequence WHERE Action='RemoveExistingProducts'").Count -ge 1) 'RemoveExistingProducts is scheduled (upgrade path)'
-Check (@(Query 'SELECT Condition FROM LaunchCondition').Count -ge 1) 'A Windows 10/11 x64 launch condition exists'
+Check ($launch.Count -ge 3) 'A Windows 10/11 x64 launch condition exists alongside the version guards'
+
+function Get-MsiVersionFor([string]$pre, [string]$suf) {
+    $msbuildArgs = @('msbuild', (Join-Path $RepoRoot 'AuraClean/AuraClean.csproj'), '-nologo', "-p:VersionPrefix=$pre", "-p:VersionSuffix=$suf", '-getProperty:MsiProductVersion')
+    "$(& dotnet @msbuildArgs)".Trim()
+}
+function Test-InRange([version]$v, [string]$min, [string]$max, [int]$attr) {
+    if ($min -ne '') { $c = $v.CompareTo([version]$min); if ($c -lt 0 -or ($c -eq 0 -and -not ($attr -band 0x100))) { return $false } }
+    if ($max -ne '') { $c = $v.CompareTo([version]$max); if ($c -gt 0 -or ($c -eq 0 -and -not ($attr -band 0x200))) { return $false } }
+    $true
+}
+# The three rules above (verified against the built MSI) re-targeted at a package whose own version is $new; result for an installed $old.
+function Get-UpgradeOutcome([string]$old, [string]$new) {
+    $v = [version]$old
+    $rules = @(
+        @{ Min = '';   Max = $new; Attr = 1;   Prop = 'upgrade' },
+        @{ Min = $new; Max = '';   Attr = 2;   Prop = 'downgrade' },
+        @{ Min = $new; Max = $new; Attr = 770; Prop = 'same' })
+    $hit = @($rules | Where-Object { Test-InRange $v $_.Min $_.Max $_.Attr } | ForEach-Object { $_.Prop })
+    if ($hit -contains 'downgrade') { 'blocked: newer version installed' }
+    elseif ($hit -contains 'same') { 'blocked: identical version installed' }
+    elseif ($hit -contains 'upgrade') { 'upgrade' }
+    else { 'fresh install' }
+}
+$parts = $prefix.Split('.'); $nextPrefix = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)"
+$lifecycle = [ordered]@{
+    'rc.1' = Get-MsiVersionFor $prefix 'rc.1'; 'rc.2' = Get-MsiVersionFor $prefix 'rc.2'; 'final' = Get-MsiVersionFor $prefix ''
+    'next-rc.1' = Get-MsiVersionFor $nextPrefix 'rc.1'; 'next-final' = Get-MsiVersionFor $nextPrefix '' }
+Check (@($lifecycle.Values | Where-Object { $_ -eq '' }).Count -eq 0) "Every lifecycle label maps to an MSI version ($(($lifecycle.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ', '))"
+$ordered = @($lifecycle.Values)
+Check (@(0..($ordered.Count - 2) | Where-Object { [version]$ordered[$_] -ge [version]$ordered[$_ + 1] }).Count -eq 0) 'MSI versions strictly increase: rc.1 < rc.2 < final < next rc.1 < next final'
+$blockedNewer = 'blocked: newer version installed'; $blockedSame = 'blocked: identical version installed'
+$expect = @(
+    @('rc.1', 'rc.2', 'upgrade'), @('rc.2', 'final', 'upgrade'), @('rc.1', 'final', 'upgrade'), @('final', 'next-rc.1', 'upgrade'), @('next-rc.1', 'next-final', 'upgrade'),
+    @('rc.2', 'rc.1', $blockedNewer), @('final', 'rc.1', $blockedNewer), @('final', 'rc.2', $blockedNewer), @('next-rc.1', 'final', $blockedNewer),
+    @('rc.1', 'rc.1', $blockedSame), @('final', 'final', $blockedSame))
+foreach ($e in $expect) {
+    $got = Get-UpgradeOutcome $lifecycle[$e[0]] $lifecycle[$e[1]]
+    Check ($got -eq $e[2]) "Installed $($e[0]) ($($lifecycle[$e[0]])) + installing $($e[1]) ($($lifecycle[$e[1]])) => $got"
+}
+Check ((Get-UpgradeOutcome '1.5.99' $msiVersion) -eq 'upgrade') 'A previous minor release upgrades to this one'
+Check ((Get-MsiVersionFor $prefix 'beta.1') -eq '' -and (Get-MsiVersionFor $prefix 'rc.99') -eq '' -and (Get-MsiVersionFor $prefix 'rc.0') -eq '') 'Unsupported suffixes (beta.N, rc.0, rc.99) are rejected rather than mis-ordered'
 
 Section 'File layout'
 $files = @(Query 'SELECT File, FileName, FileSize, Component_ FROM File')
@@ -123,8 +173,42 @@ $reg = @(Query 'SELECT `Root`, `Key`, `Name` FROM `Registry`')
 Check ($reg.Count -ge 1 -and @($reg | Where-Object { $_[0] -ne '2' -or $_[1] -notlike 'Software\AuraClean*' }).Count -eq 0) 'The only registry entries are install metadata under HKLM\Software\AuraClean'
 Check (-not ($tables -contains 'ServiceInstall' -or $tables -contains 'ServiceControl')) 'No Windows services are installed'
 $customActions = @(Query 'SELECT Action, Type, Source, Target FROM CustomAction')
-$exeOrScript = @($customActions | Where-Object { ([int]$_[1] -band 0x7) -in 2, 5, 6 })
-Check ($exeOrScript.Count -eq 0) "No executable or script custom actions ($($customActions.Count) UI helper actions only)"
+$exeActions = @($customActions | Where-Object { ([int]$_[1] -band 0x7) -in 2, 5, 6 })
+Check (@($customActions | Where-Object { ([int]$_[1] -band 0x7) -in 5, 6 }).Count -eq 0) 'No script custom actions'
+Check (@($customActions | Where-Object { ([int]$_[1] -band 0x7) -eq 1 -and $_[0] -notlike 'WixUi*' }).Count -eq 0) 'No custom DLL code (only the standard WiX UI helpers)'
+
+Section 'Uninstall-only cleanup of application integrations'
+$allowed = @{
+    'RemoveTaskLaunchAtLogon'    = '"[System64Folder]schtasks.exe" /Delete /TN AuraClean_LaunchAtLogon /F'
+    'RemoveTaskScheduledCleanup' = '"[System64Folder]schtasks.exe" /Delete /TN AuraClean_ScheduledCleanup /F'
+    'RemoveContextMenuExe'       = '"[System64Folder]reg.exe" delete HKLM\SOFTWARE\Classes\exefile\shell\AuraCleanUninstall /f'
+    'RemoveContextMenuMsi'       = '"[System64Folder]reg.exe" delete HKLM\SOFTWARE\Classes\Msi.Package\shell\AuraCleanUninstall /f' }
+Check ($exeActions.Count -eq 4 -and @($exeActions | Where-Object { -not $allowed.ContainsKey($_[0]) }).Count -eq 0) 'Exactly the four AuraClean cleanup commands are executable custom actions'
+Check (@($exeActions | Where-Object { $allowed[$_[0]] -ne $_[3] }).Count -eq 0) 'Each command names one exact AuraClean-owned task or registry key (no wildcards, no other objects)'
+$flagBad = @($exeActions | Where-Object { $t = [int]$_[1]; -not (($t -band 1024) -and ($t -band 2048) -and ($t -band 64)) })
+Check ($flagBad.Count -eq 0) 'They run deferred and elevated (no impersonation) and ignore failures so they can never block an uninstall'
+$seq = @(Query 'SELECT Action, Condition FROM InstallExecuteSequence' | Where-Object { $allowed.ContainsKey($_[0]) })
+Check ($seq.Count -eq 4 -and @($seq | Where-Object { $_[1] -ne 'REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE' }).Count -eq 0) 'All four run only on a real removal, never during an upgrade'
+$ui = @(Query 'SELECT Action FROM InstallUISequence' | Where-Object { $allowed.ContainsKey($_[0]) })
+Check ($ui.Count -eq 0) 'None run in the UI sequence'
+
+# Evaluate the real conditions of the built MSI under each Windows Installer scenario. OpenPackage with the "ignore machine
+# state" flag only reads the package: nothing is installed and no system state is read or changed.
+$session = $installer.OpenPackage($msiPath, 1)
+function Set-MsiProp([string]$name, [string]$value) { [void][System.__ComObject].InvokeMember('Property', [Reflection.BindingFlags]::SetProperty, $null, $session, @($name, $value)) }
+function Test-Cleanup([hashtable]$props) {
+    foreach ($n in 'REMOVE', 'REINSTALL', 'UPGRADINGPRODUCTCODE', 'Installed') { Set-MsiProp $n '' }
+    foreach ($k in $props.Keys) { Set-MsiProp $k $props[$k] }
+    @($seq | Where-Object { [int]$session.EvaluateCondition($_[1]) -eq 1 }).Count
+}
+Check ((Test-Cleanup @{}) -eq 0) 'Fresh install: no cleanup runs'
+Check ((Test-Cleanup @{ Installed = 'x' }) -eq 0) 'Maintenance session with nothing selected: no cleanup runs'
+Check ((Test-Cleanup @{ REINSTALL = 'ALL'; Installed = 'x' }) -eq 0) 'Repair (REINSTALL=ALL): no cleanup runs'
+Check ((Test-Cleanup @{ REMOVE = 'ALL'; UPGRADINGPRODUCTCODE = '{22222222-2222-2222-2222-222222222222}'; Installed = 'x' }) -eq 0) 'Upgrade (old version removed by the new one): no cleanup runs, so integrations survive'
+Check ((Test-Cleanup @{ REMOVE = 'DesktopShortcut'; Installed = 'x' }) -eq 0) 'Removing only the desktop shortcut feature: no cleanup runs'
+Check ((Test-Cleanup @{ REMOVE = 'ALL'; Installed = 'x' }) -eq 4) 'Uninstall (REMOVE=ALL): all four cleanup commands run'
+[void][Runtime.InteropServices.Marshal]::ReleaseComObject($session)
+
 Check (@(Query "SELECT Property FROM AppSearch WHERE Property='LEGACYEXE'").Count -eq 1) 'The legacy install.ps1 copy is searched for and reported on the final dialog, never removed'
 
 # ── portable EXE ↔ MSI payload, versions ─────────────────────────────────────────────────────────

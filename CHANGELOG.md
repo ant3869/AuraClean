@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Windows installer (MSI)** — per-machine WiX v5 package: installs to `%ProgramFiles%\AuraClean` (protected), registers in Installed apps,
   Start Menu shortcut plus optional desktop shortcut, in-place upgrades, repair and uninstall. It never touches `%LocalAppData%\AuraClean`
   (settings, logs, backup journals, quarantine), never kills a running AuraClean and installs no services.
+  Candidates order correctly (`rc.1` → `rc.2` → final upgrade; downgrades and duplicate rebuilds are refused), and a genuine uninstall — never an
+  upgrade or repair — removes the `AuraClean_LaunchAtLogon` / `AuraClean_ScheduledCleanup` scheduled tasks and the `AuraCleanUninstall` Explorer menu keys.
 - **Portable EXE** artifact (self-contained, single file) and `SHA256SUMS.txt`; reproducible release build in `build/Build-Release.ps1`,
   artifact verification in `build/Test-Release.ps1`, and a GitHub Actions workflow that builds and uploads (but does not publish) the artifacts.
 - **Single version source** (`Directory.Build.props`); the app now shows its pre-release label (e.g. `v1.6.0-rc.1`).

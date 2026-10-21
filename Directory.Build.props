@@ -23,4 +23,19 @@
     <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
   </PropertyGroup>
 
+  <!--
+    MSI ProductVersion. Windows Installer compares only major.minor.build (the 4th field is ignored) and has no
+    pre-release concept, so the release label is folded into the build field so that upgrades order correctly:
+        build = patch * 100 + stage      stage = N for rc.N (1..98), 99 for the final release
+    1.6.0-rc.1 -> 1.6.1   1.6.0-rc.2 -> 1.6.2   1.6.0 -> 1.6.99   1.6.1-rc.1 -> 1.6.101   1.6.1 -> 1.6.199
+    Limits imposed by Windows Installer: major < 256, minor < 256, build < 65536 (so patch <= 654).
+    The label itself (e.g. 1.6.0-rc.1) stays in the artifact names, the assembly and the "Comments" of Installed apps.
+    Only rc.N pre-releases are supported; any other suffix fails the installer build (installer/AuraClean.Installer.wixproj).
+  -->
+  <PropertyGroup>
+    <MsiStage Condition="'$(VersionSuffix)' == ''">99</MsiStage>
+    <MsiStage Condition="'$(VersionSuffix)' != ''">$([System.Text.RegularExpressions.Regex]::Match('$(VersionSuffix)', '^rc\.([1-9]|[1-8][0-9]|9[0-8])$').Groups[1].Value)</MsiStage>
+    <MsiProductVersion Condition="'$(MsiStage)' != ''">$(VersionPrefix.Split('.')[0]).$(VersionPrefix.Split('.')[1]).$([MSBuild]::Add($([MSBuild]::Multiply($(VersionPrefix.Split('.')[2]), 100)), $(MsiStage)))</MsiProductVersion>
+  </PropertyGroup>
+
 </Project>

@@ -4,8 +4,10 @@
     Builds the AuraClean MSI (WiX Toolset v5 via NuGet — nothing to install machine-wide).
     Usage (see build/Build-Release.ps1):
       dotnet build installer/AuraClean.Installer.wixproj -c Release -p:PublishDir=<folder containing the published AuraClean.exe>
-    ProductVersion comes from Directory.Build.props (VersionPrefix); the pre-release label (rc.N) is carried in the
-    artifact file name and the app's informational version, because Windows Installer versions are numeric.
+    ProductVersion is MsiProductVersion from Directory.Build.props: the rc.N / final stage is folded into the build field
+    (1.6.0-rc.1 -> 1.6.1, 1.6.0-rc.2 -> 1.6.2, 1.6.0 -> 1.6.99) so Windows Installer orders candidates and the final release
+    correctly. The readable label (1.6.0-rc.1) is carried in the artifact name, the app's informational version and the
+    Installed apps "Comments" text.
   -->
   <PropertyGroup>
     <VersionLabel>$(VersionPrefix)</VersionLabel>
@@ -15,14 +17,20 @@
       Suppressed ICE rules (all intentional, the package is per-machine / ALLUSERS=1):
         ICE38/ICE43/ICE57 assume Start Menu and Desktop shortcuts live in a per-user profile (roaming-profile rules);
         here they are all-users shortcuts whose component key paths are in the install folder / HKLM.
-        ICE61 warns that the upgrade range includes the current version; that is deliberate (AllowSameVersionUpgrades) so
-        a later release candidate with the same numeric version can replace an earlier one.
     -->
-    <SuppressIces>ICE38;ICE43;ICE57;ICE61</SuppressIces>
+    <SuppressIces>ICE38;ICE43;ICE57</SuppressIces>
     <InstallerPlatform>x64</InstallerPlatform>
     <OutputType>Package</OutputType>
-    <DefineConstants>$(DefineConstants);ProductVersion=$(VersionPrefix);PublishDir=$(PublishDir);IconPath=$(MSBuildThisFileDirectory)..\AuraClean\Assets\icon.ico</DefineConstants>
+    <DefineConstants>$(DefineConstants);ProductVersion=$(MsiProductVersion);VersionLabel=$(VersionLabel);PublishDir=$(PublishDir);IconPath=$(MSBuildThisFileDirectory)..\AuraClean\Assets\icon.ico</DefineConstants>
   </PropertyGroup>
+
+  <!-- Fail loudly instead of packaging with a wrong or unordered version. -->
+  <Target Name="ValidateMsiVersion" BeforeTargets="BeforeBuild;CoreCompile;Compile">
+    <Error Condition="'$(MsiProductVersion)' == ''"
+           Text="VersionSuffix '$(VersionSuffix)' cannot be mapped to an MSI version. Use an empty suffix (final) or rc.1 .. rc.98 (see Directory.Build.props)." />
+    <Error Condition="$([System.Int32]::Parse($(VersionPrefix.Split('.')[2]))) &gt; 654"
+           Text="VersionPrefix patch number $(VersionPrefix.Split('.')[2]) exceeds the MSI build-field limit (654)." />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
