@@ -42,6 +42,8 @@ $WixProject = Join-Path $RepoRoot 'installer/AuraClean.Installer.wixproj'
 $PublishDir = Join-Path $RepoRoot 'artifacts/publish'
 if (-not $OutputDir) { $OutputDir = Join-Path $RepoRoot 'artifacts/release' }
 
+. (Join-Path $PSScriptRoot 'ReleaseArtifacts.ps1')
+
 function Write-Step($m) { Write-Host "`n[*] $m" -ForegroundColor Cyan }
 function Invoke-Checked([string]$what, [scriptblock]$cmd) {
     & $cmd
@@ -89,11 +91,14 @@ $signed = Invoke-Sign $exe
 
 # ── 4. MSI ────────────────────────────────────────────────────────────────────────────────────────
 Write-Step 'Building the MSI installer (WiX v5)'
+# Isolate this build: remove earlier installer outputs, then accept only the exact file this build must produce.
+$msiBuildDir = Join-Path $RepoRoot 'installer/bin/Release'
+Clear-StaleInstallerOutput -BuildOutputDir $msiBuildDir
+$buildStartedUtc = (Get-Date).ToUniversalTime()
 Invoke-Checked 'dotnet build (installer)' {
     dotnet build $WixProject -c Release "-p:PublishDir=$PublishDir$([IO.Path]::DirectorySeparatorChar)" -p:ContinuousIntegrationBuild=true
 }
-$msiBuilt = Get-ChildItem (Join-Path $RepoRoot 'installer/bin/Release') -Filter '*.msi' | Select-Object -First 1
-if (-not $msiBuilt) { throw 'MSI was not produced.' }
+$msiBuilt = Get-ExpectedMsi -BuildOutputDir $msiBuildDir -Label $label -BuildStartedUtc $buildStartedUtc
 if (Invoke-Sign $msiBuilt.FullName) { $signed = $true }
 
 # ── 6. artifacts + checksums ──────────────────────────────────────────────────────────────────────
