@@ -123,6 +123,8 @@ public static class ReleaseMetadataTests
         Check(code.Contains("Scope=\"perMachine\""), "The package is per-machine (protected install location)");
         Check(code.Contains("StandardDirectory Id=\"ProgramFiles64Folder\""), "The executable is installed under Program Files (64-bit)");
         Check(code.Contains("<MajorUpgrade"), "In-place upgrades are enabled");
+        Check(!Regex.IsMatch(code, @"VersionNT(64)?\s*&gt;=\s*(1000|10\d\d)"), "The OS launch condition does not test for 10.0: Windows Installer reports VersionNT64=603 even on Server 2022/2025, which blocked every install (found by the MSI acceptance run)");
+        Check(Regex.IsMatch(code, @"Installed OR \(VersionNT64 &gt;= 603\)"), "The launch condition requires 64-bit Windows using the floor Windows Installer actually reports");
         Check(!code.Contains("AllowSameVersionUpgrades"), "Same-version 'upgrades' are not allowed (rc.N ordering comes from the version, not from a loophole)");
         Check(code.Contains("SAMEVERSIONINSTALLED"), "A rebuilt package of an installed version is detected and blocked");
         Check(code.Contains("MSIRESTARTMANAGERCONTROL\" Value=\"Disable\""), "The installer never auto-closes a running AuraClean");

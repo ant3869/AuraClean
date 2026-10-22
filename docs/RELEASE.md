@@ -78,7 +78,7 @@ Read-only; installs nothing and touches no real application data:
 
 ## Manual release checks (what automation cannot prove)
 
-Do these on a **clean, disposable Windows 10 and Windows 11 VM or Windows Sandbox** (take a snapshot first; **never on a machine with data you care about**) before publishing. Nothing below has been run yet: the automated checks above inspect the MSI but do not install it. Commands assume an elevated PowerShell in the folder holding the MSIs; `$rc1`, `$rc2` and `$final` are the MSI paths of `1.6.0-rc.1`, `1.6.0-rc.2` and `1.6.0`.
+Do these on a **clean, disposable Windows 10 and Windows 11 VM or Windows Sandbox** (take a snapshot first; **never on a machine with data you care about**) before publishing. The scripted part below (steps A–H) is automated on disposable Windows Server runners by `.github/workflows/msi-acceptance.yml` (`build/Test-MsiLifecycle.ps1`); repeat it by hand on the client VMs to confirm the same results on Windows 10/11. Commands assume an elevated PowerShell in the folder holding the MSIs; `$rc1`, `$rc2` and `$final` are the MSI paths of `1.6.0-rc.1`, `1.6.0-rc.2` and `1.6.0`.
 
 **Integration + upgrade + downgrade script (every `msiexec` exit code is recorded; expected values in parentheses):**
 
@@ -124,6 +124,33 @@ Unrelated scheduled tasks and Explorer context-menu entries (other tools' `shell
 8. Silent install/uninstall (`/qn`) and `ADDLOCAL=ALL`.
 9. Record exactly what SmartScreen/UAC showed for the unsigned build and update the release notes.
 10. Windows 10 smoke test of the app itself (dashboard, cleaner scan, uninstaller list, shredder on synthetic files).
+
+## RC1 release gates
+
+State as of the `1.6.0-rc.1` candidate. Merging packaging code is **not** approval to publish.
+
+**Done (automated, disposable GitHub-hosted runners):** real `msiexec` install, repair, rc.1 → rc.2 → final upgrade, downgrade and same-version-rebuild refusal (exit 1603), genuine uninstall, silent mode, optional desktop shortcut via `ADDLOCAL=ALL`, preservation of `%LocalAppData%\AuraClean` data, uninstall-only removal of the AuraClean scheduled tasks and context-menu keys (unrelated ones untouched), portable-copy interaction. 96/96 checks on Windows Server 2022 and on Windows Server 2025 (workflow *MSI acceptance*; the first run found and fixed a launch-condition defect that rejected every machine).
+
+**Not proven, and not implied by the above:** the runners are Windows **Server**, administrator, UAC off, non-interactive. They do not prove Windows 10 or 11 client behavior.
+
+| # | Gate | Needs |
+|---|---|---|
+| 1 | Interactive install on **Windows 10** and **Windows 11** (wizard, feature page, finish page, Installed apps entry/icon) | Client VM per OS |
+| 2 | **UAC and elevated launch**: installer elevation prompt, AuraClean start prompt, `--minimized` launch at sign-in | Client VM, UAC on |
+| 3 | Optional **desktop shortcut** chosen in the wizard (default off) | Client VM |
+| 4 | **Files in use**: install/upgrade while AuraClean is running must show the standard prompt (or defer to reboot silently) and never kill the app | Client VM |
+| 5 | **SmartScreen / "Unknown publisher"** behavior for the unsigned MSI and EXE; record what is shown and update the release notes | Client VM, file downloaded from the internet (Mark of the Web) |
+| 6 | **App-created integrations through the real Settings UI** (launch at sign-in, scheduled cleanup, Explorer context menu): created by the app, kept by upgrade/repair, removed by uninstall | Client VM |
+| 7 | **Signing decision** ([SIGNING.md](SIGNING.md)): sign RC1 or ship it unsigned with the SmartScreen caveat documented. Owner decision; never commit certificates or secrets. If signed, re-run gates 1–6 on the signed files | Owner |
+| 8 | Legacy `install.ps1` detection and `scripts/Remove-LegacyInstall.ps1` on a machine that has an old copy | Client VM with an old install |
+
+**Operating-system scope.** The MSI launch condition is `VersionNT64 >= 603` because Windows Installer reports a capped version (603 even on Server 2022/2025), so `>= 1000` rejected every machine. The installer therefore also runs on some older 64-bit Windows versions. **Windows 10 and 11 are the only supported targets; older systems are unsupported and have not been tested.**
+
+**Recommended path (never on the maintainer's own machine or installation).**
+1. Use a throw-away client Windows environment with snapshots: a VirtualBox (or other hypervisor) VM on the maintainer's PC using a Windows 10/11 evaluation or licensed image, or a spare physical test PC, or a temporary cloud Windows 10/11 client VM, whichever licensing and availability allow. Windows 11 Home cannot host Hyper-V or Windows Sandbox, so use VirtualBox/VMware or a separate machine. Give the VM its own copy of the artifacts (download the workflow artifact or the CI MSI into the VM; no shared folders with the real profile).
+2. Take a snapshot of the clean VM, run gates 1–6 and 8 for Windows 11 (and again for Windows 10), revert to the snapshot between scenarios.
+3. Record results (screenshots of UAC/SmartScreen, exit codes, `msiexec /l*v` logs) in the release notes' "Known limitations", then decide on signing and repeat on signed files if signed.
+4. Only then create a **draft** release (see Publishing). No tag or public release before all gates are recorded.
 
 ## CI
 

@@ -1,0 +1,61 @@
+name: MSI acceptance
+
+# Real msiexec install / repair / upgrade / downgrade / uninstall tests of the AuraClean MSI.
+# Runs ONLY on disposable GitHub-hosted Windows runners (never self-hosted). Uses no secrets and publishes nothing:
+# the test packages (rc.1, rc.2, final) are generated on the runner from the current source and only the logs are uploaded
+# as short-lived workflow artifacts. Runners are administrator with UAC disabled, so elevation prompts are NOT covered.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'build/**'
+      - 'Directory.Build.props'
+      - '.github/workflows/msi-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  msi-lifecycle:
+    name: MSI lifecycle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Runner details
+        shell: pwsh
+        run: |
+          [Environment]::OSVersion.VersionString
+          "ImageOS=$env:ImageOS ImageVersion=$env:ImageVersion RUNNER_ENVIRONMENT=$env:RUNNER_ENVIRONMENT"
+          (Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | Format-List | Out-String)
+
+      - name: Build throw-away test packages (rc.1, rc.2, final, final rebuild)
+        shell: pwsh
+        run: ./build/Build-AcceptancePackages.ps1 -OutputDir "$env:RUNNER_TEMP/packages"
+
+      - name: Real MSI lifecycle test
+        shell: pwsh
+        run: ./build/Test-MsiLifecycle.ps1 -PackageDir "$env:RUNNER_TEMP/packages" -LogDir "$env:RUNNER_TEMP/msi-logs"
+
+      - name: Upload MSI logs and results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: msi-acceptance-logs-${{ matrix.os }}
+          path: ${{ runner.temp }}/msi-logs/*
+          if-no-files-found: warn
+          retention-days: 14

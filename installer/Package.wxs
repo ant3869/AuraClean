@@ -51,8 +51,12 @@
     <!-- Never auto-close a running AuraClean (it may be mid-cleanup). -->
     <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
 
-    <!-- 64-bit Windows 10 or later (VersionNT 1000 = 10.0, also true on Windows 11). -->
-    <Launch Condition="Installed OR (VersionNT64 &gt;= 1000)" Message="AuraClean requires 64-bit Windows 10 or Windows 11." />
+    <!--
+      64-bit Windows only. Windows Installer reports a compatibility-capped OS version (VersionNT64 = 603, i.e. 6.3, even on
+      Windows Server 2022/2025 - found by the MSI acceptance run), so a ">= 1000" (Windows 10) test rejects every machine.
+      603 is therefore the lowest reliable floor; Windows 10/11 remain the supported systems (docs/INSTALL.md).
+    -->
+    <Launch Condition="Installed OR (VersionNT64 &gt;= 603)" Message="AuraClean requires 64-bit Windows (Windows 10 or Windows 11 recommended)." />
 
     <!-- Installed Apps / Programs and Features. -->
     <Icon Id="AuraCleanIcon" SourceFile="$(var.IconPath)" />
