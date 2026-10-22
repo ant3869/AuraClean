@@ -32,6 +32,8 @@ Copy-Item (Join-Path $PublishDir 'AuraClean.exe') (Join-Path $OutputDir 'portabl
 function Build-Msi([string]$suffix, [string]$target) {
     $label = if ($suffix) { "$prefix-$suffix" } else { $prefix }
     Clear-StaleInstallerOutput -BuildOutputDir $BuildDir
+    # The version comes from command-line properties, which WiX's incremental build does not track: start from a clean obj.
+    Remove-Item (Join-Path $RepoRoot 'installer/obj') -Recurse -Force -ErrorAction SilentlyContinue
     $started = (Get-Date).ToUniversalTime()
     dotnet build (Join-Path $RepoRoot 'installer/AuraClean.Installer.wixproj') -c Release "-p:PublishDir=$PublishDir$([IO.Path]::DirectorySeparatorChar)" `
         "-p:VersionSuffix=$suffix" -p:ContinuousIntegrationBuild=true
