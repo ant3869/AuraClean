@@ -93,15 +93,15 @@ function New-Decoys {
     foreach ($k in $DecoyKeys) { New-Item -Path "$k\command" -Force | Out-Null; Set-ItemProperty -Path "$k\command" -Name '(default)' -Value 'decoy' }
 }
 function Test-OwnedIntegrations([bool]$expected, [string]$when) {
-    $tasksOk = ($OwnedTasks | Where-Object { (Test-Task $_) -ne $expected }).Count -eq 0
+    $tasksOk = @($OwnedTasks | Where-Object { (Test-Task $_) -ne $expected }).Count -eq 0
     $keysOk = ((Test-Path $ExeMenuKey) -eq $expected) -and ((Test-Path $MsiMenuKey) -eq $expected)
     $state = if ($expected) { 'present' } else { 'removed' }
     Check $tasksOk "${when}: both AuraClean scheduled tasks are $state"
     Check $keysOk "${when}: both AuraCleanUninstall context-menu keys are $state"
 }
 function Test-DecoysIntact([string]$when) {
-    Check (($DecoyTasks | Where-Object { -not (Test-Task $_) }).Count -eq 0) "${when}: unrelated and look-alike scheduled tasks are untouched ($($DecoyTasks -join ', '))"
-    Check (($DecoyKeys | Where-Object { -not (Test-Path $_) }).Count -eq 0) "${when}: unrelated and look-alike context-menu keys are untouched"
+    Check (@($DecoyTasks | Where-Object { -not (Test-Task $_) }).Count -eq 0) "${when}: unrelated and look-alike scheduled tasks are untouched ($($DecoyTasks -join ', '))"
+    Check (@($DecoyKeys | Where-Object { -not (Test-Path $_) }).Count -eq 0) "${when}: unrelated and look-alike context-menu keys are untouched"
     Check ((Test-Path 'HKLM:\SOFTWARE\Classes\exefile\shell\open\command') -and (Test-Path 'HKLM:\SOFTWARE\Classes\Msi.Package\shell\Open\command')) "${when}: the stock Open verbs of exefile / Msi.Package still exist"
 }
 
@@ -156,11 +156,12 @@ Check (@(Get-ChildItem $InstallDir -Recurse -File).Count -eq 1) 'Exactly one fil
 $arp = Get-Installed
 Check ($null -ne $arp) 'Exactly one AuraClean entry exists in Installed apps (Uninstall registry)'
 function Get-ArpValue($entry, [string]$name) { if ($entry -and $entry.PSObject.Properties[$name]) { $entry.$name } else { $null } }
-$arpIcon = Get-ArpValue $arp 'DisplayIcon'
+# Windows Installer keeps ARPPRODUCTICON in its own product registration (shown by Installed apps), not as a DisplayIcon value.
+$arpIcon = "$((New-Object -ComObject WindowsInstaller.Installer).ProductInfo((Get-MsiProperty $Msi.rc1 'ProductCode'), 'ProductIcon'))"
 Check ((Get-ArpValue $arp 'DisplayVersion') -eq '1.6.1') "Installed apps version is $(Get-ArpValue $arp 'DisplayVersion') (expected 1.6.1)"
 Check ((Get-ArpValue $arp 'Comments') -eq 'AuraClean 1.6.0-rc.1') "Installed apps Comments carry the readable label ('$(Get-ArpValue $arp 'Comments')')"
 Check ((Get-ArpValue $arp 'Publisher') -eq 'AuraClean') "Publisher is AuraClean ('$(Get-ArpValue $arp 'Publisher')')"
-Check ([bool]$arpIcon) "Installed apps has an icon (DisplayIcon='$arpIcon')"
+Check ([bool]$arpIcon) "Installed apps has a registered product icon ('$arpIcon')"
 Write-Host "  ARP entry: $(($arp.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join '; ')"
 $meta = Get-ItemProperty 'HKLM:\SOFTWARE\AuraClean' -ErrorAction SilentlyContinue
 Check ((Get-ArpValue $meta 'Version') -eq '1.6.0-rc.1' -and (Get-ArpValue $meta 'InstallDir') -like "$InstallDir*") 'HKLM\Software\AuraClean holds the install folder and release label'
