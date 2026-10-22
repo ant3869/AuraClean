@@ -155,12 +155,15 @@ Check (Test-Path $ExePath) "AuraClean.exe is installed at $ExePath (under Progra
 Check (@(Get-ChildItem $InstallDir -Recurse -File).Count -eq 1) 'Exactly one file is installed (the self-contained single-file EXE)'
 $arp = Get-Installed
 Check ($null -ne $arp) 'Exactly one AuraClean entry exists in Installed apps (Uninstall registry)'
-Check ($arp -and $arp.DisplayVersion -eq '1.6.1') "Installed apps version is $($arp.DisplayVersion) (expected 1.6.1)"
-Check ($arp -and $arp.Comments -eq 'AuraClean 1.6.0-rc.1') "Installed apps Comments carry the readable label ('$($arp.Comments)')"
-Check ($arp -and $arp.Publisher -eq 'AuraClean') 'Publisher is AuraClean'
-Check ($arp -and $arp.DisplayIcon) 'Installed apps has an icon'
+function Get-ArpValue($entry, [string]$name) { if ($entry -and $entry.PSObject.Properties[$name]) { $entry.$name } else { $null } }
+$arpIcon = Get-ArpValue $arp 'DisplayIcon'
+Check ((Get-ArpValue $arp 'DisplayVersion') -eq '1.6.1') "Installed apps version is $(Get-ArpValue $arp 'DisplayVersion') (expected 1.6.1)"
+Check ((Get-ArpValue $arp 'Comments') -eq 'AuraClean 1.6.0-rc.1') "Installed apps Comments carry the readable label ('$(Get-ArpValue $arp 'Comments')')"
+Check ((Get-ArpValue $arp 'Publisher') -eq 'AuraClean') "Publisher is AuraClean ('$(Get-ArpValue $arp 'Publisher')')"
+Check ([bool]$arpIcon) "Installed apps has an icon (DisplayIcon='$arpIcon')"
+Write-Host "  ARP entry: $(($arp.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join '; ')"
 $meta = Get-ItemProperty 'HKLM:\SOFTWARE\AuraClean' -ErrorAction SilentlyContinue
-Check ($meta -and $meta.Version -eq '1.6.0-rc.1' -and $meta.InstallDir -like "$InstallDir*") 'HKLM\Software\AuraClean holds the install folder and release label'
+Check ((Get-ArpValue $meta 'Version') -eq '1.6.0-rc.1' -and (Get-ArpValue $meta 'InstallDir') -like "$InstallDir*") 'HKLM\Software\AuraClean holds the install folder and release label'
 Check (Test-Path $StartMenu) 'Start Menu shortcut exists'
 Check (-not (Test-Path $PublicDesk)) 'Desktop shortcut is NOT created by default'
 $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($StartMenu)
