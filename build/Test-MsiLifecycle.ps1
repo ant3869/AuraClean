@@ -142,6 +142,7 @@ Check ((Get-MsiProperty $Msi.final 'ProductCode') -ne (Get-MsiProperty $Msi.rebu
 Check ((Get-MsiProperty $Msi.final 'UpgradeCode') -eq (Get-MsiProperty $Msi.rc1 'UpgradeCode')) 'All packages share one UpgradeCode'
 Check (-not (Test-Path $ExePath) -and @(Get-ArpEntries).Count -eq 0 -and -not (Test-Path $DataDir)) 'The runner starts clean: no AuraClean installed, no AuraClean data'
 
+try {
 New-UserData
 $dataHash = Get-DataHash
 New-Decoys
@@ -250,6 +251,11 @@ Test-OwnedIntegrations $false "After uninstall (documented: names are machine-wi
 Check ((Test-Path "$portableDir\AuraClean.exe") -and (Get-FileHash "$portableDir\AuraClean.exe").Hash -eq (Get-FileHash "$PackageDir\portable\AuraClean.exe").Hash) 'The portable executable is still present and byte-identical'
 Test-DecoysIntact 'After portable scenario'
 Check ((Get-DataHash) -eq $dataHash) 'Data intact after the portable scenario'
+}
+catch {
+    # An unexpected error (usually a consequence of an earlier failed step) must fail the run visibly, not abort it silently.
+    Check $false "Unexpected error, remaining scenarios not run: $($_.Exception.Message) at line $($_.InvocationInfo.ScriptLineNumber)"
+}
 
 # ── summary ───────────────────────────────────────────────────────────────────────────────────────
 $failed = @($script:Results | Where-Object { -not $_.Ok })
