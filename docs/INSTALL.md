@@ -6,7 +6,7 @@ This guide covers the **MSI installer** and the **portable EXE** of release cand
 
 | | |
 |---|---|
-| OS | 64-bit **Windows 10 or Windows 11** (the installer refuses to run on anything older). The release candidate has so far only been exercised on Windows 11; see "Known limitations" in the release notes. |
+| OS | 64-bit **Windows 10 or Windows 11** are the supported systems. The installer's launch condition only requires 64-bit Windows (Windows Installer reports a capped OS version, so it cannot reliably tell Windows 10 from 8.1), so it will also run on some older 64-bit Windows versions; **those are unsupported and untested**. The MSI lifecycle has been tested with real `msiexec` only on Windows Server 2022 and 2025 (GitHub-hosted runners); Windows 10 and 11 client installs are still to be verified (see "RC1 release gates" in [RELEASE.md](RELEASE.md)). |
 | Privileges | **Administrator.** The MSI installs per-machine (UAC prompt), and AuraClean itself always starts elevated by design (registry scanning, restore points, system cleanup). |
 | Runtime | None to install. The build is self-contained (.NET 8 is bundled). |
 | Disk | About 75 MB for the program. |
