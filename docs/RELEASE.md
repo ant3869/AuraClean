@@ -125,6 +125,10 @@ Unrelated scheduled tasks and Explorer context-menu entries (other tools' `shell
 9. Record exactly what SmartScreen/UAC showed for the unsigned build and update the release notes.
 10. Windows 10 smoke test of the app itself (dashboard, cleaner scan, uninstaller list, shredder on synthetic files).
 
+## Client-Windows acceptance kit
+
+[`acceptance/`](../acceptance/README.md) packages the lifecycle test plus a read-only preparation mode, a typed disposable-machine confirmation, a manual checklist (UAC, SmartScreen, wizard, Settings-created integrations, files in use, legacy install), a results template and a report generator, for running gates 1–8 on a separate Windows 11 / Windows 10 machine. It never runs destructive steps without the confirmation and never on a machine that already has AuraClean data.
+
 ## RC1 release gates
 
 State as of the `1.6.0-rc.1` candidate. Merging packaging code is **not** approval to publish.

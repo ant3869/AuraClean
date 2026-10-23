@@ -4,8 +4,10 @@
 
 .DESCRIPTION
     DESTRUCTIVE to the machine it runs on (installs software, creates scheduled tasks and registry keys). It therefore refuses to
-    run anywhere except a disposable GitHub-hosted runner (GITHUB_ACTIONS=true and RUNNER_ENVIRONMENT=github-hosted).
-    Never run it on a developer machine; use the "MSI acceptance" workflow.
+    run unless EITHER it is on a disposable GitHub-hosted runner (GITHUB_ACTIONS=true and RUNNER_ENVIRONMENT=github-hosted)
+    OR the operator passes -ConfirmDisposableMachine "I-CONFIRM-<COMPUTERNAME>-IS-DISPOSABLE" (the acceptance kit,
+    acceptance/Start-Acceptance.ps1, does this for a separate test PC / VM). Never run it on a developer machine.
+    In both cases it also refuses if AuraClean (installed copy, data folder, tasks or menu keys) is already present.
 
     Needs the packages from build/Build-AcceptancePackages.ps1. Every msiexec exit code, file/registry state and data hash is
     asserted; any unexpected outcome fails the run. Nothing is skipped silently.
@@ -16,14 +18,18 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$PackageDir,
-    [Parameter(Mandatory)][string]$LogDir
+    [Parameter(Mandatory)][string]$LogDir,
+    # Manual disposable-machine confirmation (not needed on a GitHub-hosted runner). Must equal I-CONFIRM-<COMPUTERNAME>-IS-DISPOSABLE.
+    [string]$ConfirmDisposableMachine
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
-    throw 'REFUSING TO RUN: this test installs and uninstalls software and must only run on a disposable GitHub-hosted runner.'
+$isHostedRunner = ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_ENVIRONMENT -eq 'github-hosted')
+$expectedConfirmation = "I-CONFIRM-$($env:COMPUTERNAME.ToUpperInvariant())-IS-DISPOSABLE"
+if (-not $isHostedRunner -and $ConfirmDisposableMachine -cne $expectedConfirmation) {
+    throw "REFUSING TO RUN: this test installs and uninstalls software. Run it only on a disposable GitHub-hosted runner, or on a throw-away machine/VM and pass -ConfirmDisposableMachine $expectedConfirmation"
 }
 
 New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
@@ -131,6 +137,16 @@ function Get-MsiProperty([string]$path, [string]$name) {
 }
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
+# Hard stop (before anything is created or installed): never touch a machine that already has AuraClean or its data.
+$preexisting = @()
+if (@(Get-ArpEntries).Count -gt 0) { $preexisting += 'an installed AuraClean (Installed apps entry)' }
+if (Test-Path $InstallDir) { $preexisting += "$InstallDir" }
+if (Test-Path $DataDir) { $preexisting += "$DataDir (user data)" }
+if (Test-Path 'HKLM:\SOFTWARE\AuraClean') { $preexisting += 'HKLM\SOFTWARE\AuraClean' }
+foreach ($t in $OwnedTasks) { if (Test-Task $t) { $preexisting += "scheduled task $t" } }
+foreach ($k in $ExeMenuKey, $MsiMenuKey) { if (Test-Path $k) { $preexisting += $k } }
+if ($preexisting.Count) { throw "REFUSING TO RUN: this machine is not clean. Found: $($preexisting -join '; '). Use a fresh disposable machine/VM snapshot." }
+
 Write-Host "Runner: $([Environment]::OSVersion.VersionString), image $($env:ImageOS) $($env:ImageVersion)"
 Write-Host 'Packages:'
 Get-ChildItem $PackageDir -Filter *.msi | ForEach-Object { Write-Host "  $($_.Name) ProductVersion=$(Get-MsiProperty $_.FullName 'ProductVersion') ProductCode=$(Get-MsiProperty $_.FullName 'ProductCode')" }
