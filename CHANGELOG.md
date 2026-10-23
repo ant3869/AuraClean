@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Migrated from .NET 8 to .NET 10 LTS** (`net10.0-windows`; .NET 8 support ends 2026-11-10). Self-contained single-file win-x64 publishing, the manifest (administrator elevation, per-monitor DPI), SQLite native loading and all dependencies are unchanged; one source fix (`ThemeMode` name clash with `System.Windows.ThemeMode`). CI and tooling use the .NET 10 SDK. The released `1.6.0-rc.1` artifacts are .NET 8 builds and are not replaced; the first .NET 10 candidate must be `1.6.0-rc.2` (see `docs/RELEASE.md`).
+
 ## [1.6.0-rc.1] - 2026-10-21 (release candidate)
 
 ### Added

@@ -4,12 +4,12 @@
 
   <p>
     <img src="https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue?style=flat-square&logo=windows" alt="Platform" />
-    <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet" alt=".NET 8" />
+    <img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet" alt=".NET 10" />
     <img src="https://img.shields.io/badge/Version-1.5.1-7C5CFC?style=flat-square" alt="v1.5.1" />
     <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="MIT License" />
   </p>
 
-  <p>Clean junk · Boost RAM · Scan threats · Manage startups · Shred files · Analyze storage<br/>Built with .NET 8 &amp; WPF — wrapped in a sleek dark UI</p>
+  <p>Clean junk · Boost RAM · Scan threats · Manage startups · Shred files · Analyze storage<br/>Built with .NET 10 &amp; WPF — wrapped in a sleek dark UI</p>
 
 
 </div>
@@ -77,7 +77,7 @@ Full details (upgrade, uninstall, migrating from `install.ps1`, checksums, signi
 ### Build from Source
 
 ```powershell
-# Requires: .NET 8.0 SDK, Windows 10/11 x64
+# Requires: .NET 10.0 SDK, Windows 10/11 x64
 
 git clone https://github.com/ant3869/AuraClean.git
 cd AuraClean
@@ -106,7 +106,7 @@ Produces a **self-contained single-file executable** (~73 MB). No .NET runtime r
 
 | | Technology | Purpose |
 |---|---|---|
-| ⚙️ | [.NET 8.0](https://dotnet.microsoft.com/) | Runtime & SDK |
+| ⚙️ | [.NET 10.0](https://dotnet.microsoft.com/) | Runtime & SDK |
 | 🖼️ | [WPF](https://github.com/dotnet/wpf) | UI framework |
 | 🎨 | [MaterialDesign XAML Toolkit](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit) | UI components & theming |
 | 🏗️ | [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) | MVVM source generators |
