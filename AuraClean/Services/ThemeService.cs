@@ -5,6 +5,8 @@ using System.Windows.Media;
 using AuraClean.Helpers;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
+// .NET 9+ WPF added System.Windows.ThemeMode; keep resolving to AuraClean's own enum.
+using ThemeMode = AuraClean.Helpers.ThemeMode;
 
 namespace AuraClean.Services;
 
