@@ -31,6 +31,7 @@ public static class ReleaseMetadataTests
         Section("MSI versions order correctly across rc.N and final releases", TestMsiVersionOrdering);
         Section("Uninstall removes only AuraClean-owned integrations, and never on upgrade", TestUninstallCleanupRules);
         Section("Release build scripts never collect a stale MSI", TestBuildScriptRegression);
+        Section(".NET 10 LTS target, runtime and native SQLite loading", TestDotNetTarget);
         Section("Destructive MSI lifecycle test cannot run on a developer machine by accident", TestLifecycleSafetyGuards);
         Section("Release workflow builds artifacts but publishes nothing and holds no secrets", TestWorkflow);
         Section("No signing material is committed", TestNoSecretsCommitted);
@@ -243,6 +244,38 @@ public static class ReleaseMetadataTests
         var m = Regex.Match(output, @"RESULTS: (\d+) passed, (\d+) failed");
         Check(m.Success && m.Groups[2].Value == "0" && int.Parse(m.Groups[1].Value) >= 10 && !output.Contains("[exit"),
             $"build/Test-BuildScripts.ps1 passes (stale or missing MSIs are refused; only the current build's MSI is selected): {(m.Success ? m.Value : "no result line")}");
+    }
+
+    // ── .NET target ───────────────────────────────────────────────────────────────────────────────
+    private static void TestDotNetTarget()
+    {
+        const string tfm = "net10.0-windows";
+        Check(Read("AuraClean/AuraClean.csproj").Contains($"<TargetFramework>{tfm}</TargetFramework>"), $"The application targets {tfm}");
+        Check(Read("TestFeatures/TestFeatures.csproj").Contains($"<TargetFramework>{tfm}</TargetFramework>"), $"The test project targets {tfm}");
+        Check(Environment.Version.Major == 10, $"The tests run on the .NET 10 runtime (running {Environment.Version})");
+
+        var app = Read("AuraClean/AuraClean.csproj");
+        Check(app.Contains("<SelfContained>true</SelfContained>") && app.Contains("<PublishSingleFile>true</PublishSingleFile>")
+              && app.Contains("<RuntimeIdentifier>win-x64</RuntimeIdentifier>") && app.Contains("<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>"),
+            "Self-contained, single-file, win-x64 publishing with native-library self-extract is preserved");
+        Check(app.Contains("<ApplicationManifest>app.manifest</ApplicationManifest>") && Read("AuraClean/app.manifest").Contains("requireAdministrator"),
+            "The application manifest and administrator elevation are preserved");
+
+        foreach (var f in new[] { ".github/workflows/release.yml", ".github/workflows/msi-acceptance.yml" })
+            Check(Read(f).Contains("dotnet-version: '10.0.x'") && !Regex.IsMatch(Read(f), @"dotnet-version:\s*'?8\."), $"{f} installs the .NET 10 SDK");
+        foreach (var f in new[] { "build.ps1", "install.ps1" })
+            Check(!Read(f).Contains("net8.0") && !Regex.IsMatch(Read(f), @"\.NET 8\b"), $"{f} has no .NET 8 paths or SDK assumptions");
+
+        // System.Data.SQLite's native SQLite.Interop.dll must still load and work on this runtime.
+        try
+        {
+            using var cn = new System.Data.SQLite.SQLiteConnection("Data Source=:memory:");
+            cn.Open();
+            using var cmd = cn.CreateCommand();
+            cmd.CommandText = "CREATE TABLE t(x INTEGER); INSERT INTO t VALUES (41); SELECT x + 1 FROM t;";
+            Check(Convert.ToInt32(cmd.ExecuteScalar()) == 42, $"Native SQLite loads and executes SQL (SQLite {cn.ServerVersion})");
+        }
+        catch (Exception ex) { Check(false, $"Native SQLite failed to load: {ex.GetType().Name}: {ex.Message}"); }
     }
 
     // ── lifecycle-test safety ─────────────────────────────────────────────────────────────────────

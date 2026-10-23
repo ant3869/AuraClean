@@ -34,7 +34,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Runner details
         shell: pwsh
@@ -50,6 +50,12 @@ jobs:
       - name: Real MSI lifecycle test
         shell: pwsh
         run: ./build/Test-MsiLifecycle.ps1 -PackageDir "$env:RUNNER_TEMP/packages" -LogDir "$env:RUNNER_TEMP/msi-logs"
+
+      # Real-GUI smoke of the published single-file EXE on its own bundled runtime. After the lifecycle test because it creates
+      # %LocalAppData%\AuraClean, which that test requires to be absent.
+      - name: Published EXE smoke test (no separate .NET on PATH)
+        shell: pwsh
+        run: ./build/Test-PublishedExeSmoke.ps1 -ExePath "$env:RUNNER_TEMP/packages/portable/AuraClean.exe"
 
       - name: Upload MSI logs and results
         if: ${{ always() }}
