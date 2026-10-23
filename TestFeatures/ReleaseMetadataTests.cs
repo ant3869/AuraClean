@@ -265,7 +265,9 @@ public static class ReleaseMetadataTests
         Check(File.Exists(Path.Combine(RepoRoot(), "acceptance", "manual-checklist.md")) && File.Exists(Path.Combine(RepoRoot(), "acceptance", "results-template.md")), "The manual checklist and the results template ship with the kit");
 
         var wf = Read(".github/workflows/msi-acceptance.yml");
-        Check(!wf.Contains("self-hosted") && !wf.Contains("secrets."), "The GitHub acceptance workflow uses hosted runners only and no secrets");
+        var wfCode = Regex.Replace(wf, @"(?m)^\s*#.*$", "");   // ignore comments
+        Check(wfCode.Contains("runs-on: ${{ matrix.os }}") && wfCode.Contains("windows-2022") && wfCode.Contains("windows-2025") && !wfCode.Contains("self-hosted") && !wfCode.Contains("secrets."),
+            "The GitHub acceptance workflow uses the hosted windows-2022 / windows-2025 runners only and no secrets");
     }
 
     // ── workflow ──────────────────────────────────────────────────────────────────────────────────
