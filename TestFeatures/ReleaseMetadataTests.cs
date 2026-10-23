@@ -31,6 +31,7 @@ public static class ReleaseMetadataTests
         Section("MSI versions order correctly across rc.N and final releases", TestMsiVersionOrdering);
         Section("Uninstall removes only AuraClean-owned integrations, and never on upgrade", TestUninstallCleanupRules);
         Section("Release build scripts never collect a stale MSI", TestBuildScriptRegression);
+        Section("Destructive MSI lifecycle test cannot run on a developer machine by accident", TestLifecycleSafetyGuards);
         Section("Release workflow builds artifacts but publishes nothing and holds no secrets", TestWorkflow);
         Section("No signing material is committed", TestNoSecretsCommitted);
         Section("Legacy install.ps1 is guarded", TestLegacyScript);
@@ -242,6 +243,29 @@ public static class ReleaseMetadataTests
         var m = Regex.Match(output, @"RESULTS: (\d+) passed, (\d+) failed");
         Check(m.Success && m.Groups[2].Value == "0" && int.Parse(m.Groups[1].Value) >= 10 && !output.Contains("[exit"),
             $"build/Test-BuildScripts.ps1 passes (stale or missing MSIs are refused; only the current build's MSI is selected): {(m.Success ? m.Value : "no result line")}");
+    }
+
+    // ── lifecycle-test safety ─────────────────────────────────────────────────────────────────────
+    private static void TestLifecycleSafetyGuards()
+    {
+        var life = Read("build/Test-MsiLifecycle.ps1");
+        var refuseIdx = life.IndexOf("REFUSING TO RUN", StringComparison.Ordinal);
+        var firstInstall = life.IndexOf("Invoke-Msi 'install-rc1'", StringComparison.Ordinal);
+        Check(life.Contains("github-hosted") && life.Contains("-cne $expectedConfirmation") && life.Contains("I-CONFIRM-"),
+            "The lifecycle test runs only on a GitHub-hosted runner or with the exact I-CONFIRM-<COMPUTERNAME>-IS-DISPOSABLE text");
+        Check(life.Contains("this machine is not clean") && life.Contains("(user data)"), "It refuses when AuraClean, its data, tasks or menu keys already exist");
+        Check(refuseIdx >= 0 && firstInstall > refuseIdx && life.LastIndexOf("REFUSING TO RUN", StringComparison.Ordinal) < firstInstall,
+            "Both refusals happen before the first real installation");
+        Check(!Regex.IsMatch(life, @"Remove-Item\s+[^\r\n]*LOCALAPPDATA", RegexOptions.IgnoreCase) && !life.Contains("Remove-Item $DataDir"),
+            "The lifecycle test never deletes the data folder");
+
+        var kit = Read("acceptance/Start-Acceptance.ps1");
+        Check(kit.Contains("-cne $expected") && kit.Contains("I-CONFIRM-") && kit.Contains("REFUSING"), "The acceptance kit's Lifecycle mode needs the same explicit confirmation");
+        Check(kit.IndexOf("[ValidateSet('Prepare'", StringComparison.Ordinal) >= 0 && Regex.IsMatch(kit, @"\[string\]\$Mode = 'Prepare'|\$Mode = 'Prepare'"), "The default mode is the read-only Prepare");
+        Check(File.Exists(Path.Combine(RepoRoot(), "acceptance", "manual-checklist.md")) && File.Exists(Path.Combine(RepoRoot(), "acceptance", "results-template.md")), "The manual checklist and the results template ship with the kit");
+
+        var wf = Read(".github/workflows/msi-acceptance.yml");
+        Check(!wf.Contains("self-hosted") && !wf.Contains("secrets."), "The GitHub acceptance workflow uses hosted runners only and no secrets");
     }
 
     // ── workflow ──────────────────────────────────────────────────────────────────────────────────
