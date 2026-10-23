@@ -43,8 +43,14 @@ try {
         Start-Sleep -Seconds 10   # let the startup scan / initial navigation run
         $p.Refresh()
         Check (-not $p.HasExited -and $p.Responding) 'The window is still alive and responding after 10 s of startup work'
-        $core = $p.Modules | Where-Object { $_.ModuleName -eq 'coreclr.dll' } | Select-Object -First 1
-        Check ($null -ne $core -and $core.FileVersionInfo.ProductVersion -like "$ExpectedRuntimeMajor.*") "It runs on the bundled .NET $ExpectedRuntimeMajor runtime (coreclr $(if ($core) { $core.FileVersionInfo.ProductVersion } else { 'not loaded' }))"
+        # A single-file app statically links the runtime into the host (no separate coreclr.dll), so prove independence differently:
+        # nothing was loaded from an installed .NET (\dotnet\shared, \dotnet\host), and any runtime DLL that is loaded matches the bundled major.
+        $mods = @($p.Modules)
+        $fromInstalled = @($mods | Where-Object { $_.FileName -match '\\dotnet\\(shared|host|sdk)\\' })
+        Check ($fromInstalled.Count -eq 0) "No module was loaded from an installed .NET ($($mods.Count) modules inspected)"
+        $rt = @($mods | Where-Object { $_.ModuleName -in 'coreclr.dll', 'clrjit.dll', 'hostpolicy.dll' })
+        foreach ($m in $rt) { Write-Host "  INFO: $($m.ModuleName) $($m.FileVersionInfo.ProductVersion) from $($m.FileName)" -ForegroundColor Yellow }
+        Check (@($rt | Where-Object { $_.FileVersionInfo.ProductVersion -notlike "$ExpectedRuntimeMajor.*" }).Count -eq 0) "Any runtime DLL loaded is .NET $ExpectedRuntimeMajor ($(@($rt).Count) found)"
         Check (@($p.Modules | Where-Object { $_.ModuleName -match 'PresentationCore|wpfgfx' }).Count -ge 1) 'WPF rendering modules are loaded'
     }
 }
