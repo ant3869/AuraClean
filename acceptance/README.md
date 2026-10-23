@@ -33,7 +33,7 @@ pwsh build/Build-AcceptancePackages.ps1 -OutputDir .\packages
 pwsh acceptance/Start-Acceptance.ps1 -Mode Pack -ArtifactDir .\rc1-artifacts -PackageDir .\packages -KitZip .\AuraClean-acceptance-kit.zip
 ```
 
-`Pack` verifies hashes/versions first and prints the zip's SHA-256. Copy the zip to the test machine (USB, or download it inside the VM) and compare that hash. For the SmartScreen check, also download the official MSI/EXE **from the internet** (e.g. the workflow artifact) so they carry the Mark of the Web.
+`Pack` verifies the artifacts and packages first (and refuses on any gap), then zips the kit scripts, docs, `Test-MsiLifecycle.ps1`, `scripts\Remove-LegacyInstall.ps1` (for check M14; never run automatically), the artifacts and the test packages, checks the zip contents, and prints its SHA-256. Copy the zip to the test machine (USB, or download it inside the VM) and compare that hash. For the SmartScreen check, also download the official MSI/EXE **from the internet** (e.g. the workflow artifact) so they carry the Mark of the Web.
 
 ## 2. On the test machine (elevated PowerShell)
 
@@ -51,6 +51,16 @@ Revert to the clean snapshot, then do the manual checks ([manual-checklist.md](m
 ```
 
 Copy `results\` (report, JSON, `msi-logs\*.log`, screenshots) back and attach it to the release-readiness note. Use [results-template.md](results-template.md) as the hand-written summary on top of `report.md`.
+
+## Verdicts and what the report will not accept
+
+`Report` returns one of **FAIL**, **INCOMPLETE** or **ALL CHECKS PASSED** (exit code 1, 2, 0). FAIL outranks INCOMPLETE.
+
+- **Preparation** is part of the verdict: a failed hash/manifest/version check, a missing `prepare.json`, or a machine that was not clean fails the run. Failed advisory checks (not administrator, UAC off) leave it INCOMPLETE.
+- **Artifact verification fails closed**: `SHA256SUMS.txt` must list exactly the official MSI and portable EXE, once each, well-formed, and both files must exist and match. Missing, extra, duplicate, malformed or corrupted entries stop `Prepare`, `Lifecycle` and `Pack`.
+- **One run at a time**: `Prepare` creates `run.json` (a run id bound to the MSI's hash). Preparation, lifecycle and manual results must carry that run id, and the lifecycle results must match the hash recorded when they were produced. Results from another run, or edited afterwards, fail the report. Changing the artifacts (or `-NewRun`) archives the old results under `results\previous\<time>\`; nothing is deleted.
+- **Lifecycle not run** = NOT TESTED = INCOMPLETE.
+- **All 14 manual checks** must appear exactly once with a valid status (see the checklist). Missing, duplicate, unknown or malformed entries, and PASS without a note and an existing screenshot file, never produce a pass.
 
 ## Interpreting results
 

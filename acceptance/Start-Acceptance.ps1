@@ -4,15 +4,19 @@
 
 .DESCRIPTION
     Modes
-      Prepare    (default) READ-ONLY. Records the Windows build / UAC / SmartScreen state, verifies the release artifacts against
-                 SHA256SUMS.txt, reads MSI properties, checks that no AuraClean is already present, and seeds the manual checklist
-                 results. Installs and changes nothing on the machine (it only writes files into -OutDir).
+      Prepare    (default) READ-ONLY on the machine. Records the Windows build / UAC state, verifies the release artifacts against
+                 SHA256SUMS.txt (fail closed: exactly the official MSI and portable EXE, each present and matching), reads MSI
+                 versions, checks that no AuraClean is already present, starts or continues a run (run.json) and seeds the manual
+                 checklist. It only writes files into -OutDir.
       Lifecycle  DESTRUCTIVE. Runs build/Test-MsiLifecycle.ps1 (real msiexec install, repair, upgrade, downgrade refusal, uninstall,
                  integration cleanup, data preservation). Only for a throw-away PC / VM: requires -ConfirmDisposable with the exact text
                  I-CONFIRM-<COMPUTERNAME>-IS-DISPOSABLE, administrator rights, and refuses if AuraClean or its data already exist.
-      Report     Combines environment.json, the automated results and manual-results.json into results\report.md.
-      Pack       (developer machine; verifies and copies files only) Zips this kit + the lifecycle script + artifacts + test packages.
+      Report     Combines this run's preparation, lifecycle and manual results into results\report.md. Verdicts: FAIL > INCOMPLETE >
+                 ALL CHECKS PASSED. Results from another run are never accepted. Exit code 0 only for ALL CHECKS PASSED.
+      Pack       (developer machine; verifies and copies files only) Zips the kit, the lifecycle test, scripts\Remove-LegacyInstall.ps1,
+                 the verified artifacts and the test packages. Nothing is executed.
 
+    Earlier results are archived under results\previous\<timestamp>\ (never deleted) whenever a new run starts.
     Never run Lifecycle on the developer's own computer. The UAC prompt, SmartScreen, the wizard and the other interactive checks
     are manual: see manual-checklist.md.
 
@@ -30,13 +34,15 @@ param(
     [string]$PackageDir = (Join-Path $PSScriptRoot 'packages'),
     [string]$OutDir = (Join-Path $PSScriptRoot 'results'),
     [string]$ConfirmDisposable,
-    [string]$KitZip
+    [string]$KitZip,
+    # Start a fresh run even if the artifacts are unchanged (the previous run's results are archived).
+    [switch]$NewRun
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'AcceptanceChecks.ps1')
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
-$ExpectedLabel = '1.6.0-rc.1'
 $ExpectedMsiVersions = @{ 'rc1.msi' = '1.6.1'; 'rc2.msi' = '1.6.2'; 'final.msi' = '1.6.99'; 'final-rebuild.msi' = '1.6.99' }
 
 $ManualChecks = @(
@@ -55,11 +61,22 @@ $ManualChecks = @(
     @{ Id = 'M13'; Title = 'Data created through the app UI (setting, leftover backup of a disposable test app, quarantine) survives upgrade, uninstall and reinstall; restore still works' }
     @{ Id = 'M14'; Title = 'Legacy install.ps1 copy: final page mentions it, nothing deleted; scripts\Remove-LegacyInstall.ps1 -WhatIf, then a real run' }
 )
+if ((@($ManualChecks | ForEach-Object { $_.Id }) -join ',') -ne ($script:ManualIds -join ',')) { throw 'Internal error: manual check ids differ from AcceptanceChecks.ps1' }
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────────────────
 function Write-Json($obj, $path) { $obj | ConvertTo-Json -Depth 8 | Out-File $path -Encoding utf8 }
-function Read-Json($path) { if (Test-Path $path) { Get-Content $path -Raw | ConvertFrom-Json } else { $null } }
+function Read-Json($path) { if (Test-Path $path) { try { Get-Content $path -Raw | ConvertFrom-Json } catch { $null } } else { $null } }
 function Get-Reg($path, $name) { try { (Get-ItemProperty -Path $path -Name $name -ErrorAction Stop).$name } catch { $null } }
+
+# Move earlier results aside (never deletes) so they can not be mistaken for the current run.
+function Move-ResultsToPrevious([string[]]$Names) {
+    $existing = @($Names | Where-Object { Test-Path (Join-Path $OutDir $_) })
+    if (-not $existing.Count) { return }
+    $dest = Join-Path $OutDir ('previous\' + (Get-Date -Format 'yyyyMMdd-HHmmssfff'))
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    foreach ($n in $existing) { Move-Item -LiteralPath (Join-Path $OutDir $n) -Destination $dest }
+}
+$AllRunFiles = 'run.json', 'prepare.json', 'lifecycle-run.json', 'lifecycle-exit.txt', 'manual-results.json', 'report.md', 'environment.json', 'msi-logs', 'work-packages'
 
 function Get-MsiProperty([string]$path, [string]$name) {
     $installer = New-Object -ComObject WindowsInstaller.Installer
@@ -109,25 +126,16 @@ function Get-AuraCleanPresence {
     , $found
 }
 
+# Strict manifest check (library) + official MSI version/signature.
 function Test-Artifacts {
     $rows = New-Object System.Collections.Generic.List[object]
-    $sums = Join-Path $ArtifactDir 'SHA256SUMS.txt'
-    if (-not (Test-Path $sums)) { $rows.Add([pscustomobject]@{ File = 'SHA256SUMS.txt'; Ok = $false; Detail = "not found in $ArtifactDir" }); return , $rows.ToArray() }
-    foreach ($line in Get-Content $sums | Where-Object { $_ }) {
-        $m = [regex]::Match($line, '^([0-9a-f]{64}) \*(.+)$')
-        if (-not $m.Success) { continue }
-        $file = Join-Path $ArtifactDir $m.Groups[2].Value
-        if (-not (Test-Path $file)) { $rows.Add([pscustomobject]@{ File = $m.Groups[2].Value; Ok = $false; Detail = 'listed but missing' }); continue }
-        $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-        $rows.Add([pscustomobject]@{ File = $m.Groups[2].Value; Ok = ($actual -eq $m.Groups[1].Value); Detail = "sha256 $actual" })
+    foreach ($r in @(Test-ChecksumManifest $ArtifactDir)) { $rows.Add($r) }
+    $msi = Join-Path $ArtifactDir (Get-ExpectedArtifactNames)[0]
+    if (Test-Path -LiteralPath $msi -PathType Leaf) {
+        $pv = Get-MsiProperty $msi 'ProductVersion'
+        $rows.Add([pscustomobject]@{ File = (Split-Path $msi -Leaf) + ' (version)'; Ok = ($pv -eq '1.6.1'); Detail = "ProductVersion $pv (expected 1.6.1); signature $((Get-AuthenticodeSignature $msi).Status)" })
     }
-    $msi = Get-ChildItem $ArtifactDir -Filter "AuraClean-$ExpectedLabel-win-x64.msi" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $msi) { $rows.Add([pscustomobject]@{ File = "AuraClean-$ExpectedLabel-win-x64.msi"; Ok = $false; Detail = 'official MSI not found' }) }
-    else {
-        $pv = Get-MsiProperty $msi.FullName 'ProductVersion'
-        $rows.Add([pscustomobject]@{ File = $msi.Name; Ok = ($pv -eq '1.6.1'); Detail = "ProductVersion $pv (expected 1.6.1); signature $((Get-AuthenticodeSignature $msi.FullName).Status)" })
-    }
-    , $rows.ToArray()
+    $rows.ToArray()
 }
 
 function Test-Packages {
@@ -140,34 +148,53 @@ function Test-Packages {
     }
     $p = Join-Path $PackageDir 'portable\AuraClean.exe'
     $rows.Add([pscustomobject]@{ File = 'portable\AuraClean.exe'; Ok = (Test-Path $p); Detail = $(if (Test-Path $p) { 'present' } else { 'missing' }) })
-    , $rows.ToArray()
+    $rows.ToArray()
 }
 
 function Show-Rows($rows) { foreach ($r in $rows) { Write-Host ("  {0}: {1} - {2}" -f $(if ($r.Ok) { 'OK  ' } else { 'FAIL' }), $r.File, $r.Detail) -ForegroundColor $(if ($r.Ok) { 'Green' } else { 'Red' }) } }
 
 function Invoke-Prepare {
-    Write-Host '== Prepare (read-only) ==' -ForegroundColor Cyan
+    Write-Host '== Prepare (read-only on the machine) ==' -ForegroundColor Cyan
     $envInfo = Get-EnvironmentInfo
     $envInfo.GetEnumerator() | ForEach-Object { Write-Host ("  {0,-15} {1}" -f $_.Key, $_.Value) }
     $present = Get-AuraCleanPresence
-    $arts = Test-Artifacts
-    $pkgs = Test-Packages
+    $arts = @(Test-Artifacts)
+    $pkgs = @(Test-Packages)
     Show-Rows $arts; Show-Rows $pkgs
 
-    $problems = @()
-    if ($envInfo.Family -eq 'Older than Windows 10') { $problems += 'OS is older than Windows 10: unsupported, do not use for acceptance' }
-    if (-not $envInfo.IsAdmin) { $problems += 'not running as Administrator (needed for Lifecycle mode)' }
-    if (-not $envInfo.UacEnabled) { $problems += 'UAC is OFF on this machine: the UAC prompt checks (M02, M05) cannot be performed' }
-    if ($present.Count) { $problems += "AuraClean already present: $($present -join '; ')" }
-    foreach ($r in @($arts) + @($pkgs)) { if (-not $r.Ok) { $problems += "$($r.File): $($r.Detail)" } }
+    # Run identity: a run continues only while the artifacts are unchanged; otherwise earlier results are archived and a new run starts.
+    $msiPath = Join-Path $ArtifactDir (Get-ExpectedArtifactNames)[0]
+    $msiSha = if (Test-Path -LiteralPath $msiPath -PathType Leaf) { (Get-FileHash -LiteralPath $msiPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+    $run = Read-Json (Join-Path $OutDir 'run.json')
+    if ((P $run 'RunId') -and -not $NewRun -and [string](P $run 'MsiSha256') -eq $msiSha) {
+        if (Test-Path (Join-Path $OutDir 'lifecycle-run.json')) {
+            Write-Host "Run $($run.RunId) already has lifecycle results: preparation is not re-recorded (a finished run's machine is no longer clean). Use -Mode Report, or -NewRun (after reverting the machine) to start over." -ForegroundColor Yellow
+            return , @()
+        }
+    }
+    else {
+        Move-ResultsToPrevious $AllRunFiles
+        $run = [pscustomobject]@{ RunId = [guid]::NewGuid().ToString('N'); Created = (Get-Date).ToString('s'); MsiSha256 = $msiSha; Computer = $env:COMPUTERNAME; Build = $envInfo.Build }
+        Write-Json $run (Join-Path $OutDir 'run.json')
+        Write-Host "Started new run $($run.RunId)" -ForegroundColor Cyan
+    }
+
+    $checks = New-Object System.Collections.Generic.List[object]
+    function Add-Check($name, $ok, $detail, $advisory = $false) { $checks.Add([ordered]@{ Name = $name; Ok = [bool]$ok; Advisory = [bool]$advisory; Detail = $detail }) }
+    Add-Check 'Windows 10 or later' ($envInfo.Family -ne 'Older than Windows 10') "$($envInfo.Family) build $($envInfo.Build)"
+    Add-Check 'Administrator rights (needed for Lifecycle)' $envInfo.IsAdmin "IsAdmin=$($envInfo.IsAdmin)" $true
+    Add-Check 'UAC enabled (needed for the UAC prompt checks M02, M05)' $envInfo.UacEnabled "UacEnabled=$($envInfo.UacEnabled)" $true
+    Add-Check 'Clean machine: no AuraClean installed or data present' (@($present).Count -eq 0) $(if (@($present).Count) { @($present) -join '; ' } else { 'none found' })
+    foreach ($r in @($arts) + @($pkgs)) { Add-Check "verified: $($r.File)" $r.Ok $r.Detail }
 
     Write-Json $envInfo (Join-Path $OutDir 'environment.json')
-    Write-Json ([ordered]@{ Artifacts = @($arts); Packages = @($pkgs); Presence = @($present); Problems = @($problems) }) (Join-Path $OutDir 'prepare.json')
-    $manual = Join-Path $OutDir 'manual-results.json'
-    if (-not (Test-Path $manual)) {
-        Write-Json @($ManualChecks | ForEach-Object { [ordered]@{ Id = $_.Id; Title = $_.Title; Status = 'NOT TESTED'; Note = ''; Screenshot = '' } }) $manual
-        Write-Host "  Seeded $manual (set Status to PASS or FAIL, add Note and Screenshot file names)"
+    Write-Json ([ordered]@{ RunId = $run.RunId; Captured = (Get-Date).ToString('s'); Checks = $checks.ToArray() }) (Join-Path $OutDir 'prepare.json')
+    $manualPath = Join-Path $OutDir 'manual-results.json'
+    if (-not (Test-Path $manualPath)) {
+        Write-Json ([ordered]@{ RunId = $run.RunId; Checks = @($ManualChecks | ForEach-Object { [ordered]@{ Id = $_.Id; Title = $_.Title; Status = 'NOT TESTED'; Note = ''; Screenshot = '' } }) }) $manualPath
+        Write-Host "  Seeded $manualPath (set Status to PASS or FAIL; every PASS needs a Note and a Screenshot file in results\screenshots)"
     }
+    $problems = @($checks.ToArray() | Where-Object { -not $_.Ok } | ForEach-Object { "$($_.Name): $($_.Detail)" })
     Write-Host ''
     if ($problems.Count) { Write-Host 'NOT READY for Lifecycle mode:' -ForegroundColor Yellow; $problems | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow } }
     else { Write-Host 'READY: artifacts verified, machine is clean. Take a VM snapshot / disk image now, then use -Mode Lifecycle.' -ForegroundColor Green }
@@ -187,79 +214,81 @@ switch ($Mode) {
             throw "REFUSING: Lifecycle mode installs and uninstalls AuraClean for real. Only run it on a throw-away PC/VM (snapshot taken). Re-run with -ConfirmDisposable $expected"
         }
         $p = Invoke-Prepare
-        if (@($p).Count) { throw 'REFUSING: preparation checks failed (see above). Nothing was installed.' }
+        if (@($p).Count) { throw 'REFUSING: preparation checks failed (see above), including incomplete artifact verification. Nothing was installed.' }
+        $run = Read-Json (Join-Path $OutDir 'run.json')
+        if (-not $run -or (Test-Path (Join-Path $OutDir 'lifecycle-run.json'))) { throw 'REFUSING: this run already has lifecycle results. Revert the machine and start a new run with -NewRun.' }
 
         $lifecycle = @((Join-Path $PSScriptRoot 'Test-MsiLifecycle.ps1'), (Join-Path $PSScriptRoot '..\build\Test-MsiLifecycle.ps1')) | Where-Object { Test-Path $_ } | Select-Object -First 1
         if (-not $lifecycle) { throw 'Test-MsiLifecycle.ps1 not found next to this script or in ..\build.' }
 
         # Work copy of the packages in which rc1.msi is the OFFICIAL RC1 MSI (same version 1.6.1 as the generated one).
         $work = Join-Path $OutDir 'work-packages'
-        if (Test-Path $work) { Get-ChildItem $work -Recurse -File | ForEach-Object { [IO.File]::Delete($_.FullName) } }
         New-Item -ItemType Directory -Path $work -Force | Out-Null
         Copy-Item (Join-Path $PackageDir '*') $work -Recurse -Force
-        Copy-Item (Join-Path $ArtifactDir "AuraClean-$ExpectedLabel-win-x64.msi") (Join-Path $work 'rc1.msi') -Force
+        Copy-Item (Join-Path $ArtifactDir (Get-ExpectedArtifactNames)[0]) (Join-Path $work 'rc1.msi') -Force
         Write-Host "Official RC1 MSI used as rc1.msi in $work" -ForegroundColor Cyan
 
         $logDir = Join-Path $OutDir 'msi-logs'
+        Move-ResultsToPrevious @('msi-logs')
+        $started = (Get-Date).ToUniversalTime().ToString('o')
         & $lifecycle -PackageDir $work -LogDir $logDir -ConfirmDisposableMachine $ConfirmDisposable
         $code = $LASTEXITCODE
+        $resPath = Join-Path $logDir 'results.json'
+        $res = Read-Json $resPath
+        Write-Json ([ordered]@{ RunId = $run.RunId; ExitCode = $code; StartedUtc = $started; FinishedUtc = (Get-Date).ToUniversalTime().ToString('o'); Computer = $env:COMPUTERNAME
+                ResultsSha256 = $(if (Test-Path $resPath) { (Get-FileHash $resPath -Algorithm SHA256).Hash } else { '' }); ResultsCount = @($res).Count }) (Join-Path $OutDir 'lifecycle-run.json')
         Set-Content (Join-Path $OutDir 'lifecycle-exit.txt') "$code"
         Write-Host "Lifecycle finished with exit code $code. Logs: $logDir. Next: -Mode Report" -ForegroundColor $(if ($code) { 'Red' } else { 'Green' })
         exit $code
     }
 
     'Report' {
+        $a = Get-AcceptanceAssessment $OutDir
         $envInfo = Read-Json (Join-Path $OutDir 'environment.json')
-        $prep = Read-Json (Join-Path $OutDir 'prepare.json')
-        $auto = Read-Json (Join-Path $OutDir 'msi-logs\results.json')
-        $manual = Read-Json (Join-Path $OutDir 'manual-results.json')
         $sb = New-Object System.Text.StringBuilder
-        [void]$sb.AppendLine("# AuraClean $ExpectedLabel - client Windows acceptance report")
-        [void]$sb.AppendLine("Generated $(Get-Date -Format 's')`n")
-        [void]$sb.AppendLine('## Test machine')
-        if ($envInfo) { foreach ($p in $envInfo.PSObject.Properties) { [void]$sb.AppendLine("- **$($p.Name):** $($p.Value)") } } else { [void]$sb.AppendLine('- environment.json missing: run -Mode Prepare on the test machine') }
-        [void]$sb.AppendLine("`n## Artifacts (hash and version verification)")
-        if ($prep) { foreach ($r in @($prep.Artifacts) + @($prep.Packages)) { [void]$sb.AppendLine("- $(if ($r.Ok) { 'PASS' } else { 'FAIL' }) $($r.File): $($r.Detail)") } }
-        [void]$sb.AppendLine("`n## Automated MSI lifecycle (real msiexec)")
-        $failCount = 0; $untested = 0
-        if ($auto) {
-            $auto = @($auto); $bad = @($auto | Where-Object { -not $_.Ok }); $failCount += $bad.Count
-            $exitFile = Join-Path $OutDir 'lifecycle-exit.txt'
-            [void]$sb.AppendLine("**$($auto.Count - $bad.Count) PASS, $($bad.Count) FAIL** of $($auto.Count) checks. Lifecycle exit code: $(if (Test-Path $exitFile) { (Get-Content $exitFile) } else { 'n/a' }). MSI logs: ``$OutDir\msi-logs``.`n")
-            foreach ($g in $auto | Group-Object Section) { $b = @($g.Group | Where-Object { -not $_.Ok }).Count; [void]$sb.AppendLine("- $(if ($b) { 'FAIL' } else { 'PASS' }) $($g.Name): $($g.Count - $b)/$($g.Count)") }
-            foreach ($f in $bad) { [void]$sb.AppendLine("  - FAIL [$($f.Section)] $($f.Message)") }
-        } else { $untested++; [void]$sb.AppendLine('**NOT TESTED** (no msi-logs\results.json: Lifecycle mode has not been run on this machine).') }
-        [void]$sb.AppendLine("`n## Manual / interactive checks")
+        [void]$sb.AppendLine("# AuraClean $script:ExpectedLabel - client Windows acceptance report")
+        [void]$sb.AppendLine("Generated $(Get-Date -Format 's') · run ``$($a.RunId)```n")
+        [void]$sb.AppendLine("## Verdict: **$($a.Verdict)**`n")
+        foreach ($f in $a.Failures) { [void]$sb.AppendLine("- FAIL: $f") }
+        foreach ($i in $a.Incomplete) { [void]$sb.AppendLine("- INCOMPLETE: $i") }
+        if ($a.Verdict -eq 'ALL CHECKS PASSED') { [void]$sb.AppendLine('- Every preparation check, the automated lifecycle and all 14 manual checks passed with evidence. This is evidence for this OS/build only.') }
+        [void]$sb.AppendLine("`n## Test machine")
+        if ($envInfo) { foreach ($p in $envInfo.PSObject.Properties) { [void]$sb.AppendLine("- **$($p.Name):** $($p.Value)") } } else { [void]$sb.AppendLine('- environment.json missing (not recorded)') }
+        [void]$sb.AppendLine("`n## Preparation checks")
+        foreach ($c in $a.PrepareChecks) { [void]$sb.AppendLine("- $(if ($c.Ok) { 'PASS' } elseif ($c.Advisory) { 'ADVISORY' } else { 'FAIL' }) $($c.Name): $($c.Detail)") }
+        if (-not @($a.PrepareChecks).Count) { [void]$sb.AppendLine('- none recorded for this run') }
+        [void]$sb.AppendLine("`n## Automated MSI lifecycle (real msiexec): $($a.Lifecycle.State)")
+        if ($a.Lifecycle.State -in 'PASS', 'FAIL') {
+            [void]$sb.AppendLine("**$($a.Lifecycle.Pass) PASS, $($a.Lifecycle.Fail) FAIL** of $(@($a.Lifecycle.Results).Count). MSI logs: ``$OutDir\msi-logs``.`n")
+            foreach ($g in @($a.Lifecycle.Results) | Group-Object Section) { $b = @($g.Group | Where-Object { -not $_.Ok }).Count; [void]$sb.AppendLine("- $(if ($b) { 'FAIL' } else { 'PASS' }) $($g.Name): $($g.Count - $b)/$($g.Count)") }
+            foreach ($f in @($a.Lifecycle.Failed)) { [void]$sb.AppendLine("  - FAIL [$($f.Section)] $($f.Message)") }
+        } else { [void]$sb.AppendLine('No valid lifecycle results for this run: treated as NOT TESTED / failed above.') }
+        [void]$sb.AppendLine("`n## Manual / interactive checks (14 required)")
         [void]$sb.AppendLine('| ID | Check | Result | Notes | Screenshot |'); [void]$sb.AppendLine('|---|---|---|---|---|')
-        foreach ($m in @($manual)) {
-            [void]$sb.AppendLine("| $($m.Id) | $($m.Title) | **$($m.Status)** | $($m.Note) | $($m.Screenshot) |")
-            if ($m.Status -eq 'FAIL') { $failCount++ } elseif ($m.Status -ne 'PASS') { $untested++ }
-        }
-        [void]$sb.AppendLine("`n## Summary`n- Failures: **$failCount**; not tested: **$untested**")
-        [void]$sb.AppendLine('- Confirmed release blockers: (list each FAIL that blocks RC1, with log/screenshot reference)')
-        [void]$sb.AppendLine('- Signing: unsigned (decision pending, see docs/SIGNING.md). Distribution: not published, no tag, no release.')
-        [void]$sb.AppendLine("- Verdict: $(if ($failCount) { 'NO-GO' } elseif ($untested) { 'INCOMPLETE (not all gates tested)' } else { 'all checks passed' })")
+        foreach ($m in $a.Manual) { [void]$sb.AppendLine("| $($m.Id) | $($m.Title) | **$($m.Status)$(if ($m.Status -eq 'PASS' -and -not $m.Valid) { ' (evidence missing)' })** | $($m.Note) | $($m.Screenshot) |") }
+        [void]$sb.AppendLine("`n## Status`n- Confirmed release blockers: list each FAIL above with its log/screenshot.`n- Signing: unsigned (decision pending, see docs/SIGNING.md). Distribution: not published, no tag, no release.")
         $sb.ToString() | Out-File (Join-Path $OutDir 'report.md') -Encoding utf8
-        Write-Host "Report written: $(Join-Path $OutDir 'report.md')"
+        Write-Host "Report written: $(Join-Path $OutDir 'report.md')  Verdict: $($a.Verdict)" -ForegroundColor $(if ($a.Verdict -eq 'ALL CHECKS PASSED') { 'Green' } elseif ($a.Verdict -eq 'FAIL') { 'Red' } else { 'Yellow' })
+        exit $(if ($a.Verdict -eq 'ALL CHECKS PASSED') { 0 } elseif ($a.Verdict -eq 'FAIL') { 1 } else { 2 })
     }
 
     'Pack' {
         $repo = Split-Path -Parent $PSScriptRoot
-        $lifecycle = Join-Path $repo 'build\Test-MsiLifecycle.ps1'
-        if (-not (Test-Path $lifecycle)) { throw 'Pack mode must run from a repository checkout (build\Test-MsiLifecycle.ps1 not found).' }
         $rows = @(Test-Artifacts) + @(Test-Packages); Show-Rows $rows
-        if (@($rows | Where-Object { -not $_.Ok }).Count) { throw 'Artifacts/packages did not verify; not packing.' }
+        if (@($rows | Where-Object { -not $_.Ok }).Count) { throw 'Artifacts/packages did not verify completely; not packing.' }
         if (-not $KitZip) { $KitZip = Join-Path $OutDir 'AuraClean-acceptance-kit.zip' }
         $stage = Join-Path ([IO.Path]::GetTempPath()) ('AuraKit_' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $stage | Out-Null
         try {
-            Get-ChildItem $PSScriptRoot -File | ForEach-Object { Copy-Item $_.FullName $stage }
-            Copy-Item $lifecycle $stage
-            Copy-Item $ArtifactDir (Join-Path $stage 'artifacts') -Recurse
-            Copy-Item $PackageDir (Join-Path $stage 'packages') -Recurse
+            New-KitStage -RepoRoot $repo -ArtifactDir $ArtifactDir -PackageDir $PackageDir -StageDir $stage
             if (Test-Path $KitZip) { [IO.File]::Delete($KitZip) }
             Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $KitZip
         } finally { [IO.Directory]::Delete($stage, $true) }
-        Write-Host "Kit: $KitZip"; Write-Host "SHA-256: $((Get-FileHash $KitZip -Algorithm SHA256).Hash.ToLowerInvariant())"
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [IO.Compression.ZipFile]::OpenRead($KitZip)
+        try { $entries = @($zip.Entries | ForEach-Object { $_.FullName -replace '\\', '/' }) } finally { $zip.Dispose() }
+        $lacking = @($script:KitFiles | Where-Object { $entries -notcontains ($_.Dest -replace '\\', '/') })
+        if ($lacking.Count) { throw "The packed kit is missing: $(($lacking | ForEach-Object { $_.Dest }) -join ', ')" }
+        Write-Host "Kit: $KitZip ($($entries.Count) files, includes scripts/Remove-LegacyInstall.ps1; nothing in it runs automatically)"; Write-Host "SHA-256: $((Get-FileHash $KitZip -Algorithm SHA256).Hash.ToLowerInvariant())"
     }
 }

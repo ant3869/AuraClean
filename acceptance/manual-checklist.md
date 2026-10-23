@@ -23,6 +23,8 @@ Evidence per item: a screenshot named `Mxx-short-description.png` in `results\sc
 | **M13 Data survives** | Via the app: change a setting, create a leftover backup of a disposable test app (Uninstaller), create a quarantine item. Upgrade, uninstall, reinstall. | Everything is still there after each; the leftover restore works. | Screenshots |
 | **M14 Legacy install** | On a machine that has a legacy `install.ps1` copy in `%LocalAppData%\AuraClean`: install the MSI. Then `scripts\Remove-LegacyInstall.ps1 -WhatIf`, then run it for real. | Finish page mentions the old copy; nothing deleted by the MSI; the script removes only the old EXE/shortcut; data untouched. | Finish page + folder listing |
 
-Note: M14 needs the legacy copy, so run it on its own snapshot **before** `Lifecycle` mode (which requires a machine with no AuraClean data).
+Note: M14 needs the legacy copy, so run it on its own snapshot **before** `Lifecycle` mode (which requires a machine with no AuraClean data). To create a synthetic legacy copy: make `%LocalAppData%\AuraClean\`, put any dummy file named `AuraClean.exe` in it, and create a desktop shortcut `AuraClean.lnk` pointing at it. Install the MSI (the finish page should mention the old copy), then run `scripts\Remove-LegacyInstall.ps1 -WhatIf` followed by `scripts\Remove-LegacyInstall.ps1` (shipped in the kit; the kit never runs it for you).
+
+**Recording results:** all 14 checks must appear exactly once in `results\manual-results.json` with `Status` exactly `PASS`, `FAIL` or `NOT TESTED`. A PASS needs a `Note` and a `Screenshot` (file name in `results\screenshots\`, several separated by `;`); a FAIL needs a `Note`. Anything missing, duplicated, misspelled or without evidence keeps the report INCOMPLETE.
 
 Record the exact Windows build (`winver` / `results\environment.json`) in every report. Windows 10 and Windows 11 results are separate.

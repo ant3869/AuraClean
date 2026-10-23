@@ -264,6 +264,11 @@ public static class ReleaseMetadataTests
         Check(kit.IndexOf("[ValidateSet('Prepare'", StringComparison.Ordinal) >= 0 && Regex.IsMatch(kit, @"\[string\]\$Mode = 'Prepare'|\$Mode = 'Prepare'"), "The default mode is the read-only Prepare");
         Check(File.Exists(Path.Combine(RepoRoot(), "acceptance", "manual-checklist.md")) && File.Exists(Path.Combine(RepoRoot(), "acceptance", "results-template.md")), "The manual checklist and the results template ship with the kit");
 
+        var kitTests = RunTool("pwsh", "-NoProfile", "-File", Path.Combine(RepoRoot(), "acceptance", "Test-AcceptanceKit.ps1"));
+        var km = Regex.Match(kitTests, @"RESULTS: (\d+) passed, (\d+) failed");
+        Check(km.Success && km.Groups[2].Value == "0" && int.Parse(km.Groups[1].Value) >= 55 && !kitTests.Contains("[exit"),
+            $"acceptance/Test-AcceptanceKit.ps1 passes (fail-closed checksums, stale/incomplete report verdicts, kit contents): {(km.Success ? km.Value : "no result line")}");
+
         var wf = Read(".github/workflows/msi-acceptance.yml");
         var wfCode = Regex.Replace(wf, @"(?m)^\s*#.*$", "");   // ignore comments
         Check(wfCode.Contains("runs-on: ${{ matrix.os }}") && wfCode.Contains("windows-2022") && wfCode.Contains("windows-2025") && !wfCode.Contains("self-hosted") && !wfCode.Contains("secrets."),
