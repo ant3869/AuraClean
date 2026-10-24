@@ -67,7 +67,7 @@ $cases = @(
 foreach ($case in $cases) {
     $sp = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-STA', '-File', $child, $case.Mode) -PassThru -WindowStyle Hidden
     try {
-        $r = Wait-AppWindow $sp 'pwsh.exe' 60
+        $r = Wait-AppWindow $sp 'pwsh' 60
         if ($case.Accept) { Check $r.Ok "$($case.Name)$(if (-not $r.Ok) { ': ' + ($r.Reasons -join ' | ') })" }
         else { Check (-not $r.Ok) "$($case.Name) ($($r.Reasons -join ' | '))" }
     }

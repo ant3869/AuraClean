@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 $script:Pass = 0; $script:Fail = 0
 function Check([bool]$ok, [string]$m) { if ($ok) { Write-Host "  PASS: $m" -ForegroundColor Green; $script:Pass++ } else { Write-Host "  FAIL: $m" -ForegroundColor Red; $script:Fail++ } }
 function W($class, $title = 'AuraClean', $visible = $true, $min = $false, $w = 1100, $h = 750) { [pscustomobject]@{ Class = $class; Title = $title; Visible = $visible; Minimized = $min; Width = $w; Height = $h } }
-function Accepts($windows, $hostName = 'AuraClean.exe') { [bool](Test-AppWindow $windows $hostName).Ok }
+function Accepts($windows, $hostName = 'AuraClean') { [bool](Test-AppWindow $windows $hostName).Ok }
 $real = W 'HwndWrapper[AuraClean.exe;;6f1b2c3d-1111-2222-3333-444455556666]'
 $errorBox = W '#32770' 'AuraClean' $true $false 420 180
 function Legacy-Accepts($windows) { @($windows | Where-Object { $_.Visible }).Count -gt 0 }   # original criterion: any visible window with a handle
@@ -30,8 +30,12 @@ Check (@((Test-AppWindow @($errorBox)).Reasons | Where-Object { $_ -match 'block
 Write-Host "`n== Genuine application window ==" -ForegroundColor Cyan
 Check (Accepts @($real)) 'A visible HwndWrapper[AuraClean.exe;...] window titled "AuraClean" of normal size is accepted'
 Check (Accepts @($real, (W 'HwndWrapper[AuraClean.exe;;aaaa]' '' $false $false 0 0))) 'Additional hidden helper windows do not matter'
-Check (-not (Accepts @((W 'HwndWrapper[pwsh.exe;;1]')))) 'A pwsh.exe window is not accepted as AuraClean (host name must match)'
-Check (Accepts @((W 'HwndWrapper[pwsh.exe;;1]')) 'pwsh.exe') 'The same window is accepted when the expected host is that stand-in (used by the live self-test)'
+Check (-not (Accepts @((W 'HwndWrapper[pwsh.exe;;1]')))) 'A pwsh window is not accepted as AuraClean (host name must match)'
+Check (Accepts @((W 'HwndWrapper[pwsh;Pipeline Execution Thread;1b83b354-384d-4c6f-96fe-8e61992d81d6]')) 'pwsh') 'A stand-in host whose class has no .exe (observed on windows-2025) is accepted when it is the expected host (live self-test)'
+Check (Accepts @((W 'HwndWrapper[AuraClean;;1]'))) 'The host name matches with or without ".exe" in the class'
+Check (Accepts @((W 'HwndWrapper[AuraClean.exe;;1]')) 'AuraClean.exe') 'An expected host name given with ".exe" also matches'
+Check (-not (Accepts $null)) 'No windows yet ($null from an empty enumeration) is a clean rejection, not an error'
+Check (-not (Accepts @($null))) 'A list containing only $null is a clean rejection, not an error'
 
 Write-Host "`n== Other states that are not a successful startup ==" -ForegroundColor Cyan
 Check (-not (Accepts @())) 'No windows at all'

@@ -58,11 +58,13 @@ function Get-AppWindows([int]$ProcessId) { @([AuraWin]::ForProcess($ProcessId)) 
 
 # Pure decision over window descriptors (objects with Class, Title, Visible, Minimized, Width, Height).
 # Returns @{ Ok; Reasons } - Ok only when a genuine application window is up and no system dialog is blocking it.
-function Test-AppWindow($Windows, [string]$HostName = 'AuraClean.exe', [string]$Title = 'AuraClean', [int]$MinWidth = 400, [int]$MinHeight = 300) {
+function Test-AppWindow($Windows, [string]$HostName = 'AuraClean', [string]$Title = 'AuraClean', [int]$MinWidth = 400, [int]$MinHeight = 300) {
     $reasons = New-Object System.Collections.Generic.List[string]
-    $all = @($Windows)
+    $all = @($Windows | Where-Object { $null -ne $_ })   # no windows yet arrives as $null; never treat that as one element
     $dialogs = @($all | Where-Object { $_.Visible -and $_.Class -ceq '#32770' })
-    $wpfPrefix = '^HwndWrapper\[' + [regex]::Escape($HostName) + ';'
+    # WPF names its window class after the host AppDomain: "HwndWrapper[AuraClean.exe;;guid]" for an app host, "HwndWrapper[pwsh;...]" for pwsh.
+    $HostName = $HostName -replace '\.exe$', ''
+    $wpfPrefix = '^HwndWrapper\[' + [regex]::Escape($HostName) + '(\.exe)?;'
     $main = @($all | Where-Object { $_.Visible -and -not $_.Minimized -and $_.Class -match $wpfPrefix -and $_.Title -ceq $Title -and $_.Width -ge $MinWidth -and $_.Height -ge $MinHeight })
     foreach ($d in $dialogs) { $reasons.Add("a blocking system dialog is showing (class #32770, title '$($d.Title)'): this is how a startup error appears") }
     if ($main.Count -eq 0) {
