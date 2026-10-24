@@ -40,7 +40,7 @@
 		{
 			"label": "Test App Launch",
 			"type": "shell",
-			"command": "$p = Start-Process -FilePath 'c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\bin\\Debug\\net8.0-windows\\win-x64\\AuraClean.exe' -PassThru; Start-Sleep -Seconds 8; $p.Refresh(); Write-Host \"Process alive: $(!$p.HasExited)\"; Write-Host \"MainWindowTitle: $($p.MainWindowTitle)\"; Write-Host \"MainWindowHandle: $($p.MainWindowHandle)\"; if(!$p.HasExited) { Write-Host 'App is running with window!'; $p.Kill() } else { Write-Host \"Exit code: $($p.ExitCode)\" }"
+			"command": "$p = Start-Process -FilePath 'c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\bin\\Debug\\net10.0-windows\\win-x64\\AuraClean.exe' -PassThru; Start-Sleep -Seconds 8; $p.Refresh(); Write-Host \"Process alive: $(!$p.HasExited)\"; Write-Host \"MainWindowTitle: $($p.MainWindowTitle)\"; Write-Host \"MainWindowHandle: $($p.MainWindowHandle)\"; if(!$p.HasExited) { Write-Host 'App is running with window!'; $p.Kill() } else { Write-Host \"Exit code: $($p.ExitCode)\" }"
 		},
 		{
 			"label": "Rebuild AuraClean",
@@ -54,7 +54,7 @@
 		{
 			"label": "Test App Launch v2",
 			"type": "shell",
-			"command": "$p = Start-Process -FilePath 'c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\bin\\Debug\\net8.0-windows\\win-x64\\AuraClean.exe' -PassThru; Start-Sleep -Seconds 6; $p.Refresh(); Write-Host \"Process alive: $(!$p.HasExited)\"; Write-Host \"MainWindowTitle: '$($p.MainWindowTitle)'\"; Write-Host \"MainWindowHandle: $($p.MainWindowHandle)\"; if(Test-Path C:\\Users\\SuperHands\\Desktop\\AuraClean_crash.log) { Write-Host '--- CRASH LOG ---'; Get-Content C:\\Users\\SuperHands\\Desktop\\AuraClean_crash.log } else { Write-Host 'No crash log found' }; if(!$p.HasExited) { $p.Kill() }"
+			"command": "$p = Start-Process -FilePath 'c:\\Users\\SuperHands\\Desktop\\cleaner\\AuraClean\\bin\\Debug\\net10.0-windows\\win-x64\\AuraClean.exe' -PassThru; Start-Sleep -Seconds 6; $p.Refresh(); Write-Host \"Process alive: $(!$p.HasExited)\"; Write-Host \"MainWindowTitle: '$($p.MainWindowTitle)'\"; Write-Host \"MainWindowHandle: $($p.MainWindowHandle)\"; if(Test-Path C:\\Users\\SuperHands\\Desktop\\AuraClean_crash.log) { Write-Host '--- CRASH LOG ---'; Get-Content C:\\Users\\SuperHands\\Desktop\\AuraClean_crash.log } else { Write-Host 'No crash log found' }; if(!$p.HasExited) { $p.Kill() }"
 		},
 		{
 			"label": "Final Build",

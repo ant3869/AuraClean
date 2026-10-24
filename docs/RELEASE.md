@@ -20,7 +20,7 @@ Draft notes live in `docs/release-notes/vX.Y.Z-rc.N.md`.
 
 ## Build it (reproducible steps)
 
-Prerequisites: 64-bit Windows 10/11, **.NET 8 SDK** (8.0.x), **PowerShell 7** (`pwsh`), network access for NuGet restore. Nothing else is installed machine-wide.
+Prerequisites: 64-bit Windows 10/11, **.NET 10 SDK** (10.0.x; the app targets `net10.0-windows`), **PowerShell 7** (`pwsh`), network access for NuGet restore. Nothing else is installed machine-wide.
 
 ```powershell
 git clone https://github.com/ant3869/AuraClean.git
@@ -124,6 +124,17 @@ Unrelated scheduled tasks and Explorer context-menu entries (other tools' `shell
 8. Silent install/uninstall (`/qn`) and `ADDLOCAL=ALL`.
 9. Record exactly what SmartScreen/UAC showed for the unsigned build and update the release notes.
 10. Windows 10 smoke test of the app itself (dashboard, cleaner scan, uninstaller list, shredder on synthetic files).
+
+## .NET 10 LTS migration and the next release candidate
+
+The application and tests target **`net10.0-windows`** (.NET 8 support ends 10 November 2026; .NET 10 is the LTS release). Publishing stays self-contained, single-file, win-x64, with native-library self-extract; the manifest (administrator elevation, per-monitor DPI) is unchanged. Compatibility finding: .NET 9+ WPF added `System.Windows.ThemeMode`, which collided with AuraClean's own `ThemeMode`; `ThemeService` now aliases its own enum. Packages (`MaterialDesignThemes`, `System.Data.SQLite.Core` with its native `SQLite.Interop.dll`, `TaskScheduler`, …) needed no change.
+
+**`1.6.0-rc.1` artifacts were built on .NET 8 and must never be replaced or relabelled by a .NET 10 build.** A .NET 10 binary is a different product (different runtime, different hash). Required for the first .NET 10 candidate (**not done; needs approval**):
+
+1. Set `VersionSuffix` to `rc.2` in `Directory.Build.props` (MSI `1.6.2`, so it upgrades rc.1; `AuraClean/app.manifest` carries `1.6.0.0` and needs no change), add a `CHANGELOG.md` entry `[1.6.0-rc.2]` and `docs/release-notes/v1.6.0-rc.2.md` (state the .NET 10 runtime and that rc.1 was .NET 8).
+2. Update the tests and kit that hard-code rc.1: `build/Build-AcceptancePackages.ps1` (rc.1/rc.2/final labels → rc.2/rc.3/final, MSI versions 1.6.2/1.6.3/1.6.99), `build/Test-MsiLifecycle.ps1` (expected versions and the `Comments` text), `acceptance/AcceptanceChecks.ps1` and `Start-Acceptance.ps1` (`ExpectedLabel`, MSI versions), `acceptance/manual-checklist.md`, `results-template.md`, `TestFeatures/ReleaseMetadataTests.cs` (`ExpectedLabel`-dependent checks) and `docs/` references to `1.6.0-rc.1` / `1.6.1`.
+3. Rebuild every artifact from the rc.2 commit, regenerate `SHA256SUMS.txt`, rerun both workflows and the client-Windows acceptance kit on the **rc.2** artifacts (rc.1 acceptance evidence does not carry over to a different runtime).
+4. Until then, anything built from this migration branch still says `1.6.0-rc.1`: do not distribute it.
 
 ## Client-Windows acceptance kit
 

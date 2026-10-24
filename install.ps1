@@ -5,7 +5,7 @@
     End users: use the MSI installer (see docs/INSTALL.md). This script builds from source and copies the EXE into
     %LocalAppData%\AuraClean, a user-writable folder that also holds your data. It refuses to run if an MSI install
     exists in Program Files (use -Force to override) and refuses to replace a running AuraClean.
-    Checks for .NET 8 SDK, builds a self-contained single-file EXE, creates a
+    Checks for .NET 10 SDK, builds a self-contained single-file EXE, creates a
     desktop shortcut, and optionally launches the app as Administrator.
 
 .DESCRIPTION
@@ -26,7 +26,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot   = $PSScriptRoot
 $Project    = Join-Path $RepoRoot 'AuraClean\AuraClean.csproj'
-$PublishDir = Join-Path $RepoRoot 'AuraClean\bin\Release\net8.0-windows\win-x64\publish'
+$PublishDir = Join-Path $RepoRoot 'AuraClean\bin\Release\net10.0-windows\win-x64\publish'
 $ExeName    = 'AuraClean.exe'
 $ExePath    = Join-Path $PublishDir $ExeName
 $InstallDir = Join-Path $env:LOCALAPPDATA 'AuraClean'
@@ -49,19 +49,19 @@ function Write-Fail  { param([string]$msg) Write-Host "    $msg" -ForegroundColo
 # --- 1. .NET SDK check ---
 
 function Ensure-DotnetSdk {
-    Write-Step 'Checking for .NET 8 SDK...'
+    Write-Step 'Checking for .NET 10 SDK...'
 
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     if ($dotnet) {
         $sdks = & dotnet --list-sdks 2>&1
-        $has8 = $sdks | Where-Object { $_ -match '^8\.' }
-        if ($has8) {
-            Write-Ok ".NET 8 SDK found: $($has8[0])"
+        $has10 = $sdks | Where-Object { $_ -match '^10\.' }
+        if ($has10) {
+            Write-Ok ".NET 10 SDK found: $($has10[0])"
             return
         }
     }
 
-    Write-Warn '.NET 8 SDK not found - installing automatically...'
+    Write-Warn '.NET 10 SDK not found - installing automatically...'
 
     $installerUrl = 'https://dot.net/v1/dotnet-install.ps1'
     $installerPath = Join-Path $env:TEMP 'dotnet-install.ps1'
@@ -70,8 +70,8 @@ function Ensure-DotnetSdk {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
 
-    Write-Step 'Installing .NET 8 SDK (user-local, no admin required)...'
-    & $installerPath -Channel 8.0 -InstallDir (Join-Path $env:LOCALAPPDATA 'dotnet')
+    Write-Step 'Installing .NET 10 SDK (user-local, no admin required)...'
+    & $installerPath -Channel 10.0 -InstallDir (Join-Path $env:LOCALAPPDATA 'dotnet')
 
     $dotnetDir = Join-Path $env:LOCALAPPDATA 'dotnet'
     if ($env:PATH -notlike "*$dotnetDir*") {
@@ -80,7 +80,7 @@ function Ensure-DotnetSdk {
 
     $ver = & dotnet --version 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail 'Failed to install .NET 8 SDK. Please install manually from https://dotnet.microsoft.com/download/dotnet/8.0'
+        Write-Fail 'Failed to install .NET 10 SDK. Please install manually from https://dotnet.microsoft.com/download/dotnet/10.0'
         exit 1
     }
     Write-Ok "Installed .NET SDK $ver"

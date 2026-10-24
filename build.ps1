@@ -35,7 +35,7 @@ if ($Release) {
 
     if ($LASTEXITCODE -ne 0) { Write-Host 'Build failed.' -ForegroundColor Red; exit 1 }
 
-    $exe = Join-Path $RepoRoot 'AuraClean\bin\Release\net8.0-windows\win-x64\publish\AuraClean.exe'
+    $exe = Join-Path $RepoRoot 'AuraClean\bin\Release\net10.0-windows\win-x64\publish\AuraClean.exe'
     $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
     Write-Host "    Published: $exe ($size MB)" -ForegroundColor Green
     exit 0
@@ -48,7 +48,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host 'Build failed.' -ForegroundColor Red; exit
 Write-Host '    Build succeeded.' -ForegroundColor Green
 
 if ($Run) {
-    $exe = Join-Path $RepoRoot 'AuraClean\bin\Debug\net8.0-windows\win-x64\AuraClean.exe'
+    $exe = Join-Path $RepoRoot 'AuraClean\bin\Debug\net10.0-windows\win-x64\AuraClean.exe'
     Write-Host "[*] Launching $exe as Administrator..." -ForegroundColor Cyan
     Start-Process $exe -Verb RunAs
 }
