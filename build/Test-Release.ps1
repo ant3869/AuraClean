@@ -234,6 +234,14 @@ try {
     }
 } finally { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 
+Section 'Release label safety (released artifacts are never relabelled or replaced)'
+$retired = @((Get-Content (Join-Path $PSScriptRoot 'historical-artifacts.json') -Raw | ConvertFrom-Json).releases)
+Check (@($retired | Where-Object { $_.label -ceq $label }).Count -eq 0) "The label $label is not a retired label (retired: $(($retired | ForEach-Object { $_.label }) -join ', '))"
+$retiredHashes = @($retired | ForEach-Object { $_.files } | ForEach-Object { $_.sha256 })
+$ourHashes = @($msiPath, $portablePath | ForEach-Object { (Get-FileHash $_ -Algorithm SHA256).Hash.ToLowerInvariant() })
+Check (@($ourHashes | Where-Object { $retiredHashes -contains $_ }).Count -eq 0) 'None of these artifacts is byte-identical to a retired (released) artifact'
+foreach ($r in $retired) { Check (Test-Path (Join-Path $RepoRoot "docs/release-notes/v$($r.label).md")) "Historical release notes for $($r.label) are preserved" }
+
 Section 'Documentation'
 $notes = Join-Path $RepoRoot "docs/release-notes/v$label.md"
 Check ((Test-Path $notes) -and ((Get-Content $notes -Raw) -match [regex]::Escape($label))) "Draft release notes exist and mention $label"

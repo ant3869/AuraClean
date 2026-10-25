@@ -1,0 +1,19 @@
+{
+  "_comment": "Released/verified artifacts that must never be rebuilt, relabelled or replaced. Their labels are RETIRED: no new build may use them. The upgrade tests use these exact files (pinned by SHA-256), never a rebuilt copy.",
+  "releases": [
+    {
+      "label": "1.6.0-rc.1",
+      "runtime": ".NET 8 (net8.0-windows)",
+      "msiProductVersion": "1.6.1",
+      "arpComments": "AuraClean 1.6.0-rc.1",
+      "builtFromCommit": "5c9dd5fda0779c1644e0141c5822e7835ed820e1",
+      "workflowRun": 39825493850,
+      "workflowArtifact": "AuraClean-release-artifacts",
+      "retentionNote": "GitHub workflow artifacts expire (this one on 2026-11-21): preserve these files durably before then.",
+      "files": [
+        { "name": "AuraClean-1.6.0-rc.1-win-x64.msi", "sha256": "b30513dbc8304400c0604c027409f3dc399ddd88e2dcb09dba2c048de32c795c" },
+        { "name": "AuraClean-1.6.0-rc.1-win-x64-portable.exe", "sha256": "8cf90f762b1b057d67c1f612aa81d0af158abd7aba934ae313de452476bda814" }
+      ]
+    }
+  ]
+}

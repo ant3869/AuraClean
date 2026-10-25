@@ -51,11 +51,13 @@ function Invoke-Checked([string]$what, [scriptblock]$cmd) {
 }
 
 # ── version (single source: Directory.Build.props) ────────────────────────────────────────────────
-$props = (& dotnet msbuild $AppProject -nologo -getProperty:VersionPrefix -getProperty:VersionSuffix | ConvertFrom-Json).Properties
+$props = (& dotnet msbuild $AppProject -nologo -getProperty:VersionPrefix -getProperty:VersionSuffix -getProperty:MsiProductVersion | ConvertFrom-Json).Properties
 $prefix = $props.VersionPrefix
 $suffix = $props.VersionSuffix
+$msiVersion = $props.MsiProductVersion
 $label  = if ($suffix) { "$prefix-$suffix" } else { $prefix }
-Write-Host "AuraClean release version: $label (MSI ProductVersion $prefix)" -ForegroundColor Green
+Assert-LabelNotRetired -Label $label   # never reuse the label of released (e.g. .NET 8) artifacts
+Write-Host "AuraClean release version: $label (MSI ProductVersion $msiVersion)" -ForegroundColor Green
 
 # ── 1. publish ────────────────────────────────────────────────────────────────────────────────────
 Write-Step 'Publishing self-contained single-file win-x64 build'

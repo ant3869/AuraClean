@@ -10,7 +10,7 @@
   -->
   <PropertyGroup>
     <VersionPrefix>1.6.0</VersionPrefix>
-    <VersionSuffix>rc.1</VersionSuffix>
+    <VersionSuffix>rc.2</VersionSuffix>
     <Authors>AuraClean</Authors>
     <Company>AuraClean</Company>
     <Product>AuraClean</Product>

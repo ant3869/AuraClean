@@ -77,6 +77,16 @@ try {
     Check ($build -notmatch "Filter\s+'\*\.msi'[^\r\n]*Select-Object\s+-First\s+1") 'It no longer selects the first *.msi in the folder'
     $clear = $build.IndexOf('Clear-StaleInstallerOutput -BuildOutputDir'); $stamp = $build.IndexOf('$buildStartedUtc ='); $run = $build.IndexOf('dotnet build $WixProject'); $pick = $build.IndexOf('Get-ExpectedMsi -BuildOutputDir')
     Check ($clear -ge 0 -and $clear -lt $stamp -and $stamp -lt $run -and $run -lt $pick) 'Order is: clear, record start time, build, select (the start time precedes the build)'
+
+    Write-Host "`n== A released label can never be rebuilt under a different runtime ==" -ForegroundColor Cyan
+    $json = Join-Path $PSScriptRoot 'historical-artifacts.json'
+    $hist = @(Get-RetiredReleases $json)
+    Check ($hist.Count -ge 1 -and @($hist | Where-Object { $_.label -ceq '1.6.0-rc.1' -and $_.runtime -match '\.NET 8' -and $_.msiProductVersion -eq '1.6.1' }).Count -eq 1) 'The original 1.6.0-rc.1 (.NET 8, MSI 1.6.1) is recorded as a retired release'
+    Check (@($hist | ForEach-Object { $_.files } | Where-Object { $_.sha256 -notmatch '^[0-9a-f]{64}$' -or -not $_.name }).Count -eq 0) 'Every historical artifact is pinned by a SHA-256'
+    Check (Throws { Assert-LabelNotRetired -Label '1.6.0-rc.1' -HistoricalJson $json }) 'Building under the retired label 1.6.0-rc.1 is refused (a .NET 10 build must not be distributed as the .NET 8 RC1)'
+    Check (-not (Throws { Assert-LabelNotRetired -Label '1.6.0-rc.2' -HistoricalJson $json })) 'A new label (1.6.0-rc.2) is allowed'
+    Check (-not (Throws { Assert-LabelNotRetired -Label '1.6.0-rc.10' -HistoricalJson $json })) 'The check is an exact match (1.6.0-rc.10 is not the retired 1.6.0-rc.1)'
+    Check ($build -match 'Assert-LabelNotRetired\s+-Label\s+\$label') 'Build-Release.ps1 applies the guard to the label it is about to build'
 }
 finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
 

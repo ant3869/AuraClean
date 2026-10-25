@@ -44,3 +44,20 @@ function Clear-StaleInstallerOutput {
             Remove-Item -Force
     }
 }
+
+function Get-RetiredReleases {
+    [CmdletBinding()]
+    param([string]$HistoricalJson = (Join-Path $PSScriptRoot 'historical-artifacts.json'))
+    @((Get-Content -LiteralPath $HistoricalJson -Raw | ConvertFrom-Json).releases)
+}
+
+# A label that already names released/verified artifacts (e.g. the .NET 8 build of 1.6.0-rc.1) can never be used by a new build:
+# a different runtime is a different product and needs a new version label.
+function Assert-LabelNotRetired {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Label, [string]$HistoricalJson = (Join-Path $PSScriptRoot 'historical-artifacts.json'))
+    $hit = @(Get-RetiredReleases $HistoricalJson | Where-Object { $_.label -ceq $Label })
+    if ($hit.Count) {
+        throw "REFUSING TO BUILD: the label '$Label' belongs to already-released artifacts built on $($hit[0].runtime) (see build/historical-artifacts.json). Bump VersionSuffix/VersionPrefix in Directory.Build.props: a build with a different runtime must not be distributed under that label."
+    }
+}
