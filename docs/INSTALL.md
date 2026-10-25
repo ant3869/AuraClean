@@ -1,14 +1,14 @@
 # Installing, upgrading and uninstalling AuraClean
 
-This guide covers the **MSI installer** and the **portable EXE** of release candidate `1.6.0-rc.1`.
+This guide covers the **MSI installer** and the **portable EXE** of release candidate `1.6.0-rc.2`.
 
 ## Requirements
 
 | | |
 |---|---|
-| OS | 64-bit **Windows 10 or Windows 11** are the supported systems. The installer's launch condition only requires 64-bit Windows (Windows Installer reports a capped OS version, so it cannot reliably tell Windows 10 from 8.1), so it will also run on some older 64-bit Windows versions; **those are unsupported and untested**. The MSI lifecycle has been tested with real `msiexec` only on Windows Server 2022 and 2025 (GitHub-hosted runners); Windows 10 and 11 client installs are still to be verified (see "RC1 release gates" in [RELEASE.md](RELEASE.md)). |
+| OS | 64-bit **Windows 10 or Windows 11** are the supported systems. The installer's launch condition only requires 64-bit Windows (Windows Installer reports a capped OS version, so it cannot reliably tell Windows 10 from 8.1), so it will also run on some older 64-bit Windows versions; **those are unsupported and untested**. The MSI lifecycle has been tested with real `msiexec` only on Windows Server 2022 and 2025 (GitHub-hosted runners); Windows 10 and 11 client installs are still to be verified (see "Release gates" in [RELEASE.md](RELEASE.md)). |
 | Privileges | **Administrator.** The MSI installs per-machine (UAC prompt), and AuraClean itself always starts elevated by design (registry scanning, restore points, system cleanup). |
-| Runtime | None to install. The build is self-contained: the .NET runtime is bundled (`1.6.0-rc.1` bundles .NET 8; builds from the .NET 10 migration onward bundle .NET 10 LTS, see [RELEASE.md](RELEASE.md)). |
+| Runtime | None to install. The build is self-contained: the .NET runtime is bundled (`1.6.0-rc.1` bundled .NET 8; `1.6.0-rc.2` and later bundle .NET 10 LTS, see [RELEASE.md](RELEASE.md)). |
 | Disk | About 75 MB for the program. |
 
 ## Verify what you downloaded
@@ -16,14 +16,14 @@ This guide covers the **MSI installer** and the **portable EXE** of release cand
 Each release lists `SHA256SUMS.txt`. In PowerShell:
 
 ```powershell
-Get-FileHash .\AuraClean-1.6.0-rc.1-win-x64.msi -Algorithm SHA256   # compare with SHA256SUMS.txt
+Get-FileHash .\AuraClean-1.6.0-rc.2-win-x64.msi -Algorithm SHA256   # compare with SHA256SUMS.txt
 ```
 
 > Release candidates are **not code-signed**. A matching checksum proves the file is the one that was published; it does not make the publisher "verified" to Windows.
 
 ## Install (MSI)
 
-1. Double-click `AuraClean-1.6.0-rc.1-win-x64.msi`.
+1. Double-click `AuraClean-1.6.0-rc.2-win-x64.msi`.
 2. Accept the UAC prompt. Because the file is unsigned it will say **Unknown publisher**; this is expected for test builds. SmartScreen may first show "Windows protected your PC" for a downloaded file: choose *More info → Run anyway* only if the checksum matched.
 3. Choose features: AuraClean (required) and, optionally, a **Desktop shortcut** (off by default).
 4. Finish. Start AuraClean from the Start Menu. Launching shows a UAC prompt every time (that is the app's administrator requirement, not an installer problem).
@@ -31,9 +31,9 @@ Get-FileHash .\AuraClean-1.6.0-rc.1-win-x64.msi -Algorithm SHA256   # compare wi
 Silent install (for managed deployment):
 
 ```powershell
-msiexec /i AuraClean-1.6.0-rc.1-win-x64.msi /qn                    # Start Menu shortcut only
-msiexec /i AuraClean-1.6.0-rc.1-win-x64.msi /qn ADDLOCAL=ALL       # plus desktop shortcut
-msiexec /i AuraClean-1.6.0-rc.1-win-x64.msi /qn /l*v install.log    # with a verbose log
+msiexec /i AuraClean-1.6.0-rc.2-win-x64.msi /qn                    # Start Menu shortcut only
+msiexec /i AuraClean-1.6.0-rc.2-win-x64.msi /qn ADDLOCAL=ALL       # plus desktop shortcut
+msiexec /i AuraClean-1.6.0-rc.2-win-x64.msi /qn /l*v install.log    # with a verbose log
 ```
 
 ### What goes where
@@ -55,11 +55,12 @@ Run the newer MSI. It replaces the installed version in place and keeps everythi
 - Installing an **older** version over a newer one (`rc.1` over `rc.2`, or any candidate over the final release) is refused with a message. So is installing a rebuilt package of the *same* version: uninstall first, or publish the fix as the next candidate.
 - Re-running the installed version's own MSI (`msiexec /fa <msi>`) is a **repair**, not an upgrade.
 - An upgrade keeps your scheduled cleanup, launch-at-sign-in task and Explorer context menu exactly as they were.
+- `1.6.0-rc.1` (built on .NET 8) upgrades in place to `1.6.0-rc.2` (built on .NET 10): the installer replaces the program, and your settings, backups, journals and quarantine are untouched. This path is exercised by the automated lifecycle test with the original, hash-pinned rc.1 installer.
 - **Close AuraClean first.** The installer never closes it for you (it might be in the middle of a cleanup). If it is still running, Windows shows the standard "files in use" prompt; for silent installs the replacement is completed after a reboot instead.
 
 ## Uninstall
 
-*Settings → Apps → Installed apps → AuraClean → Uninstall* (or `msiexec /x AuraClean-1.6.0-rc.1-win-x64.msi`).
+*Settings → Apps → Installed apps → AuraClean → Uninstall* (or `msiexec /x AuraClean-1.6.0-rc.2-win-x64.msi`).
 
 This removes the program, shortcuts and install metadata. It also removes the integrations AuraClean's Settings may have created, so nothing is left pointing at a deleted program:
 
@@ -91,7 +92,7 @@ Recommended migration (your data needs no migration because both use the same da
 
 ## Portable EXE
 
-`AuraClean-1.6.0-rc.1-win-x64-portable.exe` is the same self-contained program as inside the MSI, as a single file. It is meant for trying AuraClean or running it from a USB stick.
+`AuraClean-1.6.0-rc.2-win-x64-portable.exe` is the same self-contained program as inside the MSI, as a single file. It is meant for trying AuraClean or running it from a USB stick.
 
 - No install, no shortcuts, no Installed apps entry, no upgrade path. Delete the file to remove it.
 - It still requires administrator rights (UAC prompt) and stores data in the **same** `%LocalAppData%\AuraClean` folder, so settings are shared with an installed copy.

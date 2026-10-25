@@ -78,7 +78,7 @@ Read-only; installs nothing and touches no real application data:
 
 ## Manual release checks (what automation cannot prove)
 
-Do these on a **clean, disposable Windows 10 and Windows 11 VM or Windows Sandbox** (take a snapshot first; **never on a machine with data you care about**) before publishing. The scripted part below (steps A–H) is automated on disposable Windows Server runners by `.github/workflows/msi-acceptance.yml` (`build/Test-MsiLifecycle.ps1`); repeat it by hand on the client VMs to confirm the same results on Windows 10/11. Commands assume an elevated PowerShell in the folder holding the MSIs; `$rc1`, `$rc2` and `$final` are the MSI paths of `1.6.0-rc.1`, `1.6.0-rc.2` and `1.6.0`.
+Do these on a **clean, disposable Windows 10 and Windows 11 VM or Windows Sandbox** (take a snapshot first; **never on a machine with data you care about**) before publishing. The scripted part below (steps A–H) is automated on disposable Windows Server runners by `.github/workflows/msi-acceptance.yml` (`build/Test-MsiLifecycle.ps1`); repeat it by hand on the client VMs to confirm the same results on Windows 10/11. Commands assume an elevated PowerShell in the folder holding the MSIs; `$rc1` is the ORIGINAL released rc.1 (.NET 8, MSI 1.6.1; verify its SHA-256 against `build/historical-artifacts.json`), `$rc2` the rc.2 candidate (.NET 10, MSI 1.6.2) and `$final` a disposable 1.6.99 package from `build/Build-AcceptancePackages.ps1`.
 
 **Integration + upgrade + downgrade script (every `msiexec` exit code is recorded; expected values in parentheses):**
 
@@ -125,24 +125,24 @@ Unrelated scheduled tasks and Explorer context-menu entries (other tools' `shell
 9. Record exactly what SmartScreen/UAC showed for the unsigned build and update the release notes.
 10. Windows 10 smoke test of the app itself (dashboard, cleaner scan, uninstaller list, shredder on synthetic files).
 
-## .NET 10 LTS migration and the next release candidate
+## .NET 10 LTS and release labels (rc.1 = .NET 8, rc.2 = .NET 10)
 
-The application and tests target **`net10.0-windows`** (.NET 8 support ends 10 November 2026; .NET 10 is the LTS release). Publishing stays self-contained, single-file, win-x64, with native-library self-extract; the manifest (administrator elevation, per-monitor DPI) is unchanged. Compatibility finding: .NET 9+ WPF added `System.Windows.ThemeMode`, which collided with AuraClean's own `ThemeMode`; `ThemeService` now aliases its own enum. Packages (`MaterialDesignThemes`, `System.Data.SQLite.Core` with its native `SQLite.Interop.dll`, `TaskScheduler`, …) needed no change.
+The application and tests target **`net10.0-windows`** (.NET 8 support ends 10 November 2026; .NET 10 is the LTS release). Publishing stays self-contained, single-file, win-x64, with native-library self-extract; the manifest (administrator elevation, per-monitor DPI) is unchanged. Compatibility finding: .NET 9+ WPF added `System.Windows.ThemeMode`, which collided with AuraClean's own `ThemeMode`; `ThemeService` aliases its own enum. Packages (`MaterialDesignThemes`, `System.Data.SQLite.Core` with its native `SQLite.Interop.dll`, `TaskScheduler`, …) needed no change.
 
-**`1.6.0-rc.1` artifacts were built on .NET 8 and must never be replaced or relabelled by a .NET 10 build.** A .NET 10 binary is a different product (different runtime, different hash). Required for the first .NET 10 candidate (**not done; needs approval**):
+**The current candidate is `1.6.0-rc.2` (MSI `1.6.2`, .NET 10).** The original **`1.6.0-rc.1` (MSI `1.6.1`) was built on .NET 8 and its label is retired**: those artifacts are never rebuilt, relabelled or replaced. They are recorded in [`build/historical-artifacts.json`](../build/historical-artifacts.json) (commit, workflow run, SHA-256 of the MSI and portable EXE, runtime) and the original release notes stay as `docs/release-notes/v1.6.0-rc.1.md`.
 
-1. Set `VersionSuffix` to `rc.2` in `Directory.Build.props` (MSI `1.6.2`, so it upgrades rc.1; `AuraClean/app.manifest` carries `1.6.0.0` and needs no change), add a `CHANGELOG.md` entry `[1.6.0-rc.2]` and `docs/release-notes/v1.6.0-rc.2.md` (state the .NET 10 runtime and that rc.1 was .NET 8).
-2. Update the tests and kit that hard-code rc.1: `build/Build-AcceptancePackages.ps1` (rc.1/rc.2/final labels → rc.2/rc.3/final, MSI versions 1.6.2/1.6.3/1.6.99), `build/Test-MsiLifecycle.ps1` (expected versions and the `Comments` text), `acceptance/AcceptanceChecks.ps1` and `Start-Acceptance.ps1` (`ExpectedLabel`, MSI versions), `acceptance/manual-checklist.md`, `results-template.md`, `TestFeatures/ReleaseMetadataTests.cs` (`ExpectedLabel`-dependent checks) and `docs/` references to `1.6.0-rc.1` / `1.6.1`.
-3. Rebuild every artifact from the rc.2 commit, regenerate `SHA256SUMS.txt`, rerun both workflows and the client-Windows acceptance kit on the **rc.2** artifacts (rc.1 acceptance evidence does not carry over to a different runtime).
-4. Until then, anything built from this migration branch still says `1.6.0-rc.1`: do not distribute it.
+- **Guards:** `build/Build-Release.ps1` refuses to build under a retired label; `build/Test-Release.ps1` fails if the label is retired or if any artifact is byte-identical to a retired one; `build/Test-BuildScripts.ps1` and the acceptance-kit tests cover both.
+- **Cross-runtime upgrade evidence:** the lifecycle test installs the **original** rc.1 (verified against its pinned hash, MSI version and label before anything is installed), then upgrades it in place to the rc.2 candidate and checks the version, label, replaced EXE, preserved data and integrations; it also repairs rc.2, refuses a downgrade to rc.1 (1603) and installs rc.2 fresh. The disposable `final` / `final-rebuild` (1.6.99) packages exist only to test the future-upgrade, downgrade and duplicate rules. The acceptance scripts refuse any package whose version, label or hash is not what they expect.
+- **Where the original rc.1 comes from:** the `msi-acceptance` workflow downloads it from the workflow run that built it (`actions: read`) and verifies the pins; the acceptance kit's `Pack` mode ships it in `historical\`. GitHub workflow artifacts **expire** (the recorded run's on 2026-11-21): copy the two original files to durable storage before then (owner decision: where), otherwise the CI cross-runtime check fails with an explicit "NOT TESTED" error rather than being skipped.
+- **For the next candidate (rc.3 / final):** update `VersionSuffix`/`VersionPrefix`, the `CHANGELOG.md` and `docs/release-notes/v<label>.md`, the expected candidate constants (`$ExpectedRc2Version`/`$ExpectedRc2Label` in `build/Test-MsiLifecycle.ps1`, `$ExpectedMsiVersions`/`$ExpectedRc2Version` in `acceptance/Start-Acceptance.ps1`, `ExpectedLabel` in `acceptance/AcceptanceChecks.ps1`), the checklist/template version text, add the just-superseded release to `build/historical-artifacts.json` when it is published, and rerun both workflows and client acceptance on the new artifacts. Evidence from one runtime or label does not carry over to another.
 
 ## Client-Windows acceptance kit
 
 [`acceptance/`](../acceptance/README.md) packages the lifecycle test plus a read-only preparation mode, a typed disposable-machine confirmation, a manual checklist (UAC, SmartScreen, wizard, Settings-created integrations, files in use, legacy install), a results template and a report generator, for running gates 1–8 on a separate Windows 11 / Windows 10 machine. It never runs destructive steps without the confirmation and never on a machine that already has AuraClean data.
 
-## RC1 release gates
+## Release gates (candidate 1.6.0-rc.2)
 
-State as of the `1.6.0-rc.1` candidate. Merging packaging code is **not** approval to publish.
+State as of the `1.6.0-rc.2` candidate (.NET 10). Merging packaging code is **not** approval to publish.
 
 **Done (automated, disposable GitHub-hosted runners):** real `msiexec` install, repair, rc.1 → rc.2 → final upgrade, downgrade and same-version-rebuild refusal (exit 1603), genuine uninstall, silent mode, optional desktop shortcut via `ADDLOCAL=ALL`, preservation of `%LocalAppData%\AuraClean` data, uninstall-only removal of the AuraClean scheduled tasks and context-menu keys (unrelated ones untouched), portable-copy interaction. 96/96 checks on Windows Server 2022 and on Windows Server 2025 (workflow *MSI acceptance*; the first run found and fixed a launch-condition defect that rejected every machine).
 
