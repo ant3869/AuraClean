@@ -9,13 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
----
-
-## [Unreleased]
+## [1.6.0-rc.2] - 2026-10-24 (release candidate)
 
 ### Changed
 
-- **Migrated from .NET 8 to .NET 10 LTS** (`net10.0-windows`; .NET 8 support ends 2026-11-10). Self-contained single-file win-x64 publishing, the manifest (administrator elevation, per-monitor DPI), SQLite native loading and all dependencies are unchanged; one source fix (`ThemeMode` name clash with `System.Windows.ThemeMode`). CI and tooling use the .NET 10 SDK. The released `1.6.0-rc.1` artifacts are .NET 8 builds and are not replaced; the first .NET 10 candidate must be `1.6.0-rc.2` (see `docs/RELEASE.md`).
+- **Built on .NET 10 LTS** (`net10.0-windows`; .NET 8 support ends 2026-11-10). Self-contained single-file win-x64 publishing, the manifest (administrator elevation, per-monitor DPI), SQLite native loading and all dependencies are unchanged; one source fix (`ThemeMode` name clash with `System.Windows.ThemeMode`). CI and tooling use the .NET 10 SDK.
+- **Version `1.6.0-rc.2`** (MSI `1.6.2`): upgrades the original `1.6.0-rc.1` (which was built on .NET 8 and is **not** replaced or relabelled) in place; downgrades and duplicate rebuilds stay refused.
+
+### Added
+
+- Release-label guard: `build/historical-artifacts.json` pins the original rc.1 artifacts by SHA-256; builds under a retired label are refused and artifacts identical to a retired one are rejected.
+- Real cross-runtime upgrade coverage: the lifecycle test installs the original, hash-verified rc.1 (.NET 8) and upgrades it to rc.2 (.NET 10), with repair, downgrade refusal and fresh-install checks; the acceptance scripts refuse wrong-version or mismatched packages.
+- Published-EXE GUI smoke test on the hosted runners (genuine window, no startup-error dialog, bundled runtime, clean exit) and an acceptance kit that ships the original rc.1 for the same upgrade check.
 
 ## [1.6.0-rc.1] - 2026-10-21 (release candidate)
 

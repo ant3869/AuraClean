@@ -45,6 +45,18 @@ function New-Artifacts([string]$name) {
     $d
 }
 function Test-Rejected([string]$dir) { @(Test-ChecksumManifest $dir | Where-Object { -not $_.Ok }).Count -gt 0 }
+function Throws([scriptblock]$code) { try { & $code | Out-Null; $false } catch { $true } }
+# Synthetic stand-in for the original rc.1 files plus a historical record pinning their hashes (same shape as build/historical-artifacts.json).
+function New-Historical([string]$name) {
+    $d = Join-Path $root $name; New-Item -ItemType Directory -Path $d | Out-Null
+    $files = foreach ($n in 'AuraClean-1.6.0-rc.1-win-x64.msi', 'AuraClean-1.6.0-rc.1-win-x64-portable.exe') {
+        Set-Content -LiteralPath (Join-Path $d $n) "original .NET 8 content of $n"
+        [ordered]@{ name = $n; sha256 = (Get-FileHash (Join-Path $d $n) -Algorithm SHA256).Hash.ToLowerInvariant() }
+    }
+    $json = Join-Path $root "$name.json"
+    ([ordered]@{ releases = @([ordered]@{ label = '1.6.0-rc.1'; runtime = '.NET 8 (net8.0-windows)'; files = @($files) }) } | ConvertTo-Json -Depth 6) | Out-File $json -Encoding utf8
+    @{ Dir = $d; Json = $json }
+}
 
 Section 'Checksum manifest fails closed'
 $d = New-Artifacts 'valid'
@@ -88,6 +100,25 @@ Check (Test-Rejected $d) 'Listed artifact missing from disk: rejected'
 
 $d = New-Artifacts 'nomanifest'; [IO.File]::Delete((Join-Path $d 'SHA256SUMS.txt'))
 Check (Test-Rejected $d) 'No SHA256SUMS.txt: rejected'
+
+Write-Host "`n== Original rc.1 (.NET 8) is verified by pin, never substituted ==" -ForegroundColor Cyan
+$h = New-Historical 'hist-ok'
+Check (@(Test-HistoricalArtifacts $h.Dir $h.Json | Where-Object { -not $_.Ok }).Count -eq 0 -and @(Test-HistoricalArtifacts $h.Dir $h.Json).Count -eq 2) 'The original rc.1 MSI and portable EXE matching their pins are accepted'
+$h = New-Historical 'hist-rebuilt'; Add-Content (Join-Path $h.Dir 'AuraClean-1.6.0-rc.1-win-x64.msi') 'rebuilt on .NET 10 but labelled rc.1'
+Check (@(Test-HistoricalArtifacts $h.Dir $h.Json | Where-Object { -not $_.Ok }).Count -ge 1) 'INJECTION: an rc.1-named MSI whose bytes differ from the pin (e.g. a .NET 10 rebuild) is rejected'
+$h = New-Historical 'hist-missing'; [IO.File]::Delete((Join-Path $h.Dir 'AuraClean-1.6.0-rc.1-win-x64-portable.exe'))
+Check (@(Test-HistoricalArtifacts $h.Dir $h.Json | Where-Object { -not $_.Ok -and $_.Detail -match 'missing' }).Count -eq 1) 'A missing original file is rejected (the upgrade test cannot silently run without it)'
+$h = New-Historical 'hist-empty'; Get-ChildItem $h.Dir -File | ForEach-Object { [IO.File]::Delete($_.FullName) }
+Check (@(Test-HistoricalArtifacts $h.Dir $h.Json | Where-Object { -not $_.Ok }).Count -eq 2) 'An empty historical folder fails both files'
+Check (@(Test-HistoricalArtifacts (New-Historical 'hist-label').Dir (New-Historical 'hist-label2').Json '1.6.0-rc.9' | Where-Object { -not $_.Ok }).Count -ge 1) 'A label that is not recorded is rejected'
+Check (@(Test-HistoricalArtifacts $root (Join-Path $root 'nope.json') | Where-Object { -not $_.Ok }).Count -ge 1) 'A missing historical record is rejected'
+$real = Join-Path $RepoRoot 'build\historical-artifacts.json'
+if (Test-Path $real) {
+    $rec = @((Get-Content $real -Raw | ConvertFrom-Json).releases | Where-Object { $_.label -ceq '1.6.0-rc.1' })
+    Check ($rec.Count -eq 1 -and $rec[0].runtime -match '\.NET 8' -and @($rec[0].files | Where-Object { $_.sha256 -match '^[0-9a-f]{64}$' }).Count -eq 2) 'The repository pins the original rc.1 (.NET 8) MSI and portable EXE by SHA-256'
+    Check (@(Test-HistoricalArtifacts (New-Historical 'hist-vs-real').Dir $real | Where-Object { -not $_.Ok }).Count -eq 2) 'Synthetic files never satisfy the real pinned hashes'
+    Check ($script:ExpectedLabel -cne '1.6.0-rc.1' -and @((Get-Content $real -Raw | ConvertFrom-Json).releases | Where-Object { $_.label -ceq $script:ExpectedLabel }).Count -eq 0) "The acceptance target ($($script:ExpectedLabel)) is not a retired label"
+}
 
 # ── report verdict ───────────────────────────────────────────────────────────────────────────────
 function New-Run([scriptblock]$Mutate) {
@@ -165,9 +196,14 @@ if (-not (Test-Path (Join-Path $RepoRoot 'build\Test-MsiLifecycle.ps1'))) {
 }
 else {
     $art = New-Artifacts 'stage-art'; $pk = Join-Path $root 'stage-pkg'; New-Item -ItemType Directory -Path "$pk\portable" -Force | Out-Null
-    foreach ($f in 'rc1.msi', 'rc2.msi', 'final.msi', 'final-rebuild.msi', 'portable\AuraClean.exe') { Set-Content (Join-Path $pk $f) 'x' }
+    foreach ($f in 'rc2.msi', 'final.msi', 'final-rebuild.msi', 'portable\AuraClean.exe') { Set-Content (Join-Path $pk $f) 'x' }
+    $hd = New-Historical 'stage-hist'
     $stage = Join-Path $root 'stage-out'; New-Item -ItemType Directory -Path $stage | Out-Null
-    New-KitStage -RepoRoot $RepoRoot -ArtifactDir $art -PackageDir $pk -StageDir $stage
+    New-KitStage -RepoRoot $RepoRoot -ArtifactDir $art -PackageDir $pk -StageDir $stage -HistoricalDir $hd.Dir -HistoricalJsonPath $hd.Json
+    Check ((Test-Path (Join-Path $stage 'historical\AuraClean-1.6.0-rc.1-win-x64.msi')) -and (Test-Path (Join-Path $stage 'historical\AuraClean-1.6.0-rc.1-win-x64-portable.exe'))) 'The packed kit contains the original rc.1 (.NET 8) MSI and portable EXE, verified against their pins'
+    $bad = New-Historical 'stage-hist-bad'; Add-Content (Join-Path $bad.Dir 'AuraClean-1.6.0-rc.1-win-x64.msi') 'rebuilt with .NET 10'
+    $s2 = Join-Path $root 'stage-out2'; New-Item -ItemType Directory -Path $s2 | Out-Null
+    Check (Throws { New-KitStage -RepoRoot $RepoRoot -ArtifactDir $art -PackageDir $pk -StageDir $s2 -HistoricalDir $bad.Dir -HistoricalJsonPath $bad.Json }) 'Packing refuses a substituted/rebuilt rc.1 (hash differs from the pin)'
     foreach ($f in $script:KitFiles) { Check (Test-Path (Join-Path $stage $f.Dest)) "Packed kit contains $($f.Dest)" }
     Check (Test-Path (Join-Path $stage 'scripts\Remove-LegacyInstall.ps1')) 'The legacy cleanup script used by check M14 ships in the kit (scripts\Remove-LegacyInstall.ps1)'
     Check (@(@($names) + 'SHA256SUMS.txt' | Where-Object { -not (Test-Path (Join-Path $stage "artifacts\$_")) }).Count -eq 0 -and (Test-Path (Join-Path $stage 'packages\rc2.msi'))) 'The packed kit contains the artifacts, checksum file and test packages'

@@ -4,7 +4,7 @@
     Nothing here installs, deletes or changes machine state.
 #>
 
-$script:ExpectedLabel = '1.6.0-rc.1'
+$script:ExpectedLabel = '1.6.0-rc.2'   # the candidate under acceptance; the original 1.6.0-rc.1 (.NET 8) is historical (build/historical-artifacts.json)
 $script:ManualIds = 'M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10', 'M11', 'M12', 'M13', 'M14'
 $script:ManualStatuses = 'PASS', 'FAIL', 'NOT TESTED'
 
@@ -18,6 +18,7 @@ $script:KitFiles = @(
     @{ Source = 'acceptance/manual-checklist.md'; Dest = 'manual-checklist.md' }
     @{ Source = 'acceptance/results-template.md'; Dest = 'results-template.md' }
     @{ Source = 'build/Test-MsiLifecycle.ps1'; Dest = 'Test-MsiLifecycle.ps1' }
+    @{ Source = 'build/historical-artifacts.json'; Dest = 'historical-artifacts.json' }
     @{ Source = 'scripts/Remove-LegacyInstall.ps1'; Dest = 'scripts/Remove-LegacyInstall.ps1' }
 )
 
@@ -57,6 +58,25 @@ function Test-ChecksumManifest([string]$ArtifactDir) {
     }
     if ($rows.Count -eq 0) { Add-Row 'SHA256SUMS.txt' $false 'empty manifest' }
     $rows.ToArray()   # callers wrap the call in @() so a single row is still an array
+}
+
+# ── historical (original, released) RC1: pinned by SHA-256, never rebuilt ────────────────────────
+# Returns rows {File, Ok, Detail}. Both original files (MSI and portable EXE) must be present in $HistoricalDir and match the hashes
+# recorded in historical-artifacts.json. A rebuilt or substituted package (e.g. a .NET 10 build under the rc.1 label) fails.
+function Test-HistoricalArtifacts([string]$HistoricalDir, [string]$HistoricalJson, [string]$Label = '1.6.0-rc.1') {
+    $rows = New-Object System.Collections.Generic.List[object]
+    function Add-Row($f, $ok, $d) { $rows.Add([pscustomobject]@{ File = $f; Ok = [bool]$ok; Detail = $d }) }
+    if (-not (Test-Path -LiteralPath $HistoricalJson -PathType Leaf)) { Add-Row 'historical-artifacts.json' $false "not found: $HistoricalJson"; return $rows.ToArray() }
+    $rel = @((Get-Content -LiteralPath $HistoricalJson -Raw | ConvertFrom-Json).releases | Where-Object { $_.label -ceq $Label })
+    if ($rel.Count -ne 1) { Add-Row 'historical-artifacts.json' $false "release $Label is not recorded exactly once"; return $rows.ToArray() }
+    foreach ($f in @($rel[0].files)) {
+        $path = Join-Path $HistoricalDir $f.name
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Add-Row "historical $($f.name)" $false "missing from $HistoricalDir (the original $Label $($rel[0].runtime) file is required for the cross-runtime upgrade test)"; continue }
+        $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+        Add-Row "historical $($f.name)" ($actual -eq $f.sha256) $(if ($actual -eq $f.sha256) { "original $Label ($($rel[0].runtime)) sha256 $actual" } else { "NOT the original: sha256 $actual, pinned $($f.sha256)" })
+    }
+    if ($rows.Count -eq 0) { Add-Row 'historical-artifacts.json' $false "no files recorded for $Label" }
+    $rows.ToArray()
 }
 
 # ── manual results: all 14 exactly once, valid status, evidence for PASS/FAIL ────────────────────
@@ -159,7 +179,7 @@ function Get-AcceptanceAssessment([string]$OutDir) {
 }
 
 # ── kit staging (copy only) ──────────────────────────────────────────────────────────────────────
-function New-KitStage([string]$RepoRoot, [string]$ArtifactDir, [string]$PackageDir, [string]$StageDir) {
+function New-KitStage([string]$RepoRoot, [string]$ArtifactDir, [string]$PackageDir, [string]$StageDir, [string]$HistoricalDir, [string]$HistoricalJsonPath = (Join-Path $RepoRoot 'build/historical-artifacts.json')) {
     foreach ($f in $script:KitFiles) {
         $src = Join-Path $RepoRoot $f.Source
         if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { throw "Kit file missing from the repository: $($f.Source)" }
@@ -170,6 +190,11 @@ function New-KitStage([string]$RepoRoot, [string]$ArtifactDir, [string]$PackageD
     New-Item -ItemType Directory -Path (Join-Path $StageDir 'artifacts') -Force | Out-Null
     foreach ($n in (@(Get-ExpectedArtifactNames) + 'SHA256SUMS.txt')) { Copy-Item -LiteralPath (Join-Path $ArtifactDir $n) -Destination (Join-Path $StageDir 'artifacts') }
     Copy-Item -LiteralPath $PackageDir -Destination (Join-Path $StageDir 'packages') -Recurse
+    # The original released RC1 (.NET 8) files, exactly as pinned: refuse to pack anything else.
+    $bad = @(Test-HistoricalArtifacts $HistoricalDir $HistoricalJsonPath | Where-Object { -not $_.Ok })
+    if ($bad.Count) { throw "Historical RC1 artifacts do not verify: $(($bad | ForEach-Object { "$($_.File): $($_.Detail)" }) -join '; ')" }
+    New-Item -ItemType Directory -Path (Join-Path $StageDir 'historical') -Force | Out-Null
+    foreach ($f in @((@((Get-Content -LiteralPath $HistoricalJsonPath -Raw | ConvertFrom-Json).releases | Where-Object { $_.label -ceq '1.6.0-rc.1' })[0]).files)) { Copy-Item -LiteralPath (Join-Path $HistoricalDir $f.name) -Destination (Join-Path $StageDir 'historical') }
     $missing = @($script:KitFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $StageDir $_.Dest)) })
     if ($missing.Count) { throw "Kit staging incomplete: $(($missing | ForEach-Object { $_.Dest }) -join ', ')" }
 }

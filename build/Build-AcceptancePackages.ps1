@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds throw-away MSI packages (rc.1, rc.2, final, and a rebuild of final) used ONLY by the MSI acceptance workflow.
+    Builds the MSI packages for the MSI acceptance tests from the CURRENT source: rc2.msi (the label in Directory.Build.props, i.e. the candidate under test), plus throw-away final.msi and final-rebuild.msi that exist only to test upgrade/downgrade/duplicate rules. The original .NET 8 RC1 is never rebuilt here: the tests use the hash-pinned historical files (build/historical-artifacts.json).
 
 .DESCRIPTION
     The version overrides are passed on the command line (-p:VersionSuffix=...); nothing in the repository is changed and the
@@ -8,7 +8,7 @@
     runners by build/Test-MsiLifecycle.ps1.
 
 .PARAMETER OutputDir
-    Folder that receives rc1.msi, rc2.msi, final.msi, final-rebuild.msi and portable/AuraClean.exe.
+    Folder that receives rc2.msi, final.msi, final-rebuild.msi and portable/AuraClean.exe.
 #>
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$OutputDir)
@@ -43,8 +43,8 @@ function Build-Msi([string]$suffix, [string]$target) {
     Write-Host "Built $target from $label"
 }
 
-Build-Msi 'rc.1' 'rc1.msi'
-Build-Msi 'rc.2' 'rc2.msi'
+$suffixNow = "$(& dotnet msbuild (Join-Path $RepoRoot 'AuraClean/AuraClean.csproj') -nologo -getProperty:VersionSuffix)".Trim()
+Build-Msi $suffixNow 'rc2.msi'   # the real candidate label (e.g. rc.2), not an override
 Build-Msi ''     'final.msi'
 Start-Sleep -Seconds 2
 Build-Msi ''     'final-rebuild.msi'   # same version, new ProductCode: a "rebuilt package of an installed version"

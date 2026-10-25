@@ -1,6 +1,6 @@
-# AuraClean RC1 — client Windows acceptance kit
+# AuraClean RC2 — client Windows acceptance kit
 
-For finishing RC1 acceptance on a **separate, disposable Windows 11 (and Windows 10) machine**. It reuses the lifecycle test that already
+For finishing RC2 acceptance on a **separate, disposable Windows 11 (and Windows 10) machine**. It reuses the lifecycle test that already
 runs on GitHub (`build/Test-MsiLifecycle.ps1`, workflow *MSI acceptance*) and adds the safety rails, evidence capture and the manual checklist
 for what automation cannot prove. Nothing here is meant for, or will run on, a developer's own computer.
 
@@ -27,10 +27,11 @@ Windows 11 x64 (and later Windows 10) with UAC **on**, an Administrator account,
 ## 1. Build the kit (developer machine, build/copy only)
 
 ```powershell
-# official RC1 files from the "Release build" workflow run on master (artifact AuraClean-release-artifacts) -> .\rc1-artifacts
-# throw-away rc.2/final test packages (never published; builds only, installs nothing):
+# official RC2 files (.NET 10) from the "Release build" workflow run on the rc.2 commit (artifact AuraClean-release-artifacts) -> .\rc2-artifacts
+# the ORIGINAL rc.1 (.NET 8) MSI + portable EXE (hash-pinned in build/historical-artifacts.json) -> .\rc1-original  (never rebuild them)
+# the rc2 mirror and the disposable final / final-rebuild packages (never published; builds only, installs nothing):
 pwsh build/Build-AcceptancePackages.ps1 -OutputDir .\packages
-pwsh acceptance/Start-Acceptance.ps1 -Mode Pack -ArtifactDir .\rc1-artifacts -PackageDir .\packages -KitZip .\AuraClean-acceptance-kit.zip
+pwsh acceptance/Start-Acceptance.ps1 -Mode Pack -ArtifactDir .\rc2-artifacts -PackageDir .\packages -HistoricalDir .\rc1-original -KitZip .\AuraClean-acceptance-kit.zip
 ```
 
 `Pack` verifies the artifacts and packages first (and refuses on any gap), then zips the kit scripts, docs, `Test-MsiLifecycle.ps1`, `scripts\Remove-LegacyInstall.ps1` (for check M14; never run automatically), the artifacts and the test packages, checks the zip contents, and prints its SHA-256. Copy the zip to the test machine (USB, or download it inside the VM) and compare that hash. For the SmartScreen check, also download the official MSI/EXE **from the internet** (e.g. the workflow artifact) so they carry the Mark of the Web.

@@ -60,7 +60,7 @@
 Download the MSI installer from the release page (artifacts are named `AuraClean-<version>-win-x64.msi`), verify it against `SHA256SUMS.txt`, and run it:
 
 ```powershell
-msiexec /i AuraClean-1.6.0-rc.1-win-x64.msi          # interactive; add /qn for a silent install
+msiexec /i AuraClean-1.6.0-rc.2-win-x64.msi          # interactive; add /qn for a silent install
 ```
 
 - Installs to `%ProgramFiles%\AuraClean` (protected), adds a Start Menu shortcut (optional desktop shortcut) and registers AuraClean in **Installed apps**.
