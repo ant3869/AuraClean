@@ -40,6 +40,8 @@ $PackageDir = (Resolve-Path $PackageDir).Path
 # Roles: rc1 = the ORIGINAL released .NET 8 RC1 (historical, hash-pinned); rc2 = the candidate under test (.NET 10);
 # final / rebuild = disposable future-version packages used only for the upgrade, downgrade and duplicate rules.
 $ExpectedRc2Version = '1.6.2'; $ExpectedRc2Label = '1.6.0-rc.2'      # update with each new candidate (see docs/RELEASE.md)
+if (-not (Test-Path -LiteralPath $HistoricalRc1Msi)) { throw "REFUSING TO RUN: the original rc.1 MSI was not found: $HistoricalRc1Msi" }
+$HistoricalRc1Msi = (Resolve-Path -LiteralPath $HistoricalRc1Msi).Path   # msiexec rejects mixed '/' paths (exit 1619)
 $Msi = @{ rc1 = $HistoricalRc1Msi; rc2 = "$PackageDir\rc2.msi"; final = "$PackageDir\final.msi"; rebuild = "$PackageDir\final-rebuild.msi" }
 foreach ($k in $Msi.Keys) { if (-not (Test-Path $Msi[$k])) { throw "Missing package $($Msi[$k])" } }
 
