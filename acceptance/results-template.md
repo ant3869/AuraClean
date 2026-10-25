@@ -1,4 +1,4 @@
-# AuraClean RC1 acceptance report — <Windows 11 | Windows 10>
+# AuraClean RC2 acceptance report — <Windows 11 | Windows 10>
 
 Tester: <name> · Date: <yyyy-mm-dd> · Kit zip SHA-256: <hash>
 
@@ -10,9 +10,10 @@ Tester: <name> · Date: <yyyy-mm-dd> · Kit zip SHA-256: <hash>
 ## Artifacts
 | File | SHA-256 (matches SHA256SUMS.txt?) | Version | Signature |
 |---|---|---|---|
-| AuraClean-1.6.0-rc.1-win-x64.msi | | 1.6.1 | NotSigned |
-| AuraClean-1.6.0-rc.1-win-x64-portable.exe | | 1.6.0-rc.1 | NotSigned |
-| Test packages (rc2 / final / final-rebuild) | | 1.6.2 / 1.6.99 / 1.6.99 | n/a (not for release) |
+| AuraClean-1.6.0-rc.2-win-x64.msi (.NET 10) | | 1.6.2 | NotSigned |
+| AuraClean-1.6.0-rc.2-win-x64-portable.exe (.NET 10) | | 1.6.0-rc.2 | NotSigned |
+| ORIGINAL AuraClean-1.6.0-rc.1-win-x64.msi (.NET 8, upgrade source) | pinned b30513db...c795c | 1.6.1 | NotSigned |
+| Disposable packages (final / final-rebuild) | | 1.6.99 / 1.6.99 | n/a (not for release) |
 
 ## Automated lifecycle (`results\report.md`)
 Result: __ PASS / __ FAIL of __ · lifecycle exit code: __ · MSI logs: `results\msi-logs\` 

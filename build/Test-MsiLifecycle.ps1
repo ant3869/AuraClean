@@ -20,7 +20,10 @@ param(
     [Parameter(Mandatory)][string]$PackageDir,
     [Parameter(Mandatory)][string]$LogDir,
     # Manual disposable-machine confirmation (not needed on a GitHub-hosted runner). Must equal I-CONFIRM-<COMPUTERNAME>-IS-DISPOSABLE.
-    [string]$ConfirmDisposableMachine
+    [string]$ConfirmDisposableMachine,
+    # The ORIGINAL released RC1 MSI (.NET 8). It is never rebuilt: it must match the SHA-256 pinned in historical-artifacts.json.
+    [Parameter(Mandatory)][string]$HistoricalRc1Msi,
+    [string]$HistoricalJson = $(@((Join-Path $PSScriptRoot 'historical-artifacts.json'), (Join-Path $PSScriptRoot '..\build\historical-artifacts.json')) | Where-Object { Test-Path $_ } | Select-Object -First 1)
 )
 
 Set-StrictMode -Version Latest
@@ -34,7 +37,10 @@ if (-not $isHostedRunner -and $ConfirmDisposableMachine -cne $expectedConfirmati
 
 New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 $PackageDir = (Resolve-Path $PackageDir).Path
-$Msi = @{ rc1 = "$PackageDir\rc1.msi"; rc2 = "$PackageDir\rc2.msi"; final = "$PackageDir\final.msi"; rebuild = "$PackageDir\final-rebuild.msi" }
+# Roles: rc1 = the ORIGINAL released .NET 8 RC1 (historical, hash-pinned); rc2 = the candidate under test (.NET 10);
+# final / rebuild = disposable future-version packages used only for the upgrade, downgrade and duplicate rules.
+$ExpectedRc2Version = '1.6.2'; $ExpectedRc2Label = '1.6.0-rc.2'      # update with each new candidate (see docs/RELEASE.md)
+$Msi = @{ rc1 = $HistoricalRc1Msi; rc2 = "$PackageDir\rc2.msi"; final = "$PackageDir\final.msi"; rebuild = "$PackageDir\final-rebuild.msi" }
 foreach ($k in $Msi.Keys) { if (-not (Test-Path $Msi[$k])) { throw "Missing package $($Msi[$k])" } }
 
 $InstallDir  = Join-Path $env:ProgramFiles 'AuraClean'
@@ -151,11 +157,26 @@ Write-Host "Runner: $([Environment]::OSVersion.VersionString), image $($env:Imag
 Write-Host 'Packages:'
 Get-ChildItem $PackageDir -Filter *.msi | ForEach-Object { Write-Host "  $($_.Name) ProductVersion=$(Get-MsiProperty $_.FullName 'ProductVersion') ProductCode=$(Get-MsiProperty $_.FullName 'ProductCode')" }
 
-Section 'Package sanity (the test packages are what we think they are)'
+# Hard stops before anything is installed: wrong-version or mismatched packages are refused, never adapted or substituted.
+function Stop-Unless([bool]$ok, [string]$why) { if (-not $ok) { throw "REFUSING TO RUN: $why" } }
+Stop-Unless ($HistoricalJson -and (Test-Path $HistoricalJson)) 'historical-artifacts.json was not found'
+$hist = @((Get-Content $HistoricalJson -Raw | ConvertFrom-Json).releases | Where-Object { $_.label -ceq '1.6.0-rc.1' })[0]
+Stop-Unless ($null -ne $hist) 'the original 1.6.0-rc.1 is not recorded in historical-artifacts.json'
+$histMsi = @($hist.files | Where-Object { $_.name -like '*.msi' })[0]
+$histSha = (Get-FileHash $Msi.rc1 -Algorithm SHA256).Hash.ToLowerInvariant()
+Stop-Unless ($histSha -eq $histMsi.sha256) "the historical RC1 MSI has SHA-256 $histSha but the pinned original is $($histMsi.sha256): this is not the original $($hist.runtime) RC1 (a rebuilt or different package must never stand in for it)"
+Stop-Unless ((Get-MsiProperty $Msi.rc1 'ProductVersion') -eq $hist.msiProductVersion -and (Get-MsiProperty $Msi.rc1 'ARPCOMMENTS') -eq $hist.arpComments) 'the historical RC1 MSI does not carry the recorded version/label'
+Stop-Unless ((Get-MsiProperty $Msi.rc2 'ProductVersion') -eq $ExpectedRc2Version -and (Get-MsiProperty $Msi.rc2 'ARPCOMMENTS') -eq "AuraClean $ExpectedRc2Label") "rc2.msi is not the expected candidate $ExpectedRc2Label (MSI $ExpectedRc2Version): found $(Get-MsiProperty $Msi.rc2 'ProductVersion') / '$(Get-MsiProperty $Msi.rc2 'ARPCOMMENTS')'"
+foreach ($k in 'final', 'rebuild') { Stop-Unless ((Get-MsiProperty $Msi[$k] 'ProductVersion') -eq '1.6.99') "$k.msi must be the disposable 1.6.99 package (found $(Get-MsiProperty $Msi[$k] 'ProductVersion'))" }
+Stop-Unless ((Get-MsiProperty $Msi.final 'ProductCode') -ne (Get-MsiProperty $Msi.rebuild 'ProductCode')) 'final-rebuild.msi must have a different ProductCode than final.msi (a genuine rebuild)'
+Stop-Unless (@($Msi.Values | ForEach-Object { Get-MsiProperty $_ 'UpgradeCode' } | Select-Object -Unique).Count -eq 1) 'all packages must share one UpgradeCode'
+
+Section 'Package sanity (the packages are exactly what the test expects)'
 $ver = @{}; foreach ($k in $Msi.Keys) { $ver[$k] = Get-MsiProperty $Msi[$k] 'ProductVersion' }
-Check ($ver.rc1 -eq '1.6.1' -and $ver.rc2 -eq '1.6.2' -and $ver.final -eq '1.6.99' -and $ver.rebuild -eq '1.6.99') "MSI versions are rc1=$($ver.rc1) rc2=$($ver.rc2) final=$($ver.final) rebuild=$($ver.rebuild)"
+Check ($histSha -eq $histMsi.sha256) "The historical RC1 (.NET 8) MSI matches its pinned SHA-256 ($histSha)"
+Check ($ver.rc1 -eq '1.6.1' -and $ver.rc2 -eq $ExpectedRc2Version -and $ver.final -eq '1.6.99' -and $ver.rebuild -eq '1.6.99') "MSI versions are rc1(historical)=$($ver.rc1) rc2(candidate)=$($ver.rc2) final(disposable)=$($ver.final) rebuild=$($ver.rebuild)"
 Check ((Get-MsiProperty $Msi.final 'ProductCode') -ne (Get-MsiProperty $Msi.rebuild 'ProductCode')) 'The rebuilt final package has a different ProductCode (a genuine rebuild, not a repair)'
-Check ((Get-MsiProperty $Msi.final 'UpgradeCode') -eq (Get-MsiProperty $Msi.rc1 'UpgradeCode')) 'All packages share one UpgradeCode'
+Check (@($Msi.Values | ForEach-Object { Get-MsiProperty $_ 'UpgradeCode' } | Select-Object -Unique).Count -eq 1) 'All packages share one UpgradeCode'
 Check (-not (Test-Path $ExePath) -and @(Get-ArpEntries).Count -eq 0 -and -not (Test-Path $DataDir)) 'The runner starts clean: no AuraClean installed, no AuraClean data'
 
 try {
@@ -165,7 +186,7 @@ New-Decoys
 $tasksBefore = (Get-AllTaskNames | Where-Object { $_ -notlike 'AuraClean_*' }) -join ','
 
 # ── fresh install ─────────────────────────────────────────────────────────────────────────────────
-Section 'Fresh silent install of rc.1'
+Section 'Fresh silent install of the ORIGINAL rc.1 (.NET 8, hash-pinned)'
 Check ((Invoke-Msi 'install-rc1' @('/i', "`"$($Msi.rc1)`"")) -eq 0) 'msiexec /i rc.1 /qn exits 0'
 Check (Test-Path $ExePath) "AuraClean.exe is installed at $ExePath (under Program Files)"
 Check (@(Get-ChildItem $InstallDir -Recurse -File).Count -eq 1) 'Exactly one file is installed (the self-contained single-file EXE)'
@@ -187,7 +208,8 @@ $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($StartMenu)
 Check ($sc.TargetPath -eq $ExePath) "Start Menu shortcut targets the installed EXE ($($sc.TargetPath))"
 Check (-not (Test-Path (Join-Path $InstallDir 'settings.json'))) 'The install folder holds no user data'
 Check ((Get-DataHash) -eq $dataHash) 'Persistent data in %LocalAppData%\AuraClean is byte-identical after install'
-Check ((Get-Item $ExePath).VersionInfo.ProductVersion -like '1.6.0*') "Installed EXE reports product version $((Get-Item $ExePath).VersionInfo.ProductVersion)"
+Check ((Get-Item $ExePath).VersionInfo.ProductVersion -eq '1.6.0-rc.1') "Installed EXE reports product version $((Get-Item $ExePath).VersionInfo.ProductVersion) (expected the original 1.6.0-rc.1)"
+$rc1ExeHash = (Get-FileHash $ExePath -Algorithm SHA256).Hash
 
 # ── integrations created as the app would, then repair ────────────────────────────────────────────
 Section 'AuraClean-owned integrations created (as the app does), then repair'
@@ -204,13 +226,21 @@ Check ((Invoke-Msi 'reinstall-same-rc1' @('/i', "`"$($Msi.rc1)`"")) -eq 0 -and @
 Test-OwnedIntegrations $true 'After maintenance re-run'
 
 # ── upgrade chain ─────────────────────────────────────────────────────────────────────────────────
-Section 'Upgrade rc.1 -> rc.2, downgrade rc.2 -> rc.1 refused'
-Check ((Invoke-Msi 'upgrade-rc1-to-rc2' @('/i', "`"$($Msi.rc2)`"")) -eq 0) 'msiexec /i rc.2 over rc.1 exits 0'
-Check ((Get-InstalledVersion) -eq '1.6.2' -and @(Get-ArpEntries).Count -eq 1) 'Installed version is 1.6.2 with a single Installed apps entry (no side-by-side copy)'
+Section 'Cross-runtime upgrade: original rc.1 (.NET 8) -> rc.2 (.NET 10); downgrade rc.2 -> rc.1 refused'
+Check ((Invoke-Msi 'upgrade-rc1-to-rc2' @('/i', "`"$($Msi.rc2)`"")) -eq 0) 'msiexec /i rc.2 over the ORIGINAL rc.1 exits 0'
+Check ((Get-InstalledVersion) -eq $ExpectedRc2Version -and @(Get-ArpEntries).Count -eq 1) "Installed version is $ExpectedRc2Version with a single Installed apps entry (no side-by-side copy)"
 Check (Test-Path $ExePath -PathType Leaf) 'AuraClean.exe present after upgrade'
+Check ((Get-ArpValue (Get-Installed) 'Comments') -eq "AuraClean $ExpectedRc2Label") "Installed apps now shows the new label ('$(Get-ArpValue (Get-Installed) 'Comments')')"
+Check ((Get-Item $ExePath).VersionInfo.ProductVersion -eq $ExpectedRc2Label) "The installed EXE was replaced by the $ExpectedRc2Label build (product version $((Get-Item $ExePath).VersionInfo.ProductVersion))"
+Check ((Get-FileHash $ExePath -Algorithm SHA256).Hash -ne $rc1ExeHash) 'The installed EXE differs from the original rc.1 .NET 8 EXE'
+Check ((Get-ItemProperty 'HKLM:\SOFTWARE\AuraClean' -ErrorAction SilentlyContinue | ForEach-Object { Get-ArpValue $_ 'Version' }) -eq $ExpectedRc2Label) 'HKLM\Software\AuraClean records the new release label'
 Test-OwnedIntegrations $true 'After upgrade'
 Test-DecoysIntact 'After upgrade'
 Check ((Get-DataHash) -eq $dataHash) 'Persistent data unchanged by upgrade'
+Remove-Item $ExePath -Force
+Check ((Invoke-Msi 'repair-rc2' @('/fa', "`"$($Msi.rc2)`"")) -eq 0 -and (Test-Path $ExePath) -and (Get-Item $ExePath).VersionInfo.ProductVersion -eq $ExpectedRc2Label) 'Repair of the rc.2 install restores its EXE (still the rc.2 build)'
+Test-OwnedIntegrations $true 'After rc.2 repair'
+Check ((Get-DataHash) -eq $dataHash) 'Persistent data unchanged by rc.2 repair'
 $rc = Invoke-Msi 'downgrade-rc2-to-rc1' @('/i', "`"$($Msi.rc1)`"")
 Check ($rc -eq 1603) "Installing rc.1 over rc.2 is refused (exit $rc, expected 1603)"
 Check ((Get-InstalledVersion) -eq '1.6.2' -and @(Get-ArpEntries).Count -eq 1 -and (Test-Path $ExePath)) 'After the refused downgrade rc.2 is still installed and intact'
@@ -259,14 +289,25 @@ Check (-not (Test-Path $PublicDesk) -and @(Get-ArpEntries).Count -eq 0 -and -not
 Check ((Get-DataHash) -eq $dataHash) 'Data intact after the second uninstall'
 Test-DecoysIntact 'After second uninstall'
 
+# ── fresh install of the candidate itself ─────────────────────────────────────────────────────────
+Section "Fresh silent install of the candidate $ExpectedRc2Label (.NET 10) over preserved data"
+Check ((Invoke-Msi 'install-rc2-fresh' @('/i', "`"$($Msi.rc2)`"")) -eq 0) 'msiexec /i rc.2 /qn exits 0'
+$arp2 = Get-Installed
+Check ($null -ne $arp2 -and (Get-ArpValue $arp2 'DisplayVersion') -eq $ExpectedRc2Version -and (Get-ArpValue $arp2 'Comments') -eq "AuraClean $ExpectedRc2Label") "Installed apps shows $ExpectedRc2Version / 'AuraClean $ExpectedRc2Label'"
+Check ((Test-Path $ExePath) -and (Get-Item $ExePath).VersionInfo.ProductVersion -eq $ExpectedRc2Label -and @(Get-ChildItem $InstallDir -Recurse -File).Count -eq 1) "One file installed: the $ExpectedRc2Label single-file EXE"
+Check ((Test-Path $StartMenu) -and -not (Test-Path $PublicDesk)) 'Start Menu shortcut exists; no desktop shortcut by default'
+Check ((Get-DataHash) -eq $dataHash) 'Preserved data intact after the fresh rc.2 install'
+Check ((Invoke-Msi 'uninstall-rc2-fresh' @('/x', "`"$($Msi.rc2)`"")) -eq 0 -and @(Get-ArpEntries).Count -eq 0 -and -not (Test-Path $InstallDir)) 'The rc.2 uninstall removes the program and entry'
+Check ((Get-DataHash) -eq $dataHash) 'Data intact after the rc.2 uninstall'
+
 # ── portable copy: shared integrations ────────────────────────────────────────────────────────────
 Section 'Portable copy: shared machine-wide integrations are removed by the MSI uninstall (documented limitation)'
 $portableDir = 'C:\PortableAuraClean'; New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
 Copy-Item "$PackageDir\portable\AuraClean.exe" "$portableDir\AuraClean.exe"
 New-OwnedIntegrations "$portableDir\AuraClean.exe"
-Check ((Invoke-Msi 'install-rc1-with-portable' @('/i', "`"$($Msi.rc1)`"")) -eq 0) 'Installing the MSI next to a portable copy succeeds'
+Check ((Invoke-Msi 'install-rc2-with-portable' @('/i', "`"$($Msi.rc2)`"")) -eq 0) 'Installing the MSI next to a portable copy succeeds'
 Test-OwnedIntegrations $true "Installing the MSI leaves the portable copy's registrations in place"
-Check ((Invoke-Msi 'uninstall-with-portable' @('/x', "`"$($Msi.rc1)`"")) -eq 0) 'Uninstalling the MSI succeeds'
+Check ((Invoke-Msi 'uninstall-with-portable' @('/x', "`"$($Msi.rc2)`"")) -eq 0) 'Uninstalling the MSI succeeds'
 Test-OwnedIntegrations $false "After uninstall (documented: names are machine-wide, so the portable copy's registrations are removed too)"
 Check ((Test-Path "$portableDir\AuraClean.exe") -and (Get-FileHash "$portableDir\AuraClean.exe").Hash -eq (Get-FileHash "$PackageDir\portable\AuraClean.exe").Hash) 'The portable executable is still present and byte-identical'
 Test-DecoysIntact 'After portable scenario'

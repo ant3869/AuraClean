@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    AuraClean RC1 client-Windows acceptance kit: prepare (read-only), run the automated MSI lifecycle, and build the report.
+    AuraClean client-Windows acceptance kit (candidate 1.6.0-rc.2): prepare (read-only), run the automated MSI lifecycle, and build the report.
 
 .DESCRIPTION
     Modes
@@ -28,10 +28,12 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Prepare', 'Lifecycle', 'Report', 'Pack')][string]$Mode = 'Prepare',
-    # Folder with the OFFICIAL RC1 files: AuraClean-1.6.0-rc.1-win-x64.msi, -portable.exe and SHA256SUMS.txt.
+    # Folder with the OFFICIAL RC2 files (.NET 10): AuraClean-1.6.0-rc.2-win-x64.msi, -portable.exe and SHA256SUMS.txt.
     [string]$ArtifactDir = (Join-Path $PSScriptRoot 'artifacts'),
     # Folder from build/Build-AcceptancePackages.ps1 (rc1/rc2/final/final-rebuild .msi and portable\AuraClean.exe): throw-away upgrade/downgrade packages.
     [string]$PackageDir = (Join-Path $PSScriptRoot 'packages'),
+    # Folder with the ORIGINAL released rc.1 (.NET 8) MSI and portable EXE, pinned by SHA-256 in historical-artifacts.json (never rebuilt).
+    [string]$HistoricalDir = (Join-Path $PSScriptRoot 'historical'),
     [string]$OutDir = (Join-Path $PSScriptRoot 'results'),
     [string]$ConfirmDisposable,
     [string]$KitZip,
@@ -43,19 +45,21 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'AcceptanceChecks.ps1')
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
-$ExpectedMsiVersions = @{ 'rc1.msi' = '1.6.1'; 'rc2.msi' = '1.6.2'; 'final.msi' = '1.6.99'; 'final-rebuild.msi' = '1.6.99' }
+$ExpectedMsiVersions = @{ 'rc2.msi' = '1.6.2'; 'final.msi' = '1.6.99'; 'final-rebuild.msi' = '1.6.99' }
+$ExpectedRc2Version = '1.6.2'
+$HistoricalJson = @((Join-Path $PSScriptRoot 'historical-artifacts.json'), (Join-Path $PSScriptRoot '..\build\historical-artifacts.json')) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 $ManualChecks = @(
     @{ Id = 'M01'; Title = 'Interactive installer wizard: Welcome, feature page, install, finish page (text mentions data is kept)' }
     @{ Id = 'M02'; Title = 'Installer UAC prompt appears; publisher shown as Unknown/unsigned (screenshot)' }
-    @{ Id = 'M03'; Title = 'Installed apps (Settings > Apps): AuraClean, version 1.6.1, icon, Comments "AuraClean 1.6.0-rc.1"' }
+    @{ Id = 'M03'; Title = 'Installed apps (Settings > Apps): AuraClean, version 1.6.2, icon, Comments "AuraClean 1.6.0-rc.2"' }
     @{ Id = 'M04'; Title = 'Desktop shortcut is OFF by default; selecting it on the feature page creates it' }
-    @{ Id = 'M05'; Title = 'Start Menu shortcut launches AuraClean; UAC prompt at app start; window shows v1.6.0-rc.1' }
+    @{ Id = 'M05'; Title = 'Start Menu shortcut launches AuraClean; UAC prompt at app start; window shows v1.6.0-rc.2' }
     @{ Id = 'M06'; Title = 'SmartScreen / "Unknown publisher" behaviour for the downloaded MSI and portable EXE (file with Mark of the Web)' }
     @{ Id = 'M07'; Title = 'Settings UI: enable Launch at sign-in; task AuraClean_LaunchAtLogon exists; after sign-out/in AuraClean starts minimized (--minimized)' }
     @{ Id = 'M08'; Title = 'Settings UI: enable Scheduled cleanup; task AuraClean_ScheduledCleanup exists in Task Scheduler' }
     @{ Id = 'M09'; Title = 'Settings UI: enable Explorer context menu; right-click an .exe and .msi shows "Deep Uninstall with AuraClean"' }
-    @{ Id = 'M10'; Title = 'rc.1 -> rc.2 upgrade and repair keep the three app-created integrations (M07-M09) working' }
+    @{ Id = 'M10'; Title = 'Upgrade from the ORIGINAL rc.1 (.NET 8) to rc.2 (.NET 10), then repair, keep the three app-created integrations (M07-M09) working' }
     @{ Id = 'M11'; Title = 'Files in use: run the installer/upgrade while AuraClean is running: standard prompt (or reboot-deferred when silent), AuraClean is NOT killed' }
     @{ Id = 'M12'; Title = 'Uninstall via Installed apps removes the program, tasks and menu entries; %LocalAppData%\AuraClean remains' }
     @{ Id = 'M13'; Title = 'Data created through the app UI (setting, leftover backup of a disposable test app, quarantine) survives upgrade, uninstall and reinstall; restore still works' }
@@ -133,7 +137,8 @@ function Test-Artifacts {
     $msi = Join-Path $ArtifactDir (Get-ExpectedArtifactNames)[0]
     if (Test-Path -LiteralPath $msi -PathType Leaf) {
         $pv = Get-MsiProperty $msi 'ProductVersion'
-        $rows.Add([pscustomobject]@{ File = (Split-Path $msi -Leaf) + ' (version)'; Ok = ($pv -eq '1.6.1'); Detail = "ProductVersion $pv (expected 1.6.1); signature $((Get-AuthenticodeSignature $msi).Status)" })
+        $cm = Get-MsiProperty $msi 'ARPCOMMENTS'
+        $rows.Add([pscustomobject]@{ File = (Split-Path $msi -Leaf) + ' (version)'; Ok = ($pv -eq $ExpectedRc2Version -and $cm -eq "AuraClean $script:ExpectedLabel"); Detail = "ProductVersion $pv (expected $ExpectedRc2Version), label '$cm' (expected 'AuraClean $script:ExpectedLabel'); signature $((Get-AuthenticodeSignature $msi).Status)" })
     }
     $rows.ToArray()
 }
@@ -160,7 +165,8 @@ function Invoke-Prepare {
     $present = Get-AuraCleanPresence
     $arts = @(Test-Artifacts)
     $pkgs = @(Test-Packages)
-    Show-Rows $arts; Show-Rows $pkgs
+    $hist = @(Test-HistoricalArtifacts $HistoricalDir $HistoricalJson)
+    Show-Rows $arts; Show-Rows $pkgs; Show-Rows $hist
 
     # Run identity: a run continues only while the artifacts are unchanged; otherwise earlier results are archived and a new run starts.
     $msiPath = Join-Path $ArtifactDir (Get-ExpectedArtifactNames)[0]
@@ -185,7 +191,7 @@ function Invoke-Prepare {
     Add-Check 'Administrator rights (needed for Lifecycle)' $envInfo.IsAdmin "IsAdmin=$($envInfo.IsAdmin)" $true
     Add-Check 'UAC enabled (needed for the UAC prompt checks M02, M05)' $envInfo.UacEnabled "UacEnabled=$($envInfo.UacEnabled)" $true
     Add-Check 'Clean machine: no AuraClean installed or data present' (@($present).Count -eq 0) $(if (@($present).Count) { @($present) -join '; ' } else { 'none found' })
-    foreach ($r in @($arts) + @($pkgs)) { Add-Check "verified: $($r.File)" $r.Ok $r.Detail }
+    foreach ($r in @($arts) + @($pkgs) + @($hist)) { Add-Check "verified: $($r.File)" $r.Ok $r.Detail }
 
     Write-Json $envInfo (Join-Path $OutDir 'environment.json')
     Write-Json ([ordered]@{ RunId = $run.RunId; Captured = (Get-Date).ToString('s'); Checks = $checks.ToArray() }) (Join-Path $OutDir 'prepare.json')
@@ -221,17 +227,18 @@ switch ($Mode) {
         $lifecycle = @((Join-Path $PSScriptRoot 'Test-MsiLifecycle.ps1'), (Join-Path $PSScriptRoot '..\build\Test-MsiLifecycle.ps1')) | Where-Object { Test-Path $_ } | Select-Object -First 1
         if (-not $lifecycle) { throw 'Test-MsiLifecycle.ps1 not found next to this script or in ..\build.' }
 
-        # Work copy of the packages in which rc1.msi is the OFFICIAL RC1 MSI (same version 1.6.1 as the generated one).
+        # Work copy of the packages in which rc2.msi is the OFFICIAL RC2 MSI (the candidate under acceptance). The upgrade source is the
+        # ORIGINAL released rc.1 (.NET 8) MSI from -HistoricalDir, already verified against its pinned SHA-256 by Prepare.
         $work = Join-Path $OutDir 'work-packages'
         New-Item -ItemType Directory -Path $work -Force | Out-Null
         Copy-Item (Join-Path $PackageDir '*') $work -Recurse -Force
-        Copy-Item (Join-Path $ArtifactDir (Get-ExpectedArtifactNames)[0]) (Join-Path $work 'rc1.msi') -Force
-        Write-Host "Official RC1 MSI used as rc1.msi in $work" -ForegroundColor Cyan
+        Copy-Item (Join-Path $ArtifactDir (Get-ExpectedArtifactNames)[0]) (Join-Path $work 'rc2.msi') -Force
+        Write-Host "Official RC2 MSI used as rc2.msi in $work; original rc.1 (.NET 8) upgrade source: $HistoricalDir" -ForegroundColor Cyan
 
         $logDir = Join-Path $OutDir 'msi-logs'
         Move-ResultsToPrevious @('msi-logs')
         $started = (Get-Date).ToUniversalTime().ToString('o')
-        & $lifecycle -PackageDir $work -LogDir $logDir -ConfirmDisposableMachine $ConfirmDisposable
+        & $lifecycle -PackageDir $work -HistoricalRc1Msi (Join-Path $HistoricalDir 'AuraClean-1.6.0-rc.1-win-x64.msi') -HistoricalJson $HistoricalJson -LogDir $logDir -ConfirmDisposableMachine $ConfirmDisposable
         $code = $LASTEXITCODE
         $resPath = Join-Path $logDir 'results.json'
         $res = Read-Json $resPath
@@ -274,13 +281,13 @@ switch ($Mode) {
 
     'Pack' {
         $repo = Split-Path -Parent $PSScriptRoot
-        $rows = @(Test-Artifacts) + @(Test-Packages); Show-Rows $rows
+        $rows = @(Test-Artifacts) + @(Test-Packages) + @(Test-HistoricalArtifacts $HistoricalDir (Join-Path $repo 'build\historical-artifacts.json')); Show-Rows $rows
         if (@($rows | Where-Object { -not $_.Ok }).Count) { throw 'Artifacts/packages did not verify completely; not packing.' }
         if (-not $KitZip) { $KitZip = Join-Path $OutDir 'AuraClean-acceptance-kit.zip' }
         $stage = Join-Path ([IO.Path]::GetTempPath()) ('AuraKit_' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $stage | Out-Null
         try {
-            New-KitStage -RepoRoot $repo -ArtifactDir $ArtifactDir -PackageDir $PackageDir -StageDir $stage
+            New-KitStage -RepoRoot $repo -ArtifactDir $ArtifactDir -PackageDir $PackageDir -StageDir $stage -HistoricalDir $HistoricalDir
             if (Test-Path $KitZip) { [IO.File]::Delete($KitZip) }
             Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $KitZip
         } finally { [IO.Directory]::Delete($stage, $true) }

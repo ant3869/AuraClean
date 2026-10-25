@@ -2,7 +2,8 @@ name: MSI acceptance
 
 # Real msiexec install / repair / upgrade / downgrade / uninstall tests of the AuraClean MSI.
 # Runs ONLY on disposable GitHub-hosted Windows runners (never self-hosted). Uses no secrets and publishes nothing:
-# the test packages (rc.1, rc.2, final) are generated on the runner from the current source and only the logs are uploaded
+# the candidate and the disposable final packages are built on the runner from the current source, the original .NET 8 rc.1 is
+# downloaded and hash-verified (never rebuilt), and only the logs are uploaded
 # as short-lived workflow artifacts. Runners are administrator with UAC disabled, so elevation prompts are NOT covered.
 
 on:
@@ -16,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  actions: read   # download the original rc.1 artifacts from the workflow run that built them
 
 jobs:
   msi-lifecycle:
@@ -43,13 +45,30 @@ jobs:
           "ImageOS=$env:ImageOS ImageVersion=$env:ImageVersion RUNNER_ENVIRONMENT=$env:RUNNER_ENVIRONMENT"
           (Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | Format-List | Out-String)
 
-      - name: Build throw-away test packages (rc.1, rc.2, final, final rebuild)
+      - name: Build the candidate MSI (current label) and throw-away final / final-rebuild packages
         shell: pwsh
         run: ./build/Build-AcceptancePackages.ps1 -OutputDir "$env:RUNNER_TEMP/packages"
 
-      - name: Real MSI lifecycle test
+      # The cross-runtime upgrade test uses the ORIGINAL, released .NET 8 rc.1 files (never a rebuild). They are fetched from the
+      # workflow run that produced them and must match the SHA-256 pinned in build/historical-artifacts.json, or the job fails.
+      - name: Fetch the original rc.1 (.NET 8) artifacts and verify their pinned hashes
         shell: pwsh
-        run: ./build/Test-MsiLifecycle.ps1 -PackageDir "$env:RUNNER_TEMP/packages" -LogDir "$env:RUNNER_TEMP/msi-logs"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $h = @((Get-Content build/historical-artifacts.json -Raw | ConvertFrom-Json).releases | Where-Object { $_.label -ceq '1.6.0-rc.1' })[0]
+          $dir = Join-Path $env:RUNNER_TEMP 'historical'
+          gh run download $h.workflowRun --name $h.workflowArtifact --dir $dir --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { throw "The original rc.1 artifacts (run $($h.workflowRun), artifact $($h.workflowArtifact)) could not be downloaded: $($h.retentionNote) Without them the cross-runtime upgrade is NOT TESTED, so this job fails." }
+          foreach ($f in $h.files) {
+              $actual = (Get-FileHash (Join-Path $dir $f.name) -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $f.sha256) { throw "$($f.name): SHA-256 $actual does not match the pinned original $($f.sha256)" }
+              "verified $($f.name) $actual"
+          }
+
+      - name: Real MSI lifecycle test (includes original rc.1 -> rc.2 upgrade)
+        shell: pwsh
+        run: ./build/Test-MsiLifecycle.ps1 -PackageDir "$env:RUNNER_TEMP/packages" -HistoricalRc1Msi "$env:RUNNER_TEMP/historical/AuraClean-1.6.0-rc.1-win-x64.msi" -LogDir "$env:RUNNER_TEMP/msi-logs"
 
       # Real-GUI smoke of the published single-file EXE on its own bundled runtime. After the lifecycle test because it creates
       # %LocalAppData%\AuraClean, which that test requires to be absent.

@@ -308,6 +308,19 @@ public static class ReleaseMetadataTests
         Check(kit.IndexOf("[ValidateSet('Prepare'", StringComparison.Ordinal) >= 0 && Regex.IsMatch(kit, @"\[string\]\$Mode = 'Prepare'|\$Mode = 'Prepare'"), "The default mode is the read-only Prepare");
         Check(File.Exists(Path.Combine(RepoRoot(), "acceptance", "manual-checklist.md")) && File.Exists(Path.Combine(RepoRoot(), "acceptance", "results-template.md")), "The manual checklist and the results template ship with the kit");
 
+        // rc.1 (.NET 8) is retired and pinned; rc.2 (.NET 10) upgrades it; acceptance refuses mismatched packages.
+        var historical = Read("build/historical-artifacts.json");
+        Check(Regex.IsMatch(historical, "\"label\":\\s*\"1.6.0-rc.1\"") && historical.Contains(".NET 8") && Regex.Matches(historical, "\"sha256\":\\s*\"[0-9a-f]{64}\"").Count == 2,
+            "The original 1.6.0-rc.1 (.NET 8) MSI and portable EXE are pinned by SHA-256 as a retired release");
+        Check(Read("build/Build-Release.ps1").Contains("Assert-LabelNotRetired") && Read("build/Test-Release.ps1").Contains("byte-identical to a retired"),
+            "The release build refuses a retired label and the verification rejects artifacts identical to released ones");
+        Check(life.Contains("[Parameter(Mandatory)][string]$HistoricalRc1Msi") && life.Contains("histMsi.sha256") && life.Contains("REFUSING TO RUN: $why"),
+            "The lifecycle test needs the original rc.1 MSI, verifies its pinned hash and refuses mismatched packages before installing anything");
+        Check(life.Contains("Cross-runtime upgrade") && life.Contains("ExpectedRc2Version") && Read("build/Build-AcceptancePackages.ps1").Contains("'rc2.msi'") && !Read("build/Build-AcceptancePackages.ps1").Contains("Build-Msi 'rc.1'"),
+            "The lifecycle upgrades the ORIGINAL rc.1 to rc.2; the package builder never rebuilds an rc.1");
+        Check(Read("acceptance/Start-Acceptance.ps1").Contains("-HistoricalRc1Msi") && Read("acceptance/AcceptanceChecks.ps1").Contains("Test-HistoricalArtifacts") && Read(".github/workflows/msi-acceptance.yml").Contains("historical-artifacts.json"),
+            "The kit and the workflow both verify the original rc.1 before using it");
+
         var kitTests = RunTool("pwsh", "-NoProfile", "-File", Path.Combine(RepoRoot(), "acceptance", "Test-AcceptanceKit.ps1"));
         var km = Regex.Match(kitTests, @"RESULTS: (\d+) passed, (\d+) failed");
         Check(km.Success && km.Groups[2].Value == "0" && int.Parse(km.Groups[1].Value) >= 55 && !kitTests.Contains("[exit"),
