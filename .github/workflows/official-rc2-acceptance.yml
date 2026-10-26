@@ -1,0 +1,129 @@
+name: Official RC2 acceptance
+
+# Real msiexec lifecycle of the ACTUAL official 1.6.0-rc.2 MSI (not a rebuilt substitute), on disposable GitHub-hosted runners only.
+# The official files are downloaded from the Release build run that produced them and must match, before anything is executed:
+#   * the artifact's own SHA256SUMS.txt (fail-closed manifest check: exactly the MSI and the portable EXE),
+#   * the SHA-256 values pinned below (and the run's recorded commit / event / conclusion).
+# The original .NET 8 rc.1 upgrade source is downloaded and verified against build/historical-artifacts.json. Nothing is published,
+# no secrets are used, and if any file is missing or mismatched the job FAILS (the result is NOT TESTED, never a pass).
+#
+# Workflow artifacts expire (the official RC2 run's on 2026-11-24); after that, point `official_run_id` at a durable copy's run or
+# re-run the Release build, and update the pins deliberately.
+
+on:
+  workflow_dispatch:
+    inputs:
+      official_run_id:
+        description: 'Release build run that produced the official RC2 artifacts'
+        default: '40223295530'
+      official_commit:
+        description: 'Commit that run must have built'
+        default: 'dda9eda6dcc057aa681eb12c1c9405422f0ec3a0'
+      msi_sha256:
+        description: 'Pinned SHA-256 of the official MSI'
+        default: '5cb0cee98d72517942271fc0cd8c5a28e830a51559abb748a2c8068c58bc56ac'
+      exe_sha256:
+        description: 'Pinned SHA-256 of the official portable EXE'
+        default: '5e12ffb378ac415b7427c12a7f5d53664c537d6f76656cf6dd41c67bef2f498a'
+  pull_request:
+    paths:
+      - '.github/workflows/official-rc2-acceptance.yml'
+
+permissions:
+  contents: read
+  actions: read   # download the official and the original rc.1 artifacts from the runs that built them
+
+jobs:
+  official-rc2:
+    name: Official RC2 MSI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+      OFFICIAL_RUN: ${{ inputs.official_run_id || '40223295530' }}
+      OFFICIAL_COMMIT: ${{ inputs.official_commit || 'dda9eda6dcc057aa681eb12c1c9405422f0ec3a0' }}
+      OFFICIAL_MSI_SHA256: ${{ inputs.msi_sha256 || '5cb0cee98d72517942271fc0cd8c5a28e830a51559abb748a2c8068c58bc56ac' }}
+      OFFICIAL_EXE_SHA256: ${{ inputs.exe_sha256 || '5e12ffb378ac415b7427c12a7f5d53664c537d6f76656cf6dd41c67bef2f498a' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Runner details
+        shell: pwsh
+        run: |
+          [Environment]::OSVersion.VersionString
+          "ImageOS=$env:ImageOS ImageVersion=$env:ImageVersion RUNNER_ENVIRONMENT=$env:RUNNER_ENVIRONMENT"
+
+      - name: Download and verify the OFFICIAL rc.2 artifacts (before anything runs)
+        shell: pwsh
+        run: |
+          . ./acceptance/AcceptanceChecks.ps1
+          $run = gh run view $env:OFFICIAL_RUN --repo $env:GITHUB_REPOSITORY --json headSha,conclusion,event,workflowName | ConvertFrom-Json
+          "official run $env:OFFICIAL_RUN : $($run.workflowName), event $($run.event), commit $($run.headSha), conclusion $($run.conclusion)"
+          if ($run.workflowName -ne 'Release build' -or $run.conclusion -ne 'success' -or $run.headSha -ne $env:OFFICIAL_COMMIT) { throw "Run $env:OFFICIAL_RUN is not a successful Release build of $env:OFFICIAL_COMMIT" }
+          $dir = Join-Path $env:RUNNER_TEMP 'official'
+          gh run download $env:OFFICIAL_RUN --name AuraClean-release-artifacts --dir $dir --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { throw "The official rc.2 artifacts of run $env:OFFICIAL_RUN could not be downloaded (workflow artifacts expire after 30 days). The official MSI is NOT TESTED, so this job fails." }
+          $rows = @(Test-ChecksumManifest $dir)
+          $rows | ForEach-Object { "{0}: {1} - {2}" -f $(if ($_.Ok) { 'OK' } else { 'FAIL' }), $_.File, $_.Detail }
+          if (@($rows | Where-Object { -not $_.Ok }).Count -or $rows.Count -ne 2) { throw 'The official SHA256SUMS.txt did not verify completely (exactly the MSI and the portable EXE must match).' }
+          $msi = Join-Path $dir 'AuraClean-1.6.0-rc.2-win-x64.msi'; $exe = Join-Path $dir 'AuraClean-1.6.0-rc.2-win-x64-portable.exe'
+          $mh = (Get-FileHash $msi -Algorithm SHA256).Hash.ToLowerInvariant(); $eh = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($mh -ne $env:OFFICIAL_MSI_SHA256) { throw "Official MSI SHA-256 $mh does not match the pin $env:OFFICIAL_MSI_SHA256" }
+          if ($eh -ne $env:OFFICIAL_EXE_SHA256) { throw "Official EXE SHA-256 $eh does not match the pin $env:OFFICIAL_EXE_SHA256" }
+          "pinned hashes verified: MSI $mh, EXE $eh"
+
+      - name: Fetch the original rc.1 (.NET 8) artifacts and verify their pinned hashes
+        shell: pwsh
+        run: |
+          $h = @((Get-Content build/historical-artifacts.json -Raw | ConvertFrom-Json).releases | Where-Object { $_.label -ceq '1.6.0-rc.1' })[0]
+          $dir = Join-Path $env:RUNNER_TEMP 'historical'
+          gh run download $h.workflowRun --name $h.workflowArtifact --dir $dir --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { throw "The original rc.1 artifacts could not be downloaded: $($h.retentionNote) The cross-runtime upgrade is NOT TESTED, so this job fails." }
+          foreach ($f in $h.files) {
+              $actual = (Get-FileHash (Join-Path $dir $f.name) -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $f.sha256) { throw "$($f.name): SHA-256 $actual does not match the pinned original $($f.sha256)" }
+              "verified $($f.name) $actual"
+          }
+
+      # Only the disposable final / final-rebuild (1.6.99) packages are built; rc2.msi and the portable EXE are the OFFICIAL files.
+      - name: Build the disposable final / final-rebuild packages (no rc.2 substitute is built)
+        shell: pwsh
+        run: ./build/Build-AcceptancePackages.ps1 -OutputDir "$env:RUNNER_TEMP/packages" -SkipCandidate
+
+      - name: Put the official files in place and re-verify them
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'official'; $pk = Join-Path $env:RUNNER_TEMP 'packages'
+          if (Test-Path "$pk/rc2.msi") { throw 'A substitute rc2.msi exists in the package folder; it must not.' }
+          Copy-Item (Join-Path $dir 'AuraClean-1.6.0-rc.2-win-x64.msi') "$pk/rc2.msi"
+          Copy-Item (Join-Path $dir 'AuraClean-1.6.0-rc.2-win-x64-portable.exe') "$pk/portable/AuraClean.exe" -Force
+          $m = (Get-FileHash "$pk/rc2.msi" -Algorithm SHA256).Hash.ToLowerInvariant(); $e = (Get-FileHash "$pk/portable/AuraClean.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($m -ne $env:OFFICIAL_MSI_SHA256 -or $e -ne $env:OFFICIAL_EXE_SHA256) { throw 'The files staged for the test are not the official ones.' }
+          "staged rc2.msi $m ; portable\AuraClean.exe $e"
+
+      - name: Real MSI lifecycle of the OFFICIAL rc.2 (original rc.1 -> official rc.2 upgrade, repair, downgrade refusal, fresh install, uninstall)
+        shell: pwsh
+        run: ./build/Test-MsiLifecycle.ps1 -PackageDir "$env:RUNNER_TEMP/packages" -HistoricalRc1Msi "$env:RUNNER_TEMP/historical/AuraClean-1.6.0-rc.1-win-x64.msi" -LogDir "$env:RUNNER_TEMP/msi-logs"
+
+      - name: Official portable EXE smoke test (no separate .NET on PATH)
+        shell: pwsh
+        run: ./build/Test-PublishedExeSmoke.ps1 -ExePath "$env:RUNNER_TEMP/packages/portable/AuraClean.exe"
+
+      - name: Upload MSI logs and results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-rc2-msi-logs-${{ matrix.os }}
+          path: ${{ runner.temp }}/msi-logs/*
+          if-no-files-found: warn
+          retention-days: 14
