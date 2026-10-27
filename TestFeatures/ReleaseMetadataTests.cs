@@ -326,6 +326,13 @@ public static class ReleaseMetadataTests
         Check(km.Success && km.Groups[2].Value == "0" && int.Parse(km.Groups[1].Value) >= 55 && !kitTests.Contains("[exit"),
             $"acceptance/Test-AcceptanceKit.ps1 passes (fail-closed checksums, stale/incomplete report verdicts, kit contents): {(km.Success ? km.Value : "no result line")}");
 
+        // The official-RC2 workflow tests the ACTUAL official MSI: pinned hashes, fail-closed manifest check, no substitute rc2.msi.
+        var offCode = Regex.Replace(Read(".github/workflows/official-rc2-acceptance.yml"), @"(?m)^\s*#.*$", "");
+        Check(offCode.Contains("windows-2022") && offCode.Contains("windows-2025") && !offCode.Contains("self-hosted") && !offCode.Contains("secrets.")
+              && offCode.Contains("5cb0cee98d72517942271fc0cd8c5a28e830a51559abb748a2c8068c58bc56ac") && offCode.Contains("5e12ffb378ac415b7427c12a7f5d53664c537d6f76656cf6dd41c67bef2f498a")
+              && offCode.Contains("Test-ChecksumManifest") && offCode.Contains("-SkipCandidate") && offCode.Contains("Test-MsiLifecycle.ps1") && offCode.Contains("historical-artifacts.json"),
+            "The official-RC2 workflow runs on hosted runners only, pins the official hashes, verifies the manifest fail-closed, builds no rc.2 substitute and reuses the lifecycle test");
+
         var wf = Read(".github/workflows/msi-acceptance.yml");
         var wfCode = Regex.Replace(wf, @"(?m)^\s*#.*$", "");   // ignore comments
         Check(wfCode.Contains("runs-on: ${{ matrix.os }}") && wfCode.Contains("windows-2022") && wfCode.Contains("windows-2025") && !wfCode.Contains("self-hosted") && !wfCode.Contains("secrets."),

@@ -11,7 +11,11 @@
     Folder that receives rc2.msi, final.msi, final-rebuild.msi and portable/AuraClean.exe.
 #>
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$OutputDir)
+param(
+    [Parameter(Mandatory)][string]$OutputDir,
+    # Do not build rc2.msi (the caller supplies the OFFICIAL, already-built candidate instead of a rebuilt substitute).
+    [switch]$SkipCandidate
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -43,8 +47,10 @@ function Build-Msi([string]$suffix, [string]$target) {
     Write-Host "Built $target from $label"
 }
 
-$suffixNow = "$(& dotnet msbuild (Join-Path $RepoRoot 'AuraClean/AuraClean.csproj') -nologo -getProperty:VersionSuffix)".Trim()
-Build-Msi $suffixNow 'rc2.msi'   # the real candidate label (e.g. rc.2), not an override
+if (-not $SkipCandidate) {
+    $suffixNow = "$(& dotnet msbuild (Join-Path $RepoRoot 'AuraClean/AuraClean.csproj') -nologo -getProperty:VersionSuffix)".Trim()
+    Build-Msi $suffixNow 'rc2.msi'   # the real candidate label (e.g. rc.2), not an override
+}
 Build-Msi ''     'final.msi'
 Start-Sleep -Seconds 2
 Build-Msi ''     'final-rebuild.msi'   # same version, new ProductCode: a "rebuilt package of an installed version"
